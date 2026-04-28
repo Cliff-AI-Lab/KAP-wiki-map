@@ -5,12 +5,24 @@ from __future__ import annotations
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# M0 三环境枚举（决策书 §10.3 + 用户全局 ruidong-agent-dev 规约）
+KAP_ENV_DEV = "dev"
+KAP_ENV_SANDBOX = "sandbox"
+KAP_ENV_PROD = "prod"
+KAP_ENVIRONMENTS = (KAP_ENV_DEV, KAP_ENV_SANDBOX, KAP_ENV_PROD)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+    )
+
+    # --- 环境标识（必填，影响 mock fallback / SSL / 审计严格度）---
+    kap_env: str = Field(
+        default=KAP_ENV_DEV,
+        description="部署环境：dev / sandbox / prod。sandbox/prod 触发严格安全策略",
     )
 
     # --- LLM (睿动 iRuidong 网关, OpenAI 兼容) ---
@@ -22,10 +34,54 @@ class Settings(BaseSettings):
     llm_provider: str = "openai"
     llm_model: str = "gpt-4o-mini"
 
+    # --- LLM Async / 安全 / 行为门控（M0-tech-debt 坑 1 + D + F）---
+    llm_verify_ssl: bool = Field(
+        default=True,
+        description="HTTPS 证书校验（坑 D）。dev 可设 False；sandbox/prod 由 model_post_init 强制 True",
+    )
+    llm_http_timeout: float = Field(
+        default=60.0,
+        description="LLM HTTP 请求超时（秒），统一 openai/anthropic（原 60/10 不一致已修复）",
+    )
+    llm_max_concurrency: int = Field(
+        default=4,
+        description="LLM 异步并发上限（asyncio.Semaphore），async 化后取代 pipeline_max_workers",
+    )
+    allow_mock_llm: bool = Field(
+        default=False,
+        description=(
+            "是否允许 mock LLM fallback（坑 F）。"
+            "False 时 mock provider/无 Key/异常都直接抛 LLMCallError，"
+            "禁止静默回落 mock 污染数据。dev 可设 True；sandbox/prod 强制 False"
+        ),
+    )
+
     def model_post_init(self, __context: object) -> None:
-        """睿动规范 MUST-2: 沙箱环境用 SANDBOX_API_BASE 覆盖外网 URL."""
+        """三环境强制安全策略 + 睿动规范 MUST-2 沙箱 URL 覆盖。
+
+        M0-tech-debt 坑 D / 坑 F 接入：sandbox / prod 必须严格 SSL 校验、
+        必须禁用 mock fallback，无视用户输入。dev 保留宽松配置便于本地调试。
+        """
+        # 1. 睿动规范 MUST-2: 沙箱环境用 SANDBOX_API_BASE 覆盖外网 URL
         if self.sandbox_api_base:
             object.__setattr__(self, "openai_base_url", self.sandbox_api_base)
+
+        # 2. 三环境枚举校验
+        env = self.kap_env.strip().lower()
+        if env not in KAP_ENVIRONMENTS:
+            raise ValueError(
+                f"非法 kap_env={self.kap_env}（合法值：{KAP_ENVIRONMENTS}）"
+            )
+        if env != self.kap_env:
+            object.__setattr__(self, "kap_env", env)
+
+        # 3. sandbox / prod 强制 verify_ssl=True（坑 D）
+        if env in (KAP_ENV_SANDBOX, KAP_ENV_PROD) and not self.llm_verify_ssl:
+            object.__setattr__(self, "llm_verify_ssl", True)
+
+        # 4. sandbox / prod 强制 allow_mock_llm=False（坑 F）
+        if env in (KAP_ENV_SANDBOX, KAP_ENV_PROD) and self.allow_mock_llm:
+            object.__setattr__(self, "allow_mock_llm", False)
 
     # --- 飞书 ---
     feishu_app_id: str = ""
