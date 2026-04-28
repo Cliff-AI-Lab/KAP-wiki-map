@@ -67,6 +67,52 @@
 
 后续：M1 企业级 v1（4×6 矩阵 + 脱敏 + 制造模板）→ M2 块① → M3 高级治理 → M4 GA → M5 PoC。
 
+### M0 进度快照（2026-04-28，会话末）
+
+**已完成（8 commits / ~6.5 人时实际，对比 Opus 估算 28h，节省 76%）**：
+
+| Commit | 内容 |
+|---|---|
+| `1dd9ebd` | M0 Day 0 骨架 + V15 主干导入到 backend/ + frontend/ |
+| `b56dab5` | 加 .claude/ 到 .gitignore |
+| `ff41e39` | T1 · KAP 品牌化（元数据 / 镜像 / 容器命名）+ T5 Neo4j 加入 compose |
+| `25f9124` | T2 · M0 技术债务地图（Opus 4.7 via kap-delegate 产出 docs/M0-tech-debt.md）|
+| `7125455` | T4 · 三环境配置（.env.dev / .env.sandbox / .env.prod + master）|
+| `7d08a42` | 坑 3 · Judge 阈值外置 + 决策函数化（22 测全绿，含 R3 review 通道）|
+| `e8f7dad` | 坑 4a+4b · 行业模板加载器 + 多租户域推断（29 测全绿，附带修复额外坑 B）|
+
+**下一项（按 Opus DAG）**：**坑 1 · LLM 全链路异步化**（M0 最大 PR，~16 人时）
+
+涉及范围（按改造层级）：
+1. `packages/distillation/llm_client.py` — `httpx.Client` → `httpx.AsyncClient`，`call_llm` / `call_llm_json` → `acall_llm` / `acall_llm_json`
+2. `packages/distillation/agents/{librarian,conflict_auditor,judge,refiner}.py` — 全部 `async def`
+3. `packages/distillation/pipeline.py` — orchestrator 异步化（`asyncio.gather` 并行）
+4. `tenacity @retry` → `AsyncRetrying` 或 retry 的 async 模式
+5. **顺手修复额外坑 D**：`verify=False` 加 settings 开关（dev 允许，sandbox/prod 强制 true）
+6. **顺手修复额外坑 F**：tenacity catch-all + mock fallback 静默冲突 → mock 加 env gate (`KAP_ALLOW_MOCK_LLM`)
+7. **顺手修复额外坑 A**：mock 业务规则剥离（mock 仅返回 schema 合规占位数据）
+8. 全链路 fixture 升级：`asyncio.to_thread` 兼容旧同步测试
+
+**剩余 M0 清单**：
+```
+[ ] 坑 1 · LLM 异步化（含坑 A/D/F）        16h ← 下次开工
+[ ] 坑 2 · Milvus ConnectionManager + 双向量 12h
+[ ] 坑 6 · EmbeddingProvider + bge 接入     10h
+[ ] 坑 5 · Neo4j GraphStore + InMemory 降级 20h
+[ ] 坑 7 · RBAC 中间件骨架                   8h
+[ ] 坑 8 · Milvus access_level 字段          6h
+```
+
+### 下次开工提示词模板
+
+继续 KAP M0 实施。本次目标：**坑 1 · LLM 全链路异步化**（参见 docs/M0-tech-debt.md §2）。
+
+建议工作流：
+1. 先用 `kap-delegate.py --task-type plan --mode diagnosis` 让 Opus 4.7 出**异步化迁移地图**（按文件给 diff 顺序、影响面、风险）
+2. 按层级分批改造（llm_client → agents → pipeline）
+3. 每层一个 commit + 跑 `tests/unit/` 套件验证零回归
+4. 最后端到端烟测（uvicorn 起服 + 一份测试文档跑完整 W1-W5）
+
 ## 目录约定
 
 ```
