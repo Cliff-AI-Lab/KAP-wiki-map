@@ -1,4 +1,4 @@
-"""V15 开发模式启动脚本.
+"""KAP 开发模式启动脚本.
 
 关键: 在 import uvicorn **之前** 设置 SelectorEventLoopPolicy,
 否则 uvicorn 默认使用 Proactor → psycopg async 失败 → fallback memory → 重启丢数据.

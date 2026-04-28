@@ -1,3 +1,7 @@
+# KAP Backend Makefile · v1.0.0-m0
+PROJECT := kap-backend
+IMAGE   := kap/backend:v1.0.0-m0
+
 .PHONY: install dev infra infra-down api demo test lint frontend-install frontend-dev frontend-build
 
 install:

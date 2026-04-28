@@ -1,33 +1,41 @@
+name: kap-dev
+
 services:
-  # === 书虫 API 服务（仅完整容器化部署时使用）===
-  bookworm-api:
-    build: .
+  # === KAP API 服务（仅完整容器化部署时使用）===
+  kap-api:
+    build:
+      context: ../backend
+    image: kap/backend:v1.0.0-m0
+    container_name: kap-api
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - ../backend/.env
     environment:
-      POSTGRES_HOST: postgres
-      NEO4J_URI: bolt://neo4j:7687
-      MILVUS_HOST: milvus
-      REDIS_URL: redis://redis:6379/0
-      MINIO_ENDPOINT: milvus-minio:9000
+      POSTGRES_HOST: kap-postgres
+      NEO4J_URI: bolt://kap-neo4j:7687
+      MILVUS_HOST: kap-milvus
+      REDIS_URL: redis://kap-redis:6379/0
+      MINIO_ENDPOINT: kap-minio:9000
     depends_on:
-      - postgres
-      - neo4j
-      - milvus
-      - redis
+      - kap-postgres
+      - kap-neo4j
+      - kap-milvus
+      - kap-redis
     restart: unless-stopped
     profiles:
       - full
+    networks:
+      - kap-net
 
   # === PostgreSQL（仅完整容器化部署或无本地 PG 时使用）===
-  postgres:
+  kap-postgres:
     image: postgres:16-alpine
+    container_name: kap-postgres
     environment:
-      POSTGRES_DB: bookworm
-      POSTGRES_USER: bookworm
-      POSTGRES_PASSWORD: bookworm123
+      POSTGRES_DB: kap
+      POSTGRES_USER: kap
+      POSTGRES_PASSWORD: kap_dev_pwd
     ports:
       - "5432:5432"
     volumes:
@@ -35,12 +43,15 @@ services:
     restart: unless-stopped
     profiles:
       - full
+    networks:
+      - kap-net
 
   # === 以下为基础设施，本地开发默认启动 ===
-  neo4j:
+  kap-neo4j:
     image: neo4j:5-community
+    container_name: kap-neo4j
     environment:
-      NEO4J_AUTH: neo4j/bookworm123
+      NEO4J_AUTH: neo4j/kap_dev_pwd
       NEO4J_PLUGINS: '["apoc"]'
     ports:
       - "7474:7474"
@@ -48,9 +59,12 @@ services:
     volumes:
       - neo4jdata:/data
     restart: unless-stopped
+    networks:
+      - kap-net
 
-  milvus-etcd:
+  kap-milvus-etcd:
     image: quay.io/coreos/etcd:v3.5.16
+    container_name: kap-milvus-etcd
     environment:
       ETCD_AUTO_COMPACTION_MODE: revision
       ETCD_AUTO_COMPACTION_RETENTION: "1000"
@@ -58,9 +72,12 @@ services:
     command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
     volumes:
       - etcddata:/etcd
+    networks:
+      - kap-net
 
-  milvus-minio:
+  kap-minio:
     image: minio/minio:latest
+    container_name: kap-minio
     environment:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
@@ -70,27 +87,35 @@ services:
       - "9001:9001"
     volumes:
       - miniodata:/minio_data
+    networks:
+      - kap-net
 
-  milvus:
+  kap-milvus:
     image: milvusdb/milvus:v2.4.17
+    container_name: kap-milvus
     command: milvus run standalone
     environment:
-      ETCD_ENDPOINTS: milvus-etcd:2379
-      MINIO_ADDRESS: milvus-minio:9000
+      ETCD_ENDPOINTS: kap-milvus-etcd:2379
+      MINIO_ADDRESS: kap-minio:9000
     ports:
       - "19530:19530"
       - "9091:9091"
     volumes:
       - milvusdata:/var/lib/milvus
     depends_on:
-      - milvus-etcd
-      - milvus-minio
+      - kap-milvus-etcd
+      - kap-minio
+    networks:
+      - kap-net
 
-  redis:
+  kap-redis:
     image: redis:7-alpine
+    container_name: kap-redis
     ports:
       - "6379:6379"
     restart: unless-stopped
+    networks:
+      - kap-net
 
 volumes:
   pgdata:
@@ -98,3 +123,7 @@ volumes:
   etcddata:
   miniodata:
   milvusdata:
+
+networks:
+  kap-net:
+    driver: bridge

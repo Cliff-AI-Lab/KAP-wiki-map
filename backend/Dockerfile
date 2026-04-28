@@ -1,3 +1,6 @@
+# KAP 后端 + 前端一体化构建
+# 镜像标签：kap/backend:v1.0.0-m0
+
 # ── Stage 1: 前端构建 ──
 FROM node:20-alpine AS frontend-build
 
@@ -9,6 +12,11 @@ RUN npm run build
 
 # ── Stage 2: 后端运行 ──
 FROM python:3.11-slim
+
+LABEL org.opencontainers.image.title="KAP Backend" \
+      org.opencontainers.image.description="KAP 知识智能体平台 · 后端" \
+      org.opencontainers.image.version="v1.0.0-m0" \
+      org.opencontainers.image.source="https://github.com/kap"
 
 WORKDIR /app
 

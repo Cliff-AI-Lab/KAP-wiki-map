@@ -1,5 +1,5 @@
 """
-知识图鉴 (Wiki-Map) API 主入口模块。
+KAP（Knowledge Agent Platform · 知识智能体平台）API 主入口模块。
 
 本模块负责：
 - 创建并配置 FastAPI 应用实例
@@ -7,6 +7,8 @@
 - 配置 CORS 跨域中间件和认证中间件
 - 应用生命周期管理（启动时初始化存储、关闭时释放连接）
 - 生产模式下托管前端 SPA 静态文件
+
+基于 Wiki-map V15 演进；当前版本 v1.0.0-m0（M0 KAP-Lite 阶段）。
 """
 
 import asyncio
@@ -63,7 +65,7 @@ async def lifespan(app: FastAPI):
     _check_dependencies()
     await init_stores()
     _STARTED_AT = time.time()
-    log.info("app_started", version="14.0.0")
+    log.info("app_started", version="v1.0.0-m0")
     yield
     # 关闭阶段：释放数据库连接
     await shutdown_stores()
@@ -71,9 +73,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="知识图鉴 Wiki-Map API",
-    description="企业知识编译与治理平台",
-    version="14.0.0",
+    title="KAP API",
+    description="KAP 知识智能体平台（全行业知识治理 · 制造能源优先 · 私有化部署）",
+    version="v1.0.0-m0",
     lifespan=lifespan,
 )
 
