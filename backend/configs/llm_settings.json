@@ -1,0 +1,7 @@
+{
+  "llm_provider": "ruidong",
+  "llm_model": "claude-sonnet-4-6",
+  "openai_api_key": "",
+  "openai_base_url": "https://iruidong.com/v1",
+  "embedding_provider": "mock"
+}

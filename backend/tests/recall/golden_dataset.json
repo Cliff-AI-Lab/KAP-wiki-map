@@ -1,0 +1,38 @@
+[
+  {
+    "id": "tc_001",
+    "query": "最新的员工报销流程是什么？",
+    "expected_doc_ids": ["feishu_doc_001"],
+    "not_expected": ["feishu_doc_002"]
+  },
+  {
+    "id": "tc_002",
+    "query": "Docker部署需要什么配置要求？",
+    "expected_doc_ids": ["feishu_doc_004"]
+  },
+  {
+    "id": "tc_003",
+    "query": "新员工入职需要准备什么材料？",
+    "expected_doc_ids": ["feishu_doc_007"]
+  },
+  {
+    "id": "tc_004",
+    "query": "向量数据库选型结论",
+    "expected_doc_ids": ["feishu_doc_006"]
+  },
+  {
+    "id": "tc_005",
+    "query": "安全培训考核要求",
+    "expected_doc_ids": ["feishu_doc_009"]
+  },
+  {
+    "id": "tc_006",
+    "query": "书虫项目负责人是谁",
+    "expected_doc_ids": ["feishu_doc_003"]
+  },
+  {
+    "id": "tc_007",
+    "query": "智能客服的技术指标",
+    "expected_doc_ids": ["feishu_doc_010"]
+  }
+]

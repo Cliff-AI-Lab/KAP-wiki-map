@@ -1,0 +1,2839 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KAP · 全行业知识治理智能体平台 — 制造能源优先</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink-deep: #0A0E14;
+  --ink-panel: #11171F;
+  --ink-elev: #1A2230;
+  --ink-line: #232E40;
+  --ink-rule: #2D3B53;
+
+  --paper: #EDE6D6;
+  --paper-soft: #C9C2B0;
+  --paper-mute: #8B8674;
+  --paper-faint: #5C5849;
+
+  --amber: #D9A642;
+  --amber-deep: #A77C28;
+  --amber-soft: rgba(217, 166, 66, 0.12);
+  --amber-glow: rgba(217, 166, 66, 0.35);
+
+  --cyan: #4FB3BF;
+  --cyan-deep: #2A7884;
+  --cyan-soft: rgba(79, 179, 191, 0.12);
+
+  --oxide: #E76E50;
+  --oxide-soft: rgba(231, 110, 80, 0.12);
+  --sage: #6B9B7A;
+  --sage-soft: rgba(107, 155, 122, 0.12);
+  --plum: #B07AA1;
+
+  --grid-faint: rgba(217, 166, 66, 0.035);
+  --grid-line: rgba(217, 166, 66, 0.08);
+
+  --font-display: 'Fraunces', 'Noto Serif SC', Georgia, serif;
+  --font-sans: 'Geist', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  --shadow-soft: 0 1px 0 rgba(255,255,255,0.02), 0 8px 24px rgba(0,0,0,0.5);
+  --shadow-elev: 0 2px 0 rgba(255,255,255,0.03), 0 16px 40px rgba(0,0,0,0.6);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--ink-deep);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11";
+  background-image:
+    linear-gradient(var(--grid-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-faint) 1px, transparent 1px);
+  background-size: 64px 64px;
+  background-position: 0 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ========== Layout primitives ========== */
+.wrap { max-width: 1440px; margin: 0 auto; padding: 0 64px; }
+.wrap-narrow { max-width: 1200px; margin: 0 auto; padding: 0 64px; }
+
+/* ========== Top Nav ========== */
+.topnav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(10, 14, 20, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--ink-line);
+}
+.topnav-inner {
+  display: flex;
+  align-items: center;
+  height: 64px;
+  gap: 48px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  font-variation-settings: "SOFT" 30;
+}
+.brand-mark {
+  width: 32px; height: 32px;
+  border: 1.5px solid var(--amber);
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  background: var(--amber-soft);
+}
+.brand-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-left: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--ink-rule);
+  border-radius: 3px;
+}
+.nav-links {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+.nav-link {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--paper-soft);
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-link:hover { color: var(--amber); background: var(--amber-soft); }
+.nav-link-num {
+  color: var(--paper-mute);
+  font-weight: 500;
+}
+.nav-link:hover .nav-link-num { color: var(--amber-deep); }
+.nav-utility {
+  margin-left: auto;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.nav-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.08em;
+}
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--sage);
+  box-shadow: 0 0 0 3px rgba(107, 155, 122, 0.15);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.btn-icon {
+  width: 36px; height: 36px;
+  border: 1px solid var(--ink-rule);
+  background: transparent;
+  border-radius: 4px;
+  color: var(--paper-soft);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.15s;
+}
+.btn-icon:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ========== Section bones ========== */
+.section {
+  padding: 96px 0 64px;
+  position: relative;
+}
+.section-marker {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 40px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--ink-rule);
+}
+.section-num {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--amber);
+  letter-spacing: 0.12em;
+  font-weight: 500;
+}
+.section-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--ink-rule), transparent);
+}
+.section-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* ========== Hero ========== */
+.hero {
+  padding: 88px 0 96px;
+  position: relative;
+}
+.hero-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.hero-meta-tag {
+  padding: 4px 10px;
+  border: 1px solid var(--ink-rule);
+  border-radius: 3px;
+}
+.hero-meta-tag.amber {
+  border-color: var(--amber-deep);
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+.hero-headline {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(56px, 7.5vw, 104px);
+  line-height: 0.95;
+  letter-spacing: -0.025em;
+  font-variation-settings: "opsz" 144, "SOFT" 50;
+  color: var(--paper);
+  margin-bottom: 24px;
+  max-width: 1100px;
+}
+.hero-headline .accent {
+  color: var(--amber);
+  font-style: italic;
+  font-variation-settings: "opsz" 144, "SOFT" 100;
+}
+.hero-headline .quiet {
+  color: var(--paper-mute);
+  font-weight: 300;
+}
+.hero-sub {
+  font-size: 18px;
+  color: var(--paper-soft);
+  max-width: 720px;
+  line-height: 1.6;
+  margin-bottom: 56px;
+  font-weight: 300;
+}
+.hero-sub strong {
+  color: var(--paper);
+  font-weight: 500;
+}
+
+/* Stats strip */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--ink-rule);
+  border-bottom: 1px solid var(--ink-rule);
+  padding: 24px 0;
+  margin-bottom: 80px;
+}
+.stat {
+  padding: 0 24px;
+  border-right: 1px solid var(--ink-line);
+}
+.stat:last-child { border-right: 0; }
+.stat-value {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 36px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+  margin-bottom: 6px;
+  font-variation-settings: "opsz" 72;
+}
+.stat-value .unit {
+  font-size: 14px;
+  color: var(--paper-mute);
+  margin-left: 4px;
+  font-weight: 400;
+}
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ========== Three blocks card grid ========== */
+.blocks-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--ink-rule);
+  background: var(--ink-panel);
+  position: relative;
+}
+.block-card {
+  padding: 40px 32px 36px;
+  border-right: 1px solid var(--ink-rule);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 520px;
+  transition: background 0.2s ease;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+.block-card:last-child { border-right: 0; }
+.block-card:hover { background: var(--ink-elev); }
+.block-card-num {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--paper-mute);
+  letter-spacing: 0.16em;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.block-card-num .role-chip {
+  display: inline-flex;
+  gap: 6px;
+}
+.role-chip span {
+  font-size: 9px;
+  padding: 2px 6px;
+  border: 1px solid var(--ink-rule);
+  border-radius: 2px;
+  color: var(--paper-mute);
+}
+.block-card-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 32px;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--paper);
+  margin-bottom: 8px;
+  font-variation-settings: "opsz" 36, "SOFT" 40;
+}
+.block-card-en {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--amber);
+  letter-spacing: 0.14em;
+  margin-bottom: 24px;
+}
+.block-card-desc {
+  color: var(--paper-soft);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 28px;
+  flex: 1;
+}
+.block-card-features {
+  list-style: none;
+  margin-bottom: 24px;
+}
+.block-card-features li {
+  font-size: 13px;
+  color: var(--paper-soft);
+  padding: 7px 0;
+  padding-left: 20px;
+  position: relative;
+  border-top: 1px solid var(--ink-line);
+}
+.block-card-features li:last-child { border-bottom: 1px solid var(--ink-line); }
+.block-card-features li::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 13px;
+  width: 10px; height: 1px;
+  background: var(--amber);
+}
+.block-card-cta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--amber);
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+.block-card:hover .block-card-cta { color: var(--paper); }
+
+/* ========== Schematic flow (W1-W6 + 4 roles) ========== */
+.schematic-section {
+  padding: 80px 0;
+}
+.schematic-frame {
+  border: 1px solid var(--ink-rule);
+  background: var(--ink-panel);
+  padding: 48px 40px;
+  position: relative;
+}
+.schematic-corners::before,
+.schematic-corners::after {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  border-color: var(--amber);
+  border-style: solid;
+  border-width: 0;
+}
+.schematic-corners::before {
+  top: -1px; left: -1px;
+  border-top-width: 1.5px;
+  border-left-width: 1.5px;
+}
+.schematic-corners::after {
+  bottom: -1px; right: -1px;
+  border-bottom-width: 1.5px;
+  border-right-width: 1.5px;
+}
+.schematic-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--ink-rule);
+}
+.schematic-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 24px;
+  letter-spacing: -0.01em;
+  font-variation-settings: "opsz" 36;
+}
+.schematic-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.1em;
+}
+.schematic-canvas {
+  position: relative;
+  padding: 24px 0;
+}
+.workstation-flow {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0;
+  position: relative;
+  margin-bottom: 56px;
+}
+.workstation-flow::before {
+  content: '';
+  position: absolute;
+  left: 8.33%; right: 8.33%;
+  top: 36px;
+  height: 1px;
+  background: var(--ink-rule);
+  z-index: 0;
+}
+.ws-node {
+  position: relative;
+  padding: 0 8px;
+  text-align: center;
+  z-index: 1;
+}
+.ws-node-circle {
+  width: 56px; height: 56px;
+  margin: 8px auto 16px;
+  border: 1.5px solid var(--ink-rule);
+  background: var(--ink-deep);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--paper-soft);
+  position: relative;
+  transition: all 0.2s ease;
+}
+.ws-node-circle::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 1px solid var(--ink-line);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.ws-node:hover .ws-node-circle {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.ws-node:hover .ws-node-circle::before {
+  opacity: 1;
+  border-color: var(--amber-deep);
+}
+.ws-name {
+  font-size: 12px;
+  color: var(--paper);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+.ws-desc {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.06em;
+}
+
+/* Role lanes */
+.role-lanes {
+  display: grid;
+  grid-template-columns: 80px repeat(6, 1fr);
+  border: 1px solid var(--ink-rule);
+}
+.lane-corner {
+  background: var(--ink-elev);
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.1em;
+  border-right: 1px solid var(--ink-rule);
+  border-bottom: 1px solid var(--ink-rule);
+}
+.lane-head {
+  background: var(--ink-elev);
+  padding: 12px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-soft);
+  letter-spacing: 0.08em;
+  text-align: center;
+  border-right: 1px solid var(--ink-rule);
+  border-bottom: 1px solid var(--ink-rule);
+}
+.lane-head:last-child { border-right: 0; }
+.lane-row-label {
+  background: var(--ink-elev);
+  padding: 14px 12px;
+  font-size: 12px;
+  color: var(--paper);
+  font-weight: 500;
+  border-right: 1px solid var(--ink-rule);
+  border-bottom: 1px solid var(--ink-line);
+}
+.lane-row-label .role-en {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--paper-mute);
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+.lane-cell {
+  padding: 14px 8px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  border-right: 1px solid var(--ink-line);
+  border-bottom: 1px solid var(--ink-line);
+}
+.lane-cell:last-child { border-right: 0; }
+.lane-cell.r {
+  color: var(--amber);
+  background: var(--amber-soft);
+  font-weight: 600;
+}
+.lane-cell.c {
+  color: var(--cyan);
+  background: var(--cyan-soft);
+}
+.role-lanes > div:nth-last-child(-n+7) { border-bottom: 0; }
+
+/* Standards strip */
+.standards-strip {
+  margin-top: 64px;
+  padding: 24px 0;
+  border-top: 1px solid var(--ink-rule);
+  border-bottom: 1px solid var(--ink-rule);
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+.standards-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.standards-list {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.standard-item {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--paper-soft);
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.standard-item::before {
+  content: '';
+  width: 4px; height: 4px;
+  background: var(--amber);
+  border-radius: 50%;
+}
+
+/* ========== Module preview frames ========== */
+.preview-frame {
+  border: 1px solid var(--ink-rule);
+  background: var(--ink-panel);
+  position: relative;
+  overflow: hidden;
+}
+.preview-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--ink-elev);
+  border-bottom: 1px solid var(--ink-rule);
+}
+.preview-title-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.preview-dots {
+  display: flex;
+  gap: 6px;
+}
+.preview-dots span {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--ink-rule);
+}
+.preview-dots span:first-child { background: var(--oxide); }
+.preview-dots span:nth-child(2) { background: var(--amber-deep); }
+.preview-dots span:last-child { background: var(--sage); }
+.preview-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.06em;
+}
+.preview-path .path-active {
+  color: var(--amber);
+}
+.preview-status {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ========== Block 1 — Architect ========== */
+.block1-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr 320px;
+  height: 640px;
+  background: var(--ink-deep);
+}
+.b1-steps {
+  border-right: 1px solid var(--ink-line);
+  padding: 24px 0;
+  overflow-y: auto;
+}
+.b1-steps-title {
+  padding: 0 20px 16px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.b1-step {
+  padding: 14px 20px;
+  display: flex;
+  gap: 14px;
+  position: relative;
+  border-left: 2px solid transparent;
+}
+.b1-step.done {
+  border-left-color: var(--sage);
+}
+.b1-step.active {
+  border-left-color: var(--amber);
+  background: var(--amber-soft);
+}
+.b1-step-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  width: 24px;
+  flex-shrink: 0;
+  letter-spacing: 0.08em;
+  padding-top: 2px;
+}
+.b1-step.done .b1-step-num { color: var(--sage); }
+.b1-step.active .b1-step-num { color: var(--amber); }
+.b1-step-body {
+  font-size: 13px;
+}
+.b1-step-name {
+  color: var(--paper);
+  margin-bottom: 3px;
+  font-weight: 500;
+}
+.b1-step.done .b1-step-name { color: var(--paper-soft); }
+.b1-step-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.04em;
+}
+
+.b1-chat {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--ink-line);
+}
+.b1-chat-stream {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+}
+.chat-msg {
+  margin-bottom: 24px;
+  max-width: 100%;
+}
+.chat-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.1em;
+}
+.chat-meta-icon {
+  width: 14px; height: 14px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  display: grid;
+  place-items: center;
+  font-size: 8px;
+}
+.chat-meta.ai { color: var(--amber); }
+.chat-meta.user { color: var(--cyan); }
+.chat-bubble {
+  padding: 14px 16px;
+  border: 1px solid var(--ink-rule);
+  background: var(--ink-panel);
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--paper);
+}
+.chat-bubble.user {
+  background: var(--cyan-soft);
+  border-color: var(--cyan-deep);
+}
+.chat-bubble code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--ink-deep);
+  padding: 1px 6px;
+  border-radius: 2px;
+  color: var(--amber);
+  border: 1px solid var(--ink-rule);
+}
+.chat-attach {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--ink-rule);
+}
+.attach-pill {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-soft);
+  padding: 3px 8px;
+  background: var(--ink-deep);
+  border: 1px solid var(--ink-rule);
+  border-radius: 2px;
+}
+.detection-list {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--ink-deep);
+  border: 1px solid var(--ink-rule);
+  border-radius: 3px;
+}
+.detection-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-soft);
+  border-bottom: 1px dotted var(--ink-line);
+}
+.detection-row:last-child { border-bottom: 0; }
+.detection-row .v { color: var(--amber); }
+.b1-chat-input {
+  padding: 16px 28px;
+  border-top: 1px solid var(--ink-rule);
+  background: var(--ink-panel);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.b1-chat-input input {
+  flex: 1;
+  background: var(--ink-deep);
+  border: 1px solid var(--ink-rule);
+  color: var(--paper);
+  padding: 10px 14px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  border-radius: 3px;
+  outline: none;
+}
+.b1-chat-input input:focus { border-color: var(--amber); }
+.btn-send {
+  padding: 10px 18px;
+  background: var(--amber);
+  color: var(--ink-deep);
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.b1-tree {
+  padding: 24px 24px 12px;
+  overflow-y: auto;
+  background: var(--ink-panel);
+  position: relative;
+}
+.b1-tree-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--ink-rule);
+}
+.b1-tree-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.b1-tree-version {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--amber);
+  padding: 2px 6px;
+  border: 1px solid var(--amber-deep);
+  border-radius: 2px;
+}
+.tree-node {
+  font-size: 13px;
+  color: var(--paper);
+  padding: 5px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  position: relative;
+}
+.tree-node-l1 { font-weight: 600; color: var(--paper); padding-top: 12px; }
+.tree-node-l2 {
+  padding-left: 24px;
+  color: var(--paper-soft);
+  position: relative;
+}
+.tree-node-l2::before {
+  content: '';
+  position: absolute;
+  left: 8px; top: 12px;
+  width: 12px; height: 1px;
+  background: var(--ink-rule);
+}
+.tree-node-l3 {
+  padding-left: 44px;
+  color: var(--paper-mute);
+  font-size: 12px;
+  position: relative;
+}
+.tree-node-l3::before {
+  content: '';
+  position: absolute;
+  left: 28px; top: 12px;
+  width: 12px; height: 1px;
+  background: var(--ink-line);
+}
+.tree-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  background: var(--ink-deep);
+  padding: 1px 6px;
+  border: 1px solid var(--ink-rule);
+  border-radius: 2px;
+}
+.tree-count.warn { color: var(--oxide); border-color: var(--oxide); }
+.tree-count.new { color: var(--amber); border-color: var(--amber-deep); }
+.facet-list {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--ink-rule);
+}
+.facet-list-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.facet-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-soft);
+  padding: 4px 10px;
+  border: 1px solid var(--ink-rule);
+  border-radius: 2px;
+  margin: 0 6px 6px 0;
+}
+.facet-pill .facet-count {
+  color: var(--paper-mute);
+  font-size: 10px;
+}
+
+/* ========== Block 2 — Workbench ========== */
+.b2-layout {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 700px;
+  background: var(--ink-deep);
+}
+.b2-matrix-bar {
+  display: grid;
+  grid-template-columns: 80px repeat(6, 1fr);
+  border-bottom: 1px solid var(--ink-rule);
+  background: var(--ink-panel);
+}
+.matrix-corner {
+  padding: 14px 16px;
+  background: var(--ink-elev);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.12em;
+  border-right: 1px solid var(--ink-rule);
+}
+.matrix-cell {
+  padding: 14px 12px;
+  text-align: center;
+  border-right: 1px solid var(--ink-line);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+.matrix-cell:last-child { border-right: 0; }
+.matrix-cell:hover { color: var(--paper); background: var(--ink-elev); }
+.matrix-cell.active {
+  color: var(--ink-deep);
+  background: var(--amber);
+  font-weight: 700;
+}
+.matrix-cell .cell-pending {
+  display: block;
+  font-size: 9px;
+  color: inherit;
+  opacity: 0.7;
+  margin-top: 3px;
+  letter-spacing: 0.06em;
+}
+.matrix-cell.active .cell-pending { opacity: 1; }
+
+.b2-body {
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  overflow: hidden;
+}
+.b2-queue {
+  border-right: 1px solid var(--ink-line);
+  overflow-y: auto;
+  background: var(--ink-panel);
+}
+.queue-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ink-rule);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.queue-head-count {
+  color: var(--amber);
+  background: var(--amber-soft);
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 10px;
+}
+.queue-item {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--ink-line);
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+.queue-item:hover { background: var(--ink-elev); }
+.queue-item.selected {
+  background: var(--amber-soft);
+  border-left: 2px solid var(--amber);
+  padding-left: 18px;
+}
+.queue-item-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.06em;
+}
+.priority-tag {
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.priority-tag.high { color: var(--oxide); border: 1px solid var(--oxide); background: var(--oxide-soft); }
+.priority-tag.mid { color: var(--amber); border: 1px solid var(--amber-deep); background: var(--amber-soft); }
+.priority-tag.low { color: var(--paper-mute); border: 1px solid var(--ink-rule); }
+.queue-item-title {
+  font-size: 13px;
+  color: var(--paper);
+  line-height: 1.45;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+.queue-item-tags {
+  display: flex;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--paper-mute);
+  letter-spacing: 0.06em;
+}
+.queue-item-tags span {
+  padding: 1px 5px;
+  border: 1px solid var(--ink-rule);
+  border-radius: 2px;
+}
+.sla-bar {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 1px;
+  background: var(--amber);
+}
+
+.b2-canvas {
+  border-right: 1px solid var(--ink-line);
+  overflow-y: auto;
+  background: var(--ink-deep);
+  display: flex;
+  flex-direction: column;
+}
+.canvas-doc-head {
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--ink-rule);
+  background: var(--ink-panel);
+}
+.doc-title {
+  font-size: 16px;
+  color: var(--paper);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+.doc-meta {
+  display: flex;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.06em;
+}
+.doc-meta span { display: flex; align-items: center; gap: 6px; }
+.doc-meta .doc-conf {
+  color: var(--amber);
+}
+
+.canvas-content {
+  padding: 24px 28px;
+  flex: 1;
+}
+.canvas-section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 18px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--ink-rule);
+}
+.canvas-section-label:first-child { margin-top: 0; }
+.canvas-original {
+  font-size: 14px;
+  line-height: 1.85;
+  color: var(--paper-soft);
+  background: var(--ink-panel);
+  padding: 16px 18px;
+  border-left: 2px solid var(--ink-rule);
+  border-radius: 0 3px 3px 0;
+  font-family: 'Noto Serif SC', var(--font-display);
+  font-weight: 400;
+}
+.entity-mark {
+  position: relative;
+  display: inline-block;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: help;
+}
+.entity-mark.equipment { background: var(--amber-soft); color: var(--amber); border-bottom: 1px solid var(--amber); }
+.entity-mark.param { background: var(--cyan-soft); color: var(--cyan); border-bottom: 1px solid var(--cyan); }
+.entity-mark.fault { background: var(--oxide-soft); color: var(--oxide); border-bottom: 1px solid var(--oxide); }
+.entity-mark.role { background: var(--sage-soft); color: var(--sage); border-bottom: 1px solid var(--sage); }
+.entity-mark.standard { background: rgba(176, 122, 161, 0.15); color: var(--plum); border-bottom: 1px solid var(--plum); }
+.entity-mark sup {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  margin-left: 1px;
+  font-weight: 600;
+}
+
+.extracted-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+.extracted-card {
+  border: 1px solid var(--ink-rule);
+  background: var(--ink-panel);
+  padding: 12px 14px;
+  border-radius: 3px;
+}
+.extracted-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px dotted var(--ink-rule);
+}
+.extracted-name {
+  font-size: 13px;
+  color: var(--paper);
+  font-weight: 500;
+}
+.extracted-conf {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--amber);
+}
+.extracted-relation {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.extracted-relation .ent { color: var(--paper); padding: 4px 8px; background: var(--ink-deep); border: 1px solid var(--ink-rule); border-radius: 2px; }
+.extracted-relation .rel { color: var(--amber); font-size: 10px; letter-spacing: 0.08em; }
+.extracted-evidence {
+  font-family: 'Noto Serif SC', var(--font-display);
+  font-size: 12px;
+  color: var(--paper-mute);
+  margin-top: 6px;
+  padding-top: 6px;
+  font-style: italic;
+  line-height: 1.5;
+  border-top: 1px dotted var(--ink-rule);
+}
+
+.b2-critic {
+  background: var(--ink-panel);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.critic-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ink-rule);
+  background: var(--ink-elev);
+}
+.critic-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--paper);
+  margin-bottom: 4px;
+  font-weight: 500;
+  font-variation-settings: "opsz" 24;
+}
+.critic-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.1em;
+}
+.critic-sub .critic-num {
+  color: var(--oxide);
+  font-weight: 700;
+  margin: 0 2px;
+}
+.critic-list {
+  padding: 8px;
+  flex: 1;
+}
+.critic-card {
+  border: 1px solid var(--ink-rule);
+  background: var(--ink-deep);
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 3px;
+  position: relative;
+}
+.critic-dim {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--oxide);
+  border: 1px solid var(--oxide);
+  background: var(--oxide-soft);
+  padding: 2px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.critic-msg {
+  font-size: 12px;
+  color: var(--paper-soft);
+  line-height: 1.55;
+  margin-bottom: 8px;
+}
+.critic-msg code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--amber);
+  background: var(--ink-panel);
+  padding: 1px 5px;
+  border-radius: 2px;
+  border: 1px solid var(--ink-rule);
+}
+.critic-evidence {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  padding-top: 6px;
+  border-top: 1px dotted var(--ink-rule);
+  letter-spacing: 0.04em;
+}
+.critic-actions {
+  padding: 14px 16px;
+  border-top: 1px solid var(--ink-rule);
+  display: flex;
+  gap: 8px;
+  background: var(--ink-elev);
+}
+.btn-action {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid var(--ink-rule);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--paper);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.btn-action:hover { border-color: var(--paper); }
+.btn-action.primary {
+  background: var(--amber);
+  color: var(--ink-deep);
+  border-color: var(--amber);
+  font-weight: 600;
+}
+.btn-action.danger { color: var(--oxide); border-color: var(--oxide); }
+.btn-action.danger:hover { background: var(--oxide-soft); }
+
+/* ========== Block 3 — Portal ========== */
+.b3-layout {
+  background: var(--ink-deep);
+  padding: 32px 40px 40px;
+  min-height: 700px;
+}
+.b3-search-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 18px 22px;
+  border: 1.5px solid var(--amber);
+  background: var(--ink-panel);
+  border-radius: 4px;
+  box-shadow: 0 0 0 6px var(--amber-soft);
+}
+.b3-search-icon {
+  width: 20px; height: 20px;
+  color: var(--amber);
+  flex-shrink: 0;
+}
+.b3-search-input {
+  flex: 1;
+  font-family: 'Noto Serif SC', var(--font-display);
+  font-size: 18px;
+  color: var(--paper);
+  font-weight: 500;
+}
+.b3-search-meta {
+  display: flex;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.08em;
+}
+.b3-search-meta span { display: flex; align-items: center; gap: 6px; }
+.b3-search-detail {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.06em;
+  margin-bottom: 28px;
+  padding-left: 22px;
+}
+
+.b3-lanes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.lane {
+  border: 1px solid var(--ink-rule);
+  background: var(--ink-panel);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.lane.short-circuit {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px var(--amber-deep), 0 12px 32px rgba(217,166,66,0.1);
+}
+.lane.short-circuit::before {
+  content: 'SHORT-CIRCUIT';
+  position: absolute;
+  top: -10px; right: 16px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-deep);
+  background: var(--amber);
+  padding: 3px 8px;
+  border-radius: 2px;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+}
+.lane-head {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--ink-rule);
+  background: var(--ink-elev);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.lane-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper);
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+.lane-name-tag {
+  font-size: 9px;
+  color: var(--paper-mute);
+  background: var(--ink-deep);
+  padding: 2px 6px;
+  border: 1px solid var(--ink-rule);
+  border-radius: 2px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+.lane-conf {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--amber);
+  font-variation-settings: "opsz" 36;
+}
+.lane.short-circuit .lane-conf { color: var(--amber); }
+.lane:not(.short-circuit) .lane-conf { color: var(--paper); }
+.lane-body {
+  padding: 16px 18px;
+  flex: 1;
+}
+.lane-meta-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.04em;
+  padding: 4px 0;
+  border-bottom: 1px dotted var(--ink-line);
+}
+.lane-meta-row:last-of-type { border-bottom: 0; padding-bottom: 12px; }
+.lane-meta-row .v { color: var(--paper); }
+.lane-content {
+  padding-top: 10px;
+  margin-top: 10px;
+  border-top: 1px dashed var(--ink-rule);
+  font-size: 12px;
+  color: var(--paper-soft);
+  line-height: 1.6;
+}
+.lane-snippet {
+  font-family: 'Noto Serif SC', var(--font-display);
+  font-size: 12px;
+  color: var(--paper-mute);
+  font-style: italic;
+  line-height: 1.55;
+  padding: 8px 10px;
+  background: var(--ink-deep);
+  border: 1px solid var(--ink-line);
+  margin-top: 6px;
+  border-radius: 2px;
+}
+.kg-path {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  align-items: center;
+  line-height: 1.8;
+}
+.kg-path .node {
+  padding: 3px 6px;
+  background: var(--ink-deep);
+  border: 1px solid var(--ink-rule);
+  border-radius: 2px;
+  color: var(--paper);
+}
+.kg-path .arrow {
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.b3-answer {
+  border: 1px solid var(--ink-rule);
+  background: var(--ink-panel);
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  margin-bottom: 24px;
+}
+.answer-main {
+  padding: 24px 28px;
+  border-right: 1px solid var(--ink-rule);
+}
+.answer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--ink-rule);
+}
+.answer-route {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.route-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  padding: 3px 8px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+.route-badge.short {
+  background: var(--amber);
+  color: var(--ink-deep);
+}
+.route-badge.rag { color: var(--cyan); border: 1px solid var(--cyan-deep); background: var(--cyan-soft); }
+.route-badge.kg { color: var(--plum); border: 1px solid var(--plum); background: rgba(176,122,161,0.1); }
+.answer-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+}
+.answer-body {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--paper);
+  font-family: 'Noto Sans SC', var(--font-sans);
+}
+.answer-body h4 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  color: var(--paper);
+  font-weight: 500;
+  font-variation-settings: "opsz" 24;
+}
+.answer-body h4:first-child { margin-top: 0; }
+.answer-body ol {
+  padding-left: 24px;
+  margin: 8px 0;
+}
+.answer-body li {
+  margin-bottom: 6px;
+  color: var(--paper-soft);
+}
+.answer-body li strong {
+  color: var(--amber);
+  font-weight: 500;
+}
+.answer-body .cite {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--cyan);
+  background: var(--cyan-soft);
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin: 0 2px;
+  cursor: pointer;
+  vertical-align: super;
+  font-weight: 500;
+}
+.answer-feedback {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--ink-rule);
+}
+.fb-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-soft);
+  padding: 6px 12px;
+  border: 1px solid var(--ink-rule);
+  background: transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.fb-btn:hover { color: var(--paper); border-color: var(--paper-soft); }
+.fb-btn.primary { background: var(--sage-soft); color: var(--sage); border-color: var(--sage); }
+
+.answer-side {
+  padding: 20px 22px;
+  background: var(--ink-deep);
+}
+.answer-side-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.source-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ink-line);
+}
+.source-item:last-child { border-bottom: 0; }
+.source-id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--cyan);
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.source-snip {
+  font-family: 'Noto Serif SC', var(--font-display);
+  font-size: 12px;
+  color: var(--paper-soft);
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.b3-feedback-loop {
+  border-top: 1px solid var(--ink-rule);
+  padding-top: 24px;
+}
+.loop-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.loop-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.loop-stat {
+  padding: 14px 16px;
+  background: var(--ink-panel);
+  border: 1px solid var(--ink-rule);
+  border-radius: 3px;
+}
+.loop-stat-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+.loop-stat-value {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 24px;
+  color: var(--paper);
+  font-variation-settings: "opsz" 36;
+  line-height: 1.1;
+}
+.loop-stat-trend {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--sage);
+  margin-top: 4px;
+}
+.loop-stat-trend.warn { color: var(--oxide); }
+
+/* ========== Footer ========== */
+.footer {
+  border-top: 1px solid var(--ink-rule);
+  padding: 56px 0 40px;
+  margin-top: 80px;
+  background: var(--ink-panel);
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 48px;
+  margin-bottom: 40px;
+}
+.footer-brand {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--paper);
+  margin-bottom: 12px;
+  font-weight: 500;
+  font-variation-settings: "opsz" 24, "SOFT" 50;
+}
+.footer-tagline {
+  font-size: 13px;
+  color: var(--paper-mute);
+  line-height: 1.55;
+  max-width: 360px;
+}
+.footer-col-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.footer-col ul { list-style: none; }
+.footer-col li {
+  font-size: 12px;
+  color: var(--paper-soft);
+  padding: 5px 0;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+.footer-bottom {
+  border-top: 1px solid var(--ink-line);
+  padding-top: 24px;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.1em;
+}
+
+/* ========== Reveal animations ========== */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.hero-meta { animation: rise 0.6s ease-out 0.1s backwards; }
+.hero-headline { animation: rise 0.7s ease-out 0.25s backwards; }
+.hero-sub { animation: rise 0.6s ease-out 0.5s backwards; }
+.stats-strip { animation: rise 0.6s ease-out 0.7s backwards; }
+.blocks-grid { animation: rise 0.7s ease-out 0.9s backwards; }
+
+/* responsive (basic) */
+@media (max-width: 1100px) {
+  .wrap, .wrap-narrow { padding: 0 32px; }
+  .blocks-grid { grid-template-columns: 1fr; }
+  .block-card { border-right: 0; border-bottom: 1px solid var(--ink-rule); min-height: auto; }
+  .block-card:last-child { border-bottom: 0; }
+  .b1-layout, .b2-body { grid-template-columns: 1fr; }
+  .b3-lanes { grid-template-columns: 1fr; }
+  .b3-answer { grid-template-columns: 1fr; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ========== TOP NAV ========== -->
+<nav class="topnav">
+  <div class="wrap topnav-inner">
+    <a href="#hero" class="brand" style="text-decoration:none;color:inherit">
+      <span class="brand-mark">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M2 2 L7 7 L2 12 M7 2 L12 7 L7 12" stroke="#D9A642" stroke-width="1.5" stroke-linecap="square"/>
+        </svg>
+      </span>
+      KAP
+      <span class="brand-sub">v1.0 · 2026.04</span>
+    </a>
+    <div class="nav-links">
+      <a href="#block1" class="nav-link"><span class="nav-link-num">01</span><span>知识咨询智能体</span></a>
+      <a href="#block2" class="nav-link"><span class="nav-link-num">02</span><span>治理底座</span></a>
+      <a href="#block3" class="nav-link"><span class="nav-link-num">03</span><span>消费门户</span></a>
+    </div>
+    <div class="nav-utility">
+      <span class="nav-status"><span class="status-dot"></span>SYSTEM · LIVE</span>
+      <button class="btn-icon" aria-label="搜索">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="6" cy="6" r="4.5"/>
+          <path d="M9.5 9.5 L13 13"/>
+        </svg>
+      </button>
+      <button class="btn-icon" aria-label="语言">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="7" cy="7" r="5.5"/>
+          <path d="M1.5 7 L12.5 7 M7 1.5 C9 4 9 10 7 12.5 M7 1.5 C5 4 5 10 7 12.5"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ========== HERO ========== -->
+<section id="hero" class="hero">
+  <div class="wrap">
+    <div class="hero-meta">
+      <span class="hero-meta-tag amber">v1.0 · 技术决策 + PRD 已定版</span>
+      <span class="hero-meta-tag">私有化部署</span>
+      <span class="hero-meta-tag">全行业 · 制造能源优先</span>
+      <span class="hero-meta-tag">26 周交付 / 4 周首版</span>
+    </div>
+
+    <h1 class="hero-headline">
+      让企业知识从<br>
+      <span class="quiet">杂乱的文档堆</span>，<br>
+      演化为<span class="accent">可信、可治、可调用</span>的<br>
+      智能体资产。
+    </h1>
+
+    <p class="hero-sub">
+      KAP 是面向 <strong>全行业</strong> 的、<strong>私有化部署</strong> 的、<strong>AI-native</strong> 的企业知识治理全流程智能体平台，首批锁定 <strong>制造与能源</strong>，向金融、政企、医疗、运营商等行业可扩展。
+      通过 <strong>知识咨询智能体</strong> 引导建体系、<strong>六工位流水线 + 四角色矩阵审核台</strong> 持续治理、<strong>Wiki / RAG / 图谱三路并行</strong> 渐进式消费，
+      让 SME 不再是知识的录入员，而是知识的审稿人。
+    </p>
+
+    <!-- Stats strip -->
+    <div class="stats-strip">
+      <div class="stat">
+        <div class="stat-value">3<span class="unit">块产品形态</span></div>
+        <div class="stat-label">Architect / Workbench / Portal</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">6<span class="unit">工位 × 4 角色</span></div>
+        <div class="stat-label">DG · SME · SEC · AIOps Matrix</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">55<span class="unit">% 复用率</span></div>
+        <div class="stat-label">Wiki-map V15 · ISS · 自研</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">26<span class="unit">周</span></div>
+        <div class="stat-label">From M0-Lite to GA · 渐进交付</div>
+      </div>
+    </div>
+
+    <!-- Three blocks -->
+    <div class="blocks-grid">
+      <a href="#block1" class="block-card">
+        <div class="block-card-num">
+          <span>§ 01</span>
+          <span class="role-chip"><span>DG</span><span>BIZ-OWNER</span></span>
+        </div>
+        <h2 class="block-card-title">知识咨询智能体</h2>
+        <div class="block-card-en">KNOWLEDGE ARCHITECT AGENT</div>
+        <p class="block-card-desc">
+          AI 对话式顾问引导客户从无到有建立 4 级主树（公司-部门-岗位-操作）+ Facet 多面分类 + L2 企业本体草案 + 命名规范。
+          基于 ISA-95 / IATF 16949 / IEC 61850 / KKS 等行业模板。
+        </p>
+        <ul class="block-card-features">
+          <li>行业自动识别 · 模板推荐</li>
+          <li>对话式主树构建 · 实时可视化</li>
+          <li>Facet 多面提议 · 命名规范生成</li>
+          <li>冲突检测 · 归类预演</li>
+        </ul>
+        <div class="block-card-cta">
+          进入 ARCHITECT
+          <svg width="16" height="10" viewBox="0 0 16 10" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M0 5 L14 5 M10 1 L14 5 L10 9"/>
+          </svg>
+        </div>
+      </a>
+
+      <a href="#block2" class="block-card">
+        <div class="block-card-num">
+          <span>§ 02</span>
+          <span class="role-chip"><span>DG</span><span>SME</span><span>SEC</span><span>AIOps</span></span>
+        </div>
+        <h2 class="block-card-title">知识库 + 知识图谱</h2>
+        <div class="block-card-en">GOVERNANCE WORKBENCH</div>
+        <p class="block-card-desc">
+          六工位入库流水线（W1 解析→W2 归类→W3 切块→W4 抽取→W5 双写→W6 监控），4 角色矩阵化审核台。
+          双层本体演化 + 全量重抽影子库 + 敏感实体脱敏 + LLM-Critic 6 维主动质疑 + 专家共识。
+        </p>
+        <ul class="block-card-features">
+          <li>6 工位 × 4 角色 矩阵审核台</li>
+          <li>双层本体 L1+L2 · 全量重抽 · 灰度回滚</li>
+          <li>敏感脱敏 · 双层存储 · 双向量并存</li>
+          <li>LLM-Critic 6 维质疑 · 专家共识 · 判例库</li>
+        </ul>
+        <div class="block-card-cta">
+          进入 WORKBENCH
+          <svg width="16" height="10" viewBox="0 0 16 10" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M0 5 L14 5 M10 1 L14 5 L10 9"/>
+          </svg>
+        </div>
+      </a>
+
+      <a href="#block3" class="block-card">
+        <div class="block-card-num">
+          <span>§ 03</span>
+          <span class="role-chip"><span>READER</span></span>
+        </div>
+        <h2 class="block-card-title">渐进式消费门户</h2>
+        <div class="block-card-en">PROGRESSIVE CONSUMPTION</div>
+        <p class="block-card-desc">
+          Wiki 缓存（Karpathy 三层）+ RAG 向量召回 + 图谱推理 三路并行召回 + 重排序融合。
+          按用户密级路由召回，强溯源到原文，频率回流闭环驱动 Wiki 持续生长。
+        </p>
+        <ul class="block-card-features">
+          <li>三路并行召回 · 重排序融合</li>
+          <li>Wiki 短路命中 · 5 秒内响应</li>
+          <li>密级路由 · 召回阶段过滤</li>
+          <li>反馈回流 · 知识缺口自动派单</li>
+        </ul>
+        <div class="block-card-cta">
+          进入 PORTAL
+          <svg width="16" height="10" viewBox="0 0 16 10" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M0 5 L14 5 M10 1 L14 5 L10 9"/>
+          </svg>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ========== SCHEMATIC: 6 工位 × 4 角色 ========== -->
+<section class="schematic-section">
+  <div class="wrap">
+    <div class="section-marker">
+      <span class="section-num">/ 00</span>
+      <span class="section-rule"></span>
+      <span class="section-tag">Schematic · Workstation × Role Matrix</span>
+    </div>
+
+    <div class="schematic-frame schematic-corners">
+      <div class="schematic-header">
+        <h3 class="schematic-title">六工位入库流水线 × 四角色协同矩阵</h3>
+        <span class="schematic-meta">REV-2026.04 · DRAFT</span>
+      </div>
+
+      <div class="schematic-canvas">
+        <div class="workstation-flow">
+          <div class="ws-node">
+            <div class="ws-node-circle">W1</div>
+            <div class="ws-name">解析</div>
+            <div class="ws-desc">PARSER · MULTIMODAL</div>
+          </div>
+          <div class="ws-node">
+            <div class="ws-node-circle">W2</div>
+            <div class="ws-name">自动归类</div>
+            <div class="ws-desc">CLASSIFY · TAXONOMY</div>
+          </div>
+          <div class="ws-node">
+            <div class="ws-node-circle">W3</div>
+            <div class="ws-name">切块+元数据</div>
+            <div class="ws-desc">CHUNK · METADATA</div>
+          </div>
+          <div class="ws-node">
+            <div class="ws-node-circle">W4</div>
+            <div class="ws-name">实体关系抽取</div>
+            <div class="ws-desc">ENTITY · CRITIC</div>
+          </div>
+          <div class="ws-node">
+            <div class="ws-node-circle">W5</div>
+            <div class="ws-name">入库双写</div>
+            <div class="ws-desc">VECTOR · GRAPH</div>
+          </div>
+          <div class="ws-node">
+            <div class="ws-node-circle">W6</div>
+            <div class="ws-name">消费监控</div>
+            <div class="ws-desc">MONITOR · GAP</div>
+          </div>
+        </div>
+
+        <div class="role-lanes">
+          <div class="lane-corner">ROLE × WS</div>
+          <div class="lane-head">W1</div>
+          <div class="lane-head">W2</div>
+          <div class="lane-head">W3</div>
+          <div class="lane-head">W4</div>
+          <div class="lane-head">W5</div>
+          <div class="lane-head">W6</div>
+
+          <div class="lane-row-label">DG<span class="role-en">数据治理</span></div>
+          <div class="lane-cell r">R</div>
+          <div class="lane-cell r">R</div>
+          <div class="lane-cell r">R</div>
+          <div class="lane-cell">·</div>
+          <div class="lane-cell r">R</div>
+          <div class="lane-cell">·</div>
+
+          <div class="lane-row-label">SME<span class="role-en">业务专家</span></div>
+          <div class="lane-cell">·</div>
+          <div class="lane-cell c">C</div>
+          <div class="lane-cell">·</div>
+          <div class="lane-cell r">R</div>
+          <div class="lane-cell c">C</div>
+          <div class="lane-cell r">R</div>
+
+          <div class="lane-row-label">SEC<span class="role-en">安全审计</span></div>
+          <div class="lane-cell c">C</div>
+          <div class="lane-cell c">C</div>
+          <div class="lane-cell">·</div>
+          <div class="lane-cell c">C</div>
+          <div class="lane-cell c">C</div>
+          <div class="lane-cell c">C</div>
+
+          <div class="lane-row-label">AIOps<span class="role-en">AI 运营</span></div>
+          <div class="lane-cell">·</div>
+          <div class="lane-cell">·</div>
+          <div class="lane-cell">·</div>
+          <div class="lane-cell">·</div>
+          <div class="lane-cell">·</div>
+          <div class="lane-cell r">R</div>
+        </div>
+      </div>
+
+      <div class="standards-strip">
+        <span class="standards-label">Standards Anchored</span>
+        <div class="standards-list">
+          <span class="standard-item">ISO 30401:2018</span>
+          <span class="standard-item">DAMA-DMBOK V2</span>
+          <span class="standard-item">DCMM GB/T 36073</span>
+          <span class="standard-item">ISA-95 / IEC 62264</span>
+          <span class="standard-item">IATF 16949</span>
+          <span class="standard-item">ISO 55000</span>
+          <span class="standard-item">IEC 61850 · KKS</span>
+          <span class="standard-item">ISO 14224</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== BLOCK 1 — Architect ========== -->
+<section id="block1" class="section">
+  <div class="wrap">
+    <div class="section-marker">
+      <span class="section-num">/ 01</span>
+      <span class="section-rule"></span>
+      <span class="section-tag">Knowledge Architect Agent · 知识咨询智能体</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 360px;gap:48px;margin-bottom:40px;align-items:end;">
+      <h2 style="font-family:var(--font-display);font-weight:400;font-size:48px;line-height:1.05;letter-spacing:-0.02em;color:var(--paper);font-variation-settings:'opsz' 72,'SOFT' 50;">
+        <span style="color:var(--paper-mute);font-weight:300">让 AI 引导客户</span><br>
+        从材料到 4 级体系，<br>
+        <em style="color:var(--amber);font-variation-settings:'opsz' 72,'SOFT' 100">不再面对空白画板。</em>
+      </h2>
+      <p style="color:var(--paper-soft);font-size:14px;line-height:1.65;">
+        基于 200+ 行业代表性材料，<strong style="color:var(--paper)">智能体识别行业 → 推荐模板 → 提议主树 → 配置 Facet → 生成命名规范 → 检测冲突</strong>，DG 全程对话式调整，专家审核兜底。能源 53 域模板已就绪，制造模板 M1 上线。
+      </p>
+    </div>
+
+    <div class="preview-frame">
+      <div class="preview-titlebar">
+        <div class="preview-title-left">
+          <div class="preview-dots"><span></span><span></span><span></span></div>
+          <span class="preview-path">/agent/architect/<span class="path-active">proj_kap_demo_2026</span>/taxonomy</span>
+        </div>
+        <span class="preview-status"><span class="status-dot"></span>STEP 3 / 7 · ACTIVE</span>
+      </div>
+
+      <div class="block1-layout">
+        <!-- Left: Steps -->
+        <div class="b1-steps">
+          <div class="b1-steps-title">Workflow · 7 Steps</div>
+          <div class="b1-step done">
+            <div class="b1-step-num">01</div>
+            <div class="b1-step-body">
+              <div class="b1-step-name">材料上传</div>
+              <div class="b1-step-meta">1247 docs · 12 min</div>
+            </div>
+          </div>
+          <div class="b1-step done">
+            <div class="b1-step-num">02</div>
+            <div class="b1-step-body">
+              <div class="b1-step-name">行业识别</div>
+              <div class="b1-step-meta">装备制造 + 能源装备</div>
+            </div>
+          </div>
+          <div class="b1-step active">
+            <div class="b1-step-num">03</div>
+            <div class="b1-step-body">
+              <div class="b1-step-name">主树构建</div>
+              <div class="b1-step-meta">L1·6 / L2·24 / L3·87 / L4 待定</div>
+            </div>
+          </div>
+          <div class="b1-step">
+            <div class="b1-step-num">04</div>
+            <div class="b1-step-body">
+              <div class="b1-step-name">Facet 配置</div>
+              <div class="b1-step-meta">建议 7 维度</div>
+            </div>
+          </div>
+          <div class="b1-step">
+            <div class="b1-step-num">05</div>
+            <div class="b1-step-body">
+              <div class="b1-step-name">命名规范</div>
+              <div class="b1-step-meta">未开始</div>
+            </div>
+          </div>
+          <div class="b1-step">
+            <div class="b1-step-num">06</div>
+            <div class="b1-step-body">
+              <div class="b1-step-name">冲突检测</div>
+              <div class="b1-step-meta">未开始</div>
+            </div>
+          </div>
+          <div class="b1-step">
+            <div class="b1-step-num">07</div>
+            <div class="b1-step-body">
+              <div class="b1-step-name">体系导出</div>
+              <div class="b1-step-meta">YAML / JSON / Excel</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center: Chat -->
+        <div class="b1-chat">
+          <div class="b1-chat-stream">
+            <div class="chat-msg">
+              <div class="chat-meta ai">
+                <span class="chat-meta-icon">A</span>KAP-ARCHITECT · 14:02:31 · GLM-5.1
+              </div>
+              <div class="chat-bubble">
+                您好，我是 KAP 知识体系顾问。已收到上传的 <code>1,247</code> 份代表性材料，初步识别为：<strong>制造业 · 装备制造 · 离散方向</strong>，置信度 <code>0.91</code>。建议参考 <code>ISA-95</code> + <code>IATF 16949</code> + <code>ISO 9001</code> 标准锚定。是否进入主树构建？
+                <div class="chat-attach">
+                  <span class="attach-pill">工艺规程汇编.pdf · 213 份</span>
+                  <span class="attach-pill">设备运维手册集.zip · 421 份</span>
+                  <span class="attach-pill">质量管理体系文件.pdf · 187 份</span>
+                  <span class="attach-pill">研发项目档案.zip · 426 份</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-msg">
+              <div class="chat-meta user">
+                <span class="chat-meta-icon">U</span>张工 · DG · 14:03:12
+              </div>
+              <div class="chat-bubble user">
+                可以。但我们也涉及部分能源装备（汽轮机、压缩机），需要融合能源行业模板。
+              </div>
+            </div>
+
+            <div class="chat-msg">
+              <div class="chat-meta ai">
+                <span class="chat-meta-icon">A</span>KAP-ARCHITECT · 14:03:48 · GLM-5.1
+              </div>
+              <div class="chat-bubble">
+                收到。已扩展能源装备模板，融合 <code>ISO 55000</code> 资产管理 + <code>KKS</code> 设备标识体系。当前主树草案 <strong>L1 共 6 个一级业务域</strong>（已展示在右侧），关联文档如下：
+                <div class="detection-list">
+                  <div class="detection-row"><span>研发体系</span><span class="v">87 docs · 87% 覆盖</span></div>
+                  <div class="detection-row"><span>工艺与制造</span><span class="v">213 docs · 100% 覆盖</span></div>
+                  <div class="detection-row"><span>设备与维保</span><span class="v">421 docs · 99% 覆盖</span></div>
+                  <div class="detection-row"><span>质量与检验</span><span class="v">94 docs · 78% 覆盖</span></div>
+                  <div class="detection-row"><span>安全环保</span><span class="v">45 docs · 64% 覆盖</span></div>
+                  <div class="detection-row"><span>综合管理</span><span class="v">387 docs · 92% 覆盖</span></div>
+                </div>
+                检测到 <strong style="color:var(--oxide)">3 处可能的归类冲突</strong>，是否查看？
+              </div>
+            </div>
+          </div>
+          <div class="b1-chat-input">
+            <input type="text" placeholder="比如：把'设备维护'拆成'预防性维护'和'故障维护'..." />
+            <button class="btn-send">SEND</button>
+          </div>
+        </div>
+
+        <!-- Right: Tree -->
+        <div class="b1-tree">
+          <div class="b1-tree-head">
+            <span class="b1-tree-title">Taxonomy · L1 → L4</span>
+            <span class="b1-tree-version">DRAFT · v0.3</span>
+          </div>
+
+          <div class="tree-node tree-node-l1"><span>研发体系</span><span class="tree-count">87</span></div>
+          <div class="tree-node tree-node-l2"><span>需求与立项</span><span class="tree-count">14</span></div>
+          <div class="tree-node tree-node-l2"><span>设计与试验</span><span class="tree-count">52</span></div>
+          <div class="tree-node tree-node-l3"><span>工艺试验</span><span class="tree-count">18</span></div>
+          <div class="tree-node tree-node-l3"><span>性能验证</span><span class="tree-count">21</span></div>
+          <div class="tree-node tree-node-l2"><span>知识转移</span><span class="tree-count">21</span></div>
+
+          <div class="tree-node tree-node-l1"><span>工艺与制造</span><span class="tree-count">213</span></div>
+          <div class="tree-node tree-node-l2"><span>工艺规程</span><span class="tree-count">96</span></div>
+          <div class="tree-node tree-node-l2"><span>生产调度</span><span class="tree-count">62</span></div>
+          <div class="tree-node tree-node-l2"><span>装配与试运行</span><span class="tree-count">55</span></div>
+
+          <div class="tree-node tree-node-l1"><span>设备与维保</span><span class="tree-count">421</span></div>
+          <div class="tree-node tree-node-l2"><span>设备资产</span><span class="tree-count">123</span></div>
+          <div class="tree-node tree-node-l3"><span>汽轮机</span><span class="tree-count new">+34</span></div>
+          <div class="tree-node tree-node-l3"><span>压缩机</span><span class="tree-count new">+27</span></div>
+          <div class="tree-node tree-node-l2"><span>检修维护</span><span class="tree-count">198</span></div>
+          <div class="tree-node tree-node-l2"><span>故障与处置</span><span class="tree-count warn">100</span></div>
+
+          <div class="tree-node tree-node-l1"><span>质量与检验</span><span class="tree-count">94</span></div>
+          <div class="tree-node tree-node-l1"><span>安全环保</span><span class="tree-count">45</span></div>
+          <div class="tree-node tree-node-l1"><span>综合管理</span><span class="tree-count">387</span></div>
+
+          <div class="facet-list">
+            <div class="facet-list-title">Facet · 多面分类（建议 7 维）</div>
+            <span class="facet-pill">知识类型 <span class="facet-count">7</span></span>
+            <span class="facet-pill">时效性 <span class="facet-count">3</span></span>
+            <span class="facet-pill">密级 <span class="facet-count">4</span></span>
+            <span class="facet-pill">设备维度（KKS） <span class="facet-count">∞</span></span>
+            <span class="facet-pill">标准引用 <span class="facet-count">42</span></span>
+            <span class="facet-pill">业务流程 <span class="facet-count">5</span></span>
+            <span class="facet-pill">Owner 角色 <span class="facet-count">L3</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== BLOCK 2 — Workbench ========== -->
+<section id="block2" class="section">
+  <div class="wrap">
+    <div class="section-marker">
+      <span class="section-num">/ 02</span>
+      <span class="section-rule"></span>
+      <span class="section-tag">Governance Workbench · 治理底座 · W4 × SME</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 360px;gap:48px;margin-bottom:40px;align-items:end;">
+      <h2 style="font-family:var(--font-display);font-weight:400;font-size:48px;line-height:1.05;letter-spacing:-0.02em;color:var(--paper);font-variation-settings:'opsz' 72,'SOFT' 50;">
+        <span style="color:var(--paper-mute);font-weight:300">SME 不再录入</span>，<br>
+        <em style="color:var(--amber);font-variation-settings:'opsz' 72,'SOFT' 100">而是审稿。</em><br>
+        <span style="color:var(--paper-mute);font-weight:300">LLM 主动挑刺，</span>人做仲裁。
+      </h2>
+      <p style="color:var(--paper-soft);font-size:14px;line-height:1.65;">
+        以 W4 × SME 工位为例：左侧工单池按优先级 + SLA 排序，中间画布展示原文 + LLM 抽取实体关系（带证据），右侧 LLM-Critic 6 维质疑（一致性 / 完整性 / 证据强度 / 重复性 / 时效性 / 跨域）。SME 一键通过 / 合并 / 驳回，决策必填 reason，回流训练数据。
+      </p>
+    </div>
+
+    <div class="preview-frame">
+      <div class="preview-titlebar">
+        <div class="preview-title-left">
+          <div class="preview-dots"><span></span><span></span><span></span></div>
+          <span class="preview-path">/workbench/reviews/<span class="path-active">sme/w4-extraction</span></span>
+        </div>
+        <span class="preview-status"><span class="status-dot"></span>李工 · SME · 87 PENDING</span>
+      </div>
+
+      <div class="b2-layout">
+        <!-- Matrix bar -->
+        <div class="b2-matrix-bar">
+          <div class="matrix-corner">SME · 视角</div>
+          <div class="matrix-cell">W1<span class="cell-pending">— · 协审</span></div>
+          <div class="matrix-cell">W2<span class="cell-pending">12 · 协审</span></div>
+          <div class="matrix-cell">W3<span class="cell-pending">— · 知会</span></div>
+          <div class="matrix-cell active">W4<span class="cell-pending">87 · 主审 ★</span></div>
+          <div class="matrix-cell">W5<span class="cell-pending">19 · 协审</span></div>
+          <div class="matrix-cell">W6<span class="cell-pending">7 · 主审</span></div>
+        </div>
+
+        <!-- Body: 3 panes -->
+        <div class="b2-body">
+          <!-- Queue -->
+          <div class="b2-queue">
+            <div class="queue-head">
+              工单池 · 87 待审
+              <span class="queue-head-count">SLA 03:42</span>
+            </div>
+
+            <div class="queue-item selected">
+              <div class="queue-item-meta">
+                <span class="priority-tag high">P0 · 高</span>
+                <span>RT-2026-04-28-0142</span>
+              </div>
+              <div class="queue-item-title">汽轮机叶片振动故障处理 SOP v3.2</div>
+              <div class="queue-item-tags">
+                <span>设备与维保</span>
+                <span>SOP</span>
+                <span>秘密</span>
+              </div>
+              <div class="sla-bar" style="width:62%"></div>
+            </div>
+
+            <div class="queue-item">
+              <div class="queue-item-meta">
+                <span class="priority-tag mid">P1 · 中</span>
+                <span>RT-2026-04-28-0143</span>
+              </div>
+              <div class="queue-item-title">高压压缩机轴承温度异常诊断指南</div>
+              <div class="queue-item-tags">
+                <span>故障处置</span>
+                <span>技术文档</span>
+                <span>内部</span>
+              </div>
+              <div class="sla-bar" style="width:38%;background:var(--cyan)"></div>
+            </div>
+
+            <div class="queue-item">
+              <div class="queue-item-meta">
+                <span class="priority-tag mid">P1 · 中</span>
+                <span>RT-2026-04-28-0144</span>
+              </div>
+              <div class="queue-item-title">焊接工艺质量控制要点 (第 7 版)</div>
+              <div class="queue-item-tags">
+                <span>工艺规程</span>
+                <span>SOP</span>
+                <span>内部</span>
+              </div>
+              <div class="sla-bar" style="width:24%;background:var(--cyan)"></div>
+            </div>
+
+            <div class="queue-item">
+              <div class="queue-item-meta">
+                <span class="priority-tag low">P2 · 低</span>
+                <span>RT-2026-04-28-0145</span>
+              </div>
+              <div class="queue-item-title">特种设备日常巡检表填写规范</div>
+              <div class="queue-item-tags">
+                <span>设备管理</span>
+                <span>制度</span>
+                <span>公开</span>
+              </div>
+              <div class="sla-bar" style="width:8%;background:var(--paper-mute)"></div>
+            </div>
+
+            <div class="queue-item">
+              <div class="queue-item-meta">
+                <span class="priority-tag low">P2 · 低</span>
+                <span>RT-2026-04-28-0146</span>
+              </div>
+              <div class="queue-item-title">应急预案演练总结报告 Q1-2026</div>
+              <div class="queue-item-tags">
+                <span>安全应急</span>
+                <span>报告</span>
+                <span>内部</span>
+              </div>
+              <div class="sla-bar" style="width:5%;background:var(--paper-mute)"></div>
+            </div>
+          </div>
+
+          <!-- Canvas -->
+          <div class="b2-canvas">
+            <div class="canvas-doc-head">
+              <div class="doc-title">汽轮机叶片振动故障处理 SOP v3.2.pdf</div>
+              <div class="doc-meta">
+                <span><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="1" y="1" width="8" height="8"/><path d="M1 4 L9 4"/></svg> KB-EQ-SOP-振动故障</span>
+                <span>v3.2 · 生效中</span>
+                <span>Owner · 设备部</span>
+                <span>密级 · 秘密</span>
+                <span class="doc-conf">LLM 抽取置信度 · 0.84</span>
+              </div>
+            </div>
+
+            <div class="canvas-content">
+              <div class="canvas-section-label">原文片段（W3 切块 #4 / 17）</div>
+              <p class="canvas-original">
+                当 <span class="entity-mark equipment">汽轮机1#<sup>E1</sup></span> 叶片在 <span class="entity-mark param">转速 3000rpm<sup>P1</sup></span> 工况下出现 <span class="entity-mark fault">异常振动<sup>F1</sup></span>（振幅超过 50μm），需立即联系 <span class="entity-mark role">振动分析工程师<sup>R1</sup></span>，按照 <span class="entity-mark standard">GB/T 6075<sup>S1</sup></span> 执行设备状态评估。若振动持续超标 30 分钟，应启动应急停机程序⋯⋯
+              </p>
+
+              <div class="canvas-section-label">LLM 抽取 · 6 实体 / 4 关系</div>
+              <div class="extracted-grid">
+                <div class="extracted-card">
+                  <div class="extracted-card-head">
+                    <span class="extracted-name">汽轮机1#</span>
+                    <span class="extracted-conf">0.96</span>
+                  </div>
+                  <div style="font-family:var(--font-mono);font-size:10px;color:var(--paper-mute);letter-spacing:0.06em;">
+                    类型 · EQUIPMENT · KKS=10MAA01<br>
+                    所属装置 · 火力发电机组
+                  </div>
+                </div>
+                <div class="extracted-card">
+                  <div class="extracted-card-head">
+                    <span class="extracted-name">异常振动</span>
+                    <span class="extracted-conf">0.93</span>
+                  </div>
+                  <div style="font-family:var(--font-mono);font-size:10px;color:var(--paper-mute);letter-spacing:0.06em;">
+                    类型 · FAULT<br>
+                    严重度 · 中-高 · 振幅 &gt; 50μm
+                  </div>
+                </div>
+                <div class="extracted-card">
+                  <div class="extracted-card-head">
+                    <span class="extracted-name">振动分析工程师</span>
+                    <span class="extracted-conf" style="color:var(--oxide)">0.71 ⚠</span>
+                  </div>
+                  <div style="font-family:var(--font-mono);font-size:10px;color:var(--paper-mute);letter-spacing:0.06em;">
+                    类型 · ROLE · 岗位<br>
+                    <span style="color:var(--oxide)">⚠ Critic 提示同义</span>
+                  </div>
+                </div>
+                <div class="extracted-card">
+                  <div class="extracted-card-head">
+                    <span class="extracted-name">GB/T 6075</span>
+                    <span class="extracted-conf">0.89</span>
+                  </div>
+                  <div style="font-family:var(--font-mono);font-size:10px;color:var(--paper-mute);letter-spacing:0.06em;">
+                    类型 · STANDARD<br>
+                    版本 · 2012 · 现行
+                  </div>
+                </div>
+              </div>
+
+              <div class="canvas-section-label">关系三元组（含证据）</div>
+              <div class="extracted-card" style="margin-bottom:8px;">
+                <div class="extracted-relation">
+                  <span class="ent">汽轮机1#</span>
+                  <span class="rel">出现 →</span>
+                  <span class="ent">异常振动</span>
+                </div>
+                <div class="extracted-evidence">
+                  "当汽轮机1#叶片在转速 3000rpm 工况下出现异常振动..."
+                </div>
+              </div>
+              <div class="extracted-card">
+                <div class="extracted-relation">
+                  <span class="ent">振动分析工程师</span>
+                  <span class="rel" style="color:var(--oxide)">执行（弱证据）→</span>
+                  <span class="ent">GB/T 6075</span>
+                </div>
+                <div class="extracted-evidence">
+                  "...按照 GB/T 6075 执行设备状态评估。"
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Critic -->
+          <div class="b2-critic">
+            <div class="critic-head">
+              <div class="critic-title">LLM-Critic · 主动质疑</div>
+              <div class="critic-sub">DUAL-AGENT REVIEW · 检测到 <span class="critic-num">2</span> 项可疑</div>
+            </div>
+
+            <div class="critic-list">
+              <div class="critic-card">
+                <span class="critic-dim">DIM 4 · 重复性</span>
+                <div class="critic-msg">
+                  实体 <code>振动分析工程师</code> 在 <code>KB-DEV-0091</code> 中定义为 <code>设备诊断岗</code>，向量相似度 <strong style="color:var(--amber)">0.95</strong>，疑似同义。
+                </div>
+                <div class="critic-evidence">
+                  EVIDENCE · KB-DEV-0091 §2.3 · 2025-11-14<br>
+                  RECOMMEND · 合并 → 设备诊断岗
+                </div>
+              </div>
+
+              <div class="critic-card">
+                <span class="critic-dim">DIM 3 · 证据强度</span>
+                <div class="critic-msg">
+                  关系 <code>[执行] → GB/T 6075</code> 仅有一句模糊表述支撑，缺乏明确执行主体限定，建议人工确认是否应改为 <code>[引用]</code>。
+                </div>
+                <div class="critic-evidence">
+                  EVIDENCE · 当前文档第 4 块（仅 1 处）<br>
+                  RECOMMEND · 改关系类型 引用 / 保持 / 驳回
+                </div>
+              </div>
+
+              <div class="critic-card" style="border-style:dashed;opacity:0.7;">
+                <span class="critic-dim" style="color:var(--paper-mute);border-color:var(--ink-rule);background:transparent;">DIM 5 · 时效性</span>
+                <div class="critic-msg" style="color:var(--paper-mute);">
+                  <code>GB/T 6075</code> 现行版本为 2012 版，未发现作废风险。
+                </div>
+                <div class="critic-evidence">
+                  STATUS · 通过校验
+                </div>
+              </div>
+            </div>
+
+            <div class="critic-actions">
+              <button class="btn-action danger">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2 L8 8 M8 2 L2 8"/></svg>
+                驳回
+              </button>
+              <button class="btn-action">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5 L4 7 L8 3"/></svg>
+                合并
+              </button>
+              <button class="btn-action primary">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 5 L4 7.5 L8.5 2.5"/></svg>
+                通过 [A]
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== BLOCK 3 — Portal ========== -->
+<section id="block3" class="section">
+  <div class="wrap">
+    <div class="section-marker">
+      <span class="section-num">/ 03</span>
+      <span class="section-rule"></span>
+      <span class="section-tag">Progressive Consumption · 渐进式消费门户</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 360px;gap:48px;margin-bottom:40px;align-items:end;">
+      <h2 style="font-family:var(--font-display);font-weight:400;font-size:48px;line-height:1.05;letter-spacing:-0.02em;color:var(--paper);font-variation-settings:'opsz' 72,'SOFT' 50;">
+        <span style="color:var(--paper-mute);font-weight:300">三路并行</span>，<br>
+        重排序融合，<br>
+        <em style="color:var(--amber);font-variation-settings:'opsz' 72,'SOFT' 100">5 秒内</em><span style="color:var(--paper-mute);font-weight:300">出答案</span>。
+      </h2>
+      <p style="color:var(--paper-soft);font-size:14px;line-height:1.65;">
+        Wiki 缓存 · RAG 向量召回 · 图谱推理 三路并行，按用户密级路由，重排序融合。Wiki 短路命中阈值 ≥ 0.90 直接返回，未命中则融合三路。所有答案带溯源到原文，反馈点踩与高频未答自动回流到 W6 知识缺口工单。
+      </p>
+    </div>
+
+    <div class="preview-frame">
+      <div class="preview-titlebar">
+        <div class="preview-title-left">
+          <div class="preview-dots"><span></span><span></span><span></span></div>
+          <span class="preview-path">/portal/<span class="path-active">query</span>?q=...</span>
+        </div>
+        <span class="preview-status"><span class="status-dot"></span>READER · 王工 · ACCESS=秘密</span>
+      </div>
+
+      <div class="b3-layout">
+        <!-- Search bar -->
+        <div class="b3-search-bar">
+          <svg class="b3-search-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="9" cy="9" r="6.5"/>
+            <path d="M14 14 L19 19"/>
+          </svg>
+          <span class="b3-search-input">汽轮机1#振动故障的应急处置流程是什么？</span>
+          <div class="b3-search-meta">
+            <span><svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="2"/></svg>密级路由 · 秘密</span>
+            <span>三路并行 · 234ms</span>
+          </div>
+        </div>
+        <div class="b3-search-detail">/ MILVUS · 3,421 chunks 候选 / NEO4J · 87 实体相关 / WIKI · 142 候选页</div>
+
+        <!-- Three lanes -->
+        <div class="b3-lanes">
+          <div class="lane short-circuit">
+            <div class="lane-head">
+              <div class="lane-name">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="11" height="11"/><path d="M4 4 L10 4 M4 7 L8 7 M4 10 L9 10"/></svg>
+                Lane A · WIKI 缓存
+                <span class="lane-name-tag">L1 KARPATHY</span>
+              </div>
+              <div class="lane-conf">0.92</div>
+            </div>
+            <div class="lane-body">
+              <div class="lane-meta-row"><span>命中条目</span><span class="v">W-2024-318</span></div>
+              <div class="lane-meta-row"><span>类型</span><span class="v">应急处置 SOP</span></div>
+              <div class="lane-meta-row"><span>编译时间</span><span class="v">2026-04-12</span></div>
+              <div class="lane-meta-row"><span>溯源</span><span class="v">3 文档</span></div>
+              <div class="lane-content">
+                <div class="lane-snippet">"⋯⋯当汽轮机出现异常振动时，应立即通知振动分析工程师按 GB/T 6075 进行设备状态评估，振动持续超标 30 分钟应启动应急停机⋯⋯"</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lane">
+            <div class="lane-head">
+              <div class="lane-name">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="3.5" cy="7" r="1.5"/><circle cx="10.5" cy="3.5" r="1.5"/><circle cx="10.5" cy="10.5" r="1.5"/><path d="M5 7 L9 4 M5 7 L9 10"/></svg>
+                Lane B · RAG 召回
+                <span class="lane-name-tag">MILVUS · BGE</span>
+              </div>
+              <div class="lane-conf">0.81</div>
+            </div>
+            <div class="lane-body">
+              <div class="lane-meta-row"><span>召回 chunks</span><span class="v">4 / 8</span></div>
+              <div class="lane-meta-row"><span>平均相似度</span><span class="v">0.81</span></div>
+              <div class="lane-meta-row"><span>BM25 加权</span><span class="v">0.78</span></div>
+              <div class="lane-meta-row"><span>密级过滤后</span><span class="v">3 chunks</span></div>
+              <div class="lane-content">
+                <div class="lane-snippet">"⋯⋯应急处置应分级响应：一级处置由值班长组织、二级处置升级至专业工程师⋯⋯"</div>
+                <div class="lane-snippet" style="margin-top:6px;">"⋯⋯停机操作严禁直接断电，必须按 SOP 序列执行降速冷却⋯⋯"</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lane">
+            <div class="lane-head">
+              <div class="lane-name">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="3.5" cy="3.5" r="1.5"/><circle cx="10.5" cy="3.5" r="1.5"/><circle cx="7" cy="10.5" r="1.5"/><path d="M5 3.5 L9 3.5 M4.2 4.8 L6.3 9.2 M9.8 4.8 L7.7 9.2"/></svg>
+                Lane C · 图谱推理
+                <span class="lane-name-tag">NEO4J · 2-HOP</span>
+              </div>
+              <div class="lane-conf">0.78</div>
+            </div>
+            <div class="lane-body">
+              <div class="lane-meta-row"><span>跳数</span><span class="v">2-hop</span></div>
+              <div class="lane-meta-row"><span>路径数</span><span class="v">3 候选</span></div>
+              <div class="lane-meta-row"><span>最佳路径置信</span><span class="v">0.78</span></div>
+              <div class="lane-meta-row"><span>跨域关联</span><span class="v">1 处</span></div>
+              <div class="lane-content">
+                <div class="kg-path">
+                  <span class="node">汽轮机1#</span>
+                  <span class="arrow">→出现→</span>
+                  <span class="node">振动故障</span>
+                  <span class="arrow">→引用→</span>
+                  <span class="node">GB/T 6075</span>
+                  <span class="arrow">→关联→</span>
+                  <span class="node">应急处置 SOP</span>
+                </div>
+                <div class="kg-path" style="margin-top:8px;">
+                  <span class="node">汽轮机1#</span>
+                  <span class="arrow">→执行人→</span>
+                  <span class="node">设备诊断岗</span>
+                  <span class="arrow">→操作→</span>
+                  <span class="node">停机程序</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Answer -->
+        <div class="b3-answer">
+          <div class="answer-main">
+            <div class="answer-head">
+              <div class="answer-route">
+                <span class="route-badge short">WIKI 短路</span>
+                <span class="route-badge rag">+ RAG 验证</span>
+                <span class="route-badge kg">+ 图谱补全</span>
+              </div>
+              <div class="answer-time">总耗时 1.42s · LLM 0 token</div>
+            </div>
+
+            <div class="answer-body">
+              <h4>汽轮机1#振动故障应急处置流程（分级响应）</h4>
+
+              <ol>
+                <li><strong>一级处置（值班操作工 · 0-5 分钟）</strong>：发现 <span style="color:var(--cyan)">异常振动</span>（振幅 &gt; 50μm 或转速波动 &gt; 100rpm），立即记录工况参数，通知值班长。<span class="cite">[1]</span></li>
+                <li><strong>二级处置（值班长 + 设备诊断岗 · 5-30 分钟）</strong>：联系设备诊断岗（原"振动分析工程师"），按 <span style="color:var(--plum)">GB/T 6075-2012</span> 执行设备状态评估，完成振动频谱分析并形成处置建议。<span class="cite">[2]</span></li>
+                <li><strong>三级处置（应急停机 · 振动超标 ≥ 30 分钟）</strong>：启动应急停机程序，<strong>严禁直接断电</strong>，必须按 SOP 序列降速冷却，依次解列发电机 → 关闭主汽门 → 维持惰走 → 投入盘车。<span class="cite">[3]</span></li>
+                <li><strong>事后处置</strong>：48 小时内完成《设备振动事件分析报告》，关联 KB-DEV-0091 / KB-EQ-SOP-振动故障 v3.2。<span class="cite">[4]</span></li>
+              </ol>
+
+              <p style="margin-top:14px;font-size:13px;color:var(--paper-mute);font-family:var(--font-mono);letter-spacing:0.04em;line-height:1.5;">
+                ※ 答案由 Wiki 短路命中（W-2024-318，置信度 0.92）直接返回，RAG 召回的 3 处补充已通过一致性校验，图谱推理路径补全了"振动分析工程师 = 设备诊断岗"的同义关系。
+              </p>
+            </div>
+
+            <div class="answer-feedback">
+              <button class="fb-btn primary">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6 L5 8 L9 4"/></svg>
+                有用
+              </button>
+              <button class="fb-btn">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3 L9 9 M9 3 L3 9"/></svg>
+                有问题
+              </button>
+              <button class="fb-btn">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="8" height="8"/><path d="M4.5 2 L4.5 10 M2 6 L10 6"/></svg>
+                收藏
+              </button>
+              <button class="fb-btn">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4 L10 4 L10 10 L2 10 Z M4 4 L4 2 L8 2 L8 4"/></svg>
+                复制
+              </button>
+            </div>
+          </div>
+
+          <div class="answer-side">
+            <div class="answer-side-title">来源 · 4 文档 / 1 Wiki</div>
+
+            <div class="source-item">
+              <div class="source-id">[1] W-2024-318 · Wiki</div>
+              <div class="source-snip">"应急处置应分级响应：一级处置由值班操作工记录工况参数⋯⋯"</div>
+            </div>
+
+            <div class="source-item">
+              <div class="source-id">[2] KB-EQ-SOP-振动故障 v3.2</div>
+              <div class="source-snip">"⋯⋯按照 GB/T 6075 执行设备状态评估，⋯⋯完成振动频谱分析⋯⋯"</div>
+            </div>
+
+            <div class="source-item">
+              <div class="source-id">[3] KB-EQ-SOP-停机程序 v2.7</div>
+              <div class="source-snip">"⋯⋯严禁直接断电，必须按 SOP 序列降速冷却⋯⋯"</div>
+            </div>
+
+            <div class="source-item">
+              <div class="source-id">[4] KB-DEV-0091 · 设备诊断岗职责</div>
+              <div class="source-snip">"⋯⋯设备诊断岗承担振动分析、故障诊断、状态评估等职责⋯⋯"</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feedback loop -->
+        <div class="b3-feedback-loop">
+          <div class="loop-title">/ 04 · Feedback Loop · W6 监控仪表盘（30 天）</div>
+          <div class="loop-stats">
+            <div class="loop-stat">
+              <div class="loop-stat-label">WIKI 短路命中率</div>
+              <div class="loop-stat-value">38.2%</div>
+              <div class="loop-stat-trend">↑ 6.4 pts vs 上月</div>
+            </div>
+            <div class="loop-stat">
+              <div class="loop-stat-label">用户反馈 · 有用率</div>
+              <div class="loop-stat-value">71.8%</div>
+              <div class="loop-stat-trend">↑ 2.1 pts</div>
+            </div>
+            <div class="loop-stat">
+              <div class="loop-stat-label">知识缺口候选</div>
+              <div class="loop-stat-value">7</div>
+              <div class="loop-stat-trend warn">已派单 SME · 4 待审</div>
+            </div>
+            <div class="loop-stat">
+              <div class="loop-stat-label">LLM Token 消耗</div>
+              <div class="loop-stat-value">−34%</div>
+              <div class="loop-stat-trend">vs 纯 RAG 基线</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FOOTER ========== -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand">KAP · Knowledge Agent Platform</div>
+        <div class="footer-tagline">
+          全行业的、私有化部署的、AI-native 的企业知识治理全流程智能体平台。首批锁定制造与能源，向金融、政企、医疗、运营商等行业可扩展。<br><br>
+          基于 Wiki-map V15（AI 内核）+ ISS 知识库（企业级底座），整合升级。
+        </div>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Standards</div>
+        <ul>
+          <li>ISO 30401:2018</li>
+          <li>DAMA-DMBOK V2</li>
+          <li>DCMM GB/T 36073</li>
+          <li>ISA-95 / IEC 62264</li>
+          <li>IATF 16949 / ISO 9001</li>
+          <li>ISO 55000 / IEC 61850</li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Stack</div>
+        <ul>
+          <li>React 19 + Vite + TS</li>
+          <li>FastAPI + AsyncIO</li>
+          <li>Spring Cloud · Java 17</li>
+          <li>Milvus · Neo4j · PG · Redis</li>
+          <li>RabbitMQ · MinIO · Nacos</li>
+          <li>iRuidong LLM Gateway</li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Docs</div>
+        <ul>
+          <li>01-技术决策书 v1.0</li>
+          <li>02-产品需求 PRD v1.1</li>
+          <li>03-UI 设计规范 (TBD)</li>
+          <li>04-API 设计 (TBD)</li>
+          <li>05-数据模型 (TBD)</li>
+          <li>06-部署运维 (TBD)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 KAP · Internal Document · DRAFT v1.0</span>
+      <span>BLUEPRINT · ENGINEERING-CONSOLE AESTHETIC</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Smooth scroll for nav (browsers handle by default with scroll-behavior, but we add active state)
+document.querySelectorAll('.nav-link').forEach(link => {
+  link.addEventListener('click', (e) => {
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    link.classList.add('active');
+  });
+});
+
+// Live time tick (subtle realism)
+function updateClock() {
+  const dots = document.querySelectorAll('.status-dot');
+  // No-op — pulse already animated. Reserved for future.
+}
+setInterval(updateClock, 2400);
+
+// Section highlight on scroll (intersection observer)
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-link');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      navLinks.forEach(l => {
+        if (l.getAttribute('href') === '#' + id) {
+          navLinks.forEach(x => x.style.color = '');
+          navLinks.forEach(x => x.style.background = '');
+          l.style.color = 'var(--amber)';
+          l.style.background = 'var(--amber-soft)';
+        }
+      });
+    }
+  });
+}, { threshold: 0.4 });
+sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>

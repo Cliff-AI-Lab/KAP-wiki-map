@@ -1,0 +1,93 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.tox/
+.coverage
+.coverage.*
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# --- Node / Frontend ---
+node_modules/
+.npm/
+.eslintcache
+dist/
+.parcel-cache/
+.next/
+.nuxt/
+.cache/
+.vite/
+
+# --- Env / Secrets ---
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+!.env.example
+!.env.*.example
+*.pem
+*.key
+auth.json
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*.code-workspace
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# --- KAP project specific ---
+.kap-delegate/logs/
+.kap-delegate/cache/
+backend/.data/
+backend/.uploads/
+backend/data/
+backend/logs/
+frontend/dist/
+
+# V15 残留的 test data 文件名 GBK 编码乱码（M0 阶段不用）
+backend/test_docs/
+backend/test_data/
+
+# --- Wiki-map V15 残留（如有 V14 旧产物）---
+v14_screenshots/
+v15_screenshots/
+*.screenshot.png
+
+# --- Reference projects (只读，不入库)---
+_refs/
+
+# --- Memory (Claude 会话记忆，本地)---
+memory/
+
+# --- Database / 大文件 ---
+*.sqlite
+*.db
+*.sqlite3
+*.pkl
+*.faiss
+
+# --- Compiled docs ---
+docs/_build/
+docs/.docusaurus/

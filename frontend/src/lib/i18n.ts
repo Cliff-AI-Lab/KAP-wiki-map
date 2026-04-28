@@ -1,0 +1,207 @@
+/**
+ * 轻量 i18n 字典 — V15 Phase F
+ *
+ * 不引入 i18next。核心页面 key 手工维护。
+ * 新增 key 同时在 zh 和 en 两个 map 补。
+ */
+
+export type Locale = 'zh' | 'en';
+
+export type TranslationKey =
+  // 品牌 / 顶栏
+  | 'brand.name'
+  | 'brand.tagline'
+  | 'mode.read'
+  | 'mode.manage'
+  | 'mode.read.sub'
+  | 'mode.manage.sub'
+  | 'topbar.settings'
+  // ReaderHome
+  | 'reader.title'
+  | 'reader.searchPlaceholder'
+  | 'reader.searchBtn'
+  | 'reader.searching'
+  | 'reader.cardHotWiki'
+  | 'reader.cardDomainMap'
+  | 'reader.cardRecent'
+  | 'reader.emptyWiki'
+  | 'reader.emptyDomain'
+  | 'reader.emptyRecent'
+  | 'reader.emptyProject'
+  | 'reader.emptyProjectHint'
+  | 'reader.loadingProject'
+  | 'reader.sources'
+  | 'reader.routeWiki'
+  | 'reader.routeRag'
+  | 'reader.routeHybrid'
+  // GovernanceHome
+  | 'gov.title'
+  | 'gov.subtitle'
+  | 'gov.seedDemo'
+  | 'settings.tabSystem'
+  | 'gov.queueDetail'
+  | 'gov.countTotal'
+  | 'gov.emptyQueue'
+  | 'gov.btnApprove'
+  | 'gov.btnReject'
+  | 'gov.btnEdit'
+  | 'gov.kindDraft'
+  | 'gov.kindUnverified'
+  | 'gov.kindConflict'
+  | 'gov.kindStandardize'
+  | 'gov.kindArchive'
+  | 'gov.health'
+  | 'gov.healthSub'
+  | 'gov.metricCoverage'
+  | 'gov.metricFallback'
+  | 'gov.metricProvenance'
+  | 'gov.hintCoverage'
+  | 'gov.hintFallback'
+  | 'gov.hintProvenance'
+  // 设置
+  | 'settings.title'
+  | 'settings.tabAI'
+  | 'settings.tabTheme'
+  | 'settings.tabLocale'
+  | 'settings.tabAbout'
+  | 'settings.cancel'
+  | 'settings.save'
+  | 'settings.localeZh'
+  | 'settings.localeEn'
+  | 'settings.localeDesc';
+
+type Dict = Record<TranslationKey, string>;
+
+const zh: Dict = {
+  'brand.name': '知识图鉴',
+  'brand.tagline': 'Wiki-Map',
+  'mode.read': '消费',
+  'mode.manage': '治理',
+  'mode.read.sub': '读 Wiki / 查知识 / 问答',
+  'mode.manage.sub': '编译 / 审核 / 配置',
+  'topbar.settings': '设置',
+
+  'reader.title': '你好，在查什么？',
+  'reader.searchPlaceholder': '输入你的问题，例如：动火作业需要几级审批？',
+  'reader.searchBtn': '搜索',
+  'reader.searching': '思考中...',
+  'reader.cardHotWiki': '热门 Wiki',
+  'reader.cardDomainMap': '知识地图',
+  'reader.cardRecent': '最近问答',
+  'reader.emptyWiki': '尚无已编译 Wiki 页',
+  'reader.emptyDomain': '尚无已识别知识域',
+  'reader.emptyRecent': '还没问过问题',
+  'reader.emptyProject': '还没有项目',
+  'reader.emptyProjectHint': '请先去 /projects/new 创建一个知识项目',
+  'reader.loadingProject': '加载项目...',
+  'reader.sources': '来源',
+  'reader.routeWiki': 'Wiki 快路径',
+  'reader.routeRag': 'RAG 深检索',
+  'reader.routeHybrid': '双路径交叉',
+
+  'gov.title': '治理收件箱',
+  'gov.subtitle': 'planner · 每日 08:00 合单',
+  'gov.seedDemo': '种入示例工单',
+  'settings.tabSystem': '组件状态',
+  'gov.queueDetail': '工单详情',
+  'gov.countTotal': '共 {n} 条',
+  'gov.emptyQueue': '无待审工单（切换上方 Agent 或刷新）',
+  'gov.btnApprove': '通过',
+  'gov.btnReject': '打回',
+  'gov.btnEdit': '改',
+  'gov.kindDraft': 'draft 待审',
+  'gov.kindUnverified': '未溯源',
+  'gov.kindConflict': '事实冲突',
+  'gov.kindStandardize': '实体归一',
+  'gov.kindArchive': '建议归档',
+  'gov.health': '健康面板',
+  'gov.healthSub': 'gardener · 每日刷新',
+  'gov.metricCoverage': 'Wiki 覆盖率',
+  'gov.metricFallback': 'RAG 兜底率',
+  'gov.metricProvenance': '溯源完整度',
+  'gov.hintCoverage': '已编译 / 已识别域',
+  'gov.hintFallback': '数值越低说明治理起效',
+  'gov.hintProvenance': 'Auditor 统计',
+
+  'settings.title': '设置',
+  'settings.tabAI': 'AI 配置',
+  'settings.tabTheme': '主题外观',
+  'settings.tabLocale': '语言',
+  'settings.tabAbout': '关于',
+  'settings.cancel': '取消',
+  'settings.save': '保存',
+  'settings.localeZh': '中文',
+  'settings.localeEn': 'English',
+  'settings.localeDesc': '切换界面语言；仅影响显示，不影响后端数据',
+};
+
+const en: Dict = {
+  'brand.name': 'Wiki-Map',
+  'brand.tagline': 'Knowledge Atlas',
+  'mode.read': 'Read',
+  'mode.manage': 'Manage',
+  'mode.read.sub': 'Read Wiki / Search / Q&A',
+  'mode.manage.sub': 'Compile / Audit / Configure',
+  'topbar.settings': 'Settings',
+
+  'reader.title': 'What are you looking for?',
+  'reader.searchPlaceholder': 'Ask a question, e.g., how many approval levels does hot work need?',
+  'reader.searchBtn': 'Search',
+  'reader.searching': 'Thinking...',
+  'reader.cardHotWiki': 'Hot Wiki',
+  'reader.cardDomainMap': 'Knowledge Map',
+  'reader.cardRecent': 'Recent Q&A',
+  'reader.emptyWiki': 'No compiled wiki pages yet',
+  'reader.emptyDomain': 'No recognized domains yet',
+  'reader.emptyRecent': 'No questions asked yet',
+  'reader.emptyProject': 'No project yet',
+  'reader.emptyProjectHint': 'Go to /projects/new to create one',
+  'reader.loadingProject': 'Loading projects...',
+  'reader.sources': 'Sources',
+  'reader.routeWiki': 'Wiki fast path',
+  'reader.routeRag': 'RAG deep search',
+  'reader.routeHybrid': 'Dual cross-check',
+
+  'gov.title': 'Governance Inbox',
+  'gov.subtitle': 'planner · daily 08:00 digest',
+  'gov.seedDemo': 'Sample Items',
+  'settings.tabSystem': 'Components',
+  'gov.queueDetail': 'Queue Detail',
+  'gov.countTotal': '{n} items',
+  'gov.emptyQueue': 'No pending items (switch agent or refresh)',
+  'gov.btnApprove': 'Approve',
+  'gov.btnReject': 'Reject',
+  'gov.btnEdit': 'Edit',
+  'gov.kindDraft': 'draft pending',
+  'gov.kindUnverified': 'unverified',
+  'gov.kindConflict': 'conflict',
+  'gov.kindStandardize': 'standardize',
+  'gov.kindArchive': 'archive',
+  'gov.health': 'Health Panel',
+  'gov.healthSub': 'gardener · daily refresh',
+  'gov.metricCoverage': 'Wiki Coverage',
+  'gov.metricFallback': 'RAG Fallback',
+  'gov.metricProvenance': 'Provenance',
+  'gov.hintCoverage': 'compiled / recognized domains',
+  'gov.hintFallback': 'lower is better',
+  'gov.hintProvenance': 'Auditor sampling',
+
+  'settings.title': 'Settings',
+  'settings.tabAI': 'AI',
+  'settings.tabTheme': 'Theme',
+  'settings.tabLocale': 'Language',
+  'settings.tabAbout': 'About',
+  'settings.cancel': 'Cancel',
+  'settings.save': 'Save',
+  'settings.localeZh': '中文',
+  'settings.localeEn': 'English',
+  'settings.localeDesc': 'UI language only; backend data unaffected',
+};
+
+const DICTS: Record<Locale, Dict> = { zh, en };
+
+export function translate(locale: Locale, key: TranslationKey, vars?: Record<string, string | number>): string {
+  const raw = DICTS[locale]?.[key] ?? DICTS.zh[key] ?? key;
+  if (!vars) return raw;
+  return raw.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`));
+}
