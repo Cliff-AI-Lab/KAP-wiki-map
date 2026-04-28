@@ -297,8 +297,12 @@ def run_pipeline(
             pr.judge_result = judge
             pr.audit_result = audit_results.get(doc_id)
 
-            # 置信度低于阈值 → 进入人工审核队列
-            if judge.confidence < REVIEW_CONFIDENCE_THRESHOLD:
+            # M0-tech-debt 坑 3：优先用新 decide() 标记的 needs_review；
+            # 兼容旧路径：若 needs_review 未标记，回退到置信度阈值判断
+            should_review = judge.needs_review or (
+                judge.confidence < REVIEW_CONFIDENCE_THRESHOLD
+            )
+            if should_review:
                 pr.decision = judge.decision
                 pr.needs_review = True
                 batch.pending_review += 1
@@ -308,6 +312,8 @@ def run_pipeline(
                     doc_id=doc_id,
                     confidence=judge.confidence,
                     proposed_decision=judge.decision.value,
+                    rule_hit=judge.rule_hit,
+                    reason=judge.decision_reason,
                 )
             elif judge.decision == Decision.KEEP:
                 pr.decision = judge.decision

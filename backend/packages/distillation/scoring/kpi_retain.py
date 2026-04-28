@@ -31,9 +31,11 @@ W_TIMELINESS = 0.4
 # 最大参考年龄：730 天（2 年），超过此年龄的文档时效性视为零
 T_MAX_DAYS = 730
 
-# 决策阈值（从配置读取，支持运行时调整）
-# KPI 低于 DISCARD_THRESHOLD → 候选丢弃
-# KPI 低于 ARCHIVE_THRESHOLD → 候选归档
+# ⚠️ DEPRECATED · M0-tech-debt 坑 3 改造（2026-04-28）
+# 决策阈值已迁移到 packages/distillation/scoring/judge_thresholds.py
+# 通过 load_thresholds(industry) 按行业模板加载。
+# 此处保留模块级常量仅为向后兼容，新代码请直接使用 JudgeThresholds 实例。
+# 计划在 M1 阶段彻底移除（待全部调用方迁移完毕）。
 DISCARD_THRESHOLD: float = settings.kpi_discard_threshold
 ARCHIVE_THRESHOLD: float = settings.kpi_archive_threshold
 

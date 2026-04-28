@@ -1,0 +1,23 @@
+# KAP · 能源行业 Judge 决策阈值
+#
+# 调优思路（基于 V15 energy-test-results.md 的 5/12=42% KEEP 率经验）：
+#   - 适度放宽 discard_threshold（V15 默认 0.20 误丢偏多）
+#   - archive 线适度收紧，让更多文档进 review 通道而不是直接归档
+#   - review 带覆盖范围扩大，让 SME 有机会人工复核中间地带
+#   - confidence_floor 略高，避免 mock LLM 假高置信度大量丢弃
+
+# 比默认略宽 0.05，减少误丢
+discard_threshold: 0.15
+
+# 比默认收紧 0.05，让中间地带进 review 而不是 archive
+archive_threshold: 0.40
+
+# 比默认略高，对 LLM DISCARD 更谨慎（V15 mock LLM 假高分场景多）
+confidence_floor: 0.85
+
+redundancy_weight: 1.0
+
+# Review 带扩大到 [0.20, 0.60]，覆盖更多中间情况
+review_band_low: 0.20
+review_band_high: 0.60
+review_confidence_max: 0.65

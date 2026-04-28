@@ -1,0 +1,12 @@
+# KAP · 制造行业 Judge 决策阈值（M0 占位）
+#
+# 现状：M0 阶段制造行业模板尚未完整建设，本文件仅占位，沿用默认值。
+# 待 M1 完整制造模板包就绪后调优（含 ISA-95 / IATF 16949 / ISO 9001 实测数据）。
+
+discard_threshold: 0.20
+archive_threshold: 0.45
+confidence_floor: 0.80
+redundancy_weight: 1.0
+review_band_low: 0.30
+review_band_high: 0.55
+review_confidence_max: 0.60

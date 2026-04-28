@@ -1,0 +1,25 @@
+# KAP · 默认 Judge 决策阈值
+#
+# 当 backend 未配置 industry 或行业模板缺失时使用。
+# 字段语义见 packages/distillation/scoring/judge_thresholds.py。
+#
+# 改动指引：
+#   - 阈值变化必须配套跑回归测试集，避免大面积误丢弃 / 误归档
+#   - 行业专属覆盖请新建 templates/<industry>/judge-thresholds.yaml
+
+# KPI 低于此值且 LLM 也判 DISCARD → 丢弃
+discard_threshold: 0.20
+
+# KPI 低于此值或 LLM 判 ARCHIVE → 归档
+archive_threshold: 0.45
+
+# LLM DISCARD 决策的最低置信度门槛（高于此 → 尊重 LLM）
+confidence_floor: 0.80
+
+# 冗余度权重（预留，当前未使用，保留扩展位）
+redundancy_weight: 1.0
+
+# Review 带：KPI 落入此区间 + 置信度 < review_confidence_max → 挂起待 SME 复核
+review_band_low: 0.30
+review_band_high: 0.55
+review_confidence_max: 0.60

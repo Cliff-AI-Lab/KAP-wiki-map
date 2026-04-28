@@ -139,13 +139,26 @@ class JudgeReasoning(BaseModel):
 
 
 class JudgeResult(BaseModel):
-    """Judge Agent 的输出。"""
+    """Judge Agent 的输出。
+
+    M0-tech-debt 坑 3 改造新增追溯字段：
+
+    - ``needs_review``：规则 R3 命中（KPI 居中 + 低置信度）→ 需 SME 复核
+    - ``rule_hit``：决策命中的规则编号（R1/R2/R3/R4/R5），便于审计
+    - ``decision_reason``：人类可读的决策理由
+    - ``thresholds_source``：阈值来源（``yaml:templates/<industry>/judge-thresholds.yaml`` 等）
+    """
     reasoning: JudgeReasoning = Field(default_factory=JudgeReasoning)
     decision: Decision = Decision.KEEP
     confidence: float = 0.5
     kpi_retain: float = 0.5
     summary: str = ""
     key_entities: list[str] = Field(default_factory=list)
+    # ── 决策追溯字段（M0-tech-debt 坑 3）──
+    needs_review: bool = False
+    rule_hit: str = ""
+    decision_reason: str = ""
+    thresholds_source: str = ""
 
 
 class EntityRelation(BaseModel):
