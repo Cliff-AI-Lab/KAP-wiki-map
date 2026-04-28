@@ -50,6 +50,7 @@ auth.json
 *.swp
 *.swo
 *.code-workspace
+.claude/                    # Claude Code 本地状态
 
 # --- OS ---
 .DS_Store
