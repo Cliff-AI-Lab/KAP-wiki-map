@@ -526,7 +526,7 @@ async def ingest_demo_data(
     from packages.connectors.feishu import FeishuConnector
     from packages.connectors.dingtalk import DingTalkConnector
     from packages.connectors.wecom import WeComConnector
-    from packages.distillation.pipeline import run_pipeline
+    from packages.distillation.pipeline import arun_pipeline
     from packages.common.types import Decision, DocumentCard
     from packages.storage.chunker import chunk_document
     from packages.storage.embedder import embed_texts
@@ -636,7 +636,7 @@ async def ingest_demo_data(
     log.info("raw_store_saved", count=len(all_docs))
 
     # Phase 2: 蒸馏（传入项目级知识域列表）
-    batch = run_pipeline(all_docs, domain_list_text=project_domain_list)
+    batch = await arun_pipeline(all_docs, domain_list_text=project_domain_list)
     doc_map = {d.doc_id: d for d in all_docs}
 
     # Phase 3: 入库（处理所有决策类型：KEEP/ARCHIVE/DISCARD）
@@ -853,7 +853,7 @@ async def ingest_files(
     """
     import hashlib
     from datetime import datetime, timezone
-    from packages.distillation.pipeline import run_pipeline
+    from packages.distillation.pipeline import arun_pipeline
     from packages.common.types import Decision, DocumentCard, RawDocument, SourceSystem
     from packages.storage.chunker import chunk_document
     from packages.storage.embedder import embed_texts
@@ -894,7 +894,7 @@ async def ingest_files(
         raise HTTPException(status_code=400, detail=f"无可处理的文件。{'; '.join(parse_errors)}")
 
     # 蒸馏
-    batch = run_pipeline(raw_docs, domain_list_text=project_domain_list)
+    batch = await arun_pipeline(raw_docs, domain_list_text=project_domain_list)
     doc_map = {d.doc_id: d for d in raw_docs}
 
     # 入库（复用 ingest-demo 的逻辑）
@@ -1092,7 +1092,7 @@ async def analyze_files(
     import hashlib
     import uuid
     from datetime import datetime, timezone
-    from packages.distillation.pipeline import run_pipeline
+    from packages.distillation.pipeline import arun_pipeline
     from packages.common.types import RawDocument, SourceSystem
     from pathlib import Path
 
@@ -1138,7 +1138,7 @@ async def analyze_files(
             log.warning("analyze_raw_store_save_failed", doc_id=doc.doc_id, error=str(e))
 
     # Phase 3: 蒸馏分析（不入库）
-    batch = run_pipeline(raw_docs, domain_list_text=project_domain_list)
+    batch = await arun_pipeline(raw_docs, domain_list_text=project_domain_list)
 
     # Phase 4: 构建分析结果
     doc_map = {d.doc_id: d for d in raw_docs}
