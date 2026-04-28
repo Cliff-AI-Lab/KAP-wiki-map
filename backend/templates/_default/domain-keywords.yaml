@@ -1,0 +1,54 @@
+# KAP · 默认 Domain 关键词字典
+#
+# 当 backend 未配置 industry 或行业模板缺失时使用。
+# 字段语义见 packages/distillation/domain_inference.py。
+#
+# 规则约定：
+#   - priority 越大优先级越高，优先匹配具体子域（数值范围建议：100/80/60/40/20/10）
+#   - 同 priority 时取命中关键词数最多的
+#   - 仍并列时取 domain_id 字典序较前的（确定性）
+#   - 兜底未匹配 → routing_pending（不再硬编码 regulation）
+
+rules:
+  # ───── 通用企业（财务 / 人事 / 制度）─────
+  - domain_id: "regulation/finance"
+    priority: 60
+    keywords: ["报销", "费用", "差旅", "财务"]
+
+  - domain_id: "regulation/hr"
+    priority: 60
+    keywords: ["入职", "离职", "考勤", "人事", "招聘"]
+
+  - domain_id: "regulation"
+    priority: 30
+    keywords: ["制度", "规定", "管理办法"]
+
+  # ───── 技术类 ─────
+  - domain_id: "tech/architecture"
+    priority: 60
+    keywords: ["架构", "选型", "技术方案", "设计文档"]
+
+  - domain_id: "tech/deploy"
+    priority: 60
+    keywords: ["部署", "Docker", "运维", "服务器", "容器"]
+
+  - domain_id: "tech/api"
+    priority: 60
+    keywords: ["API", "接口文档", "REST", "Swagger"]
+
+  - domain_id: "tech"
+    priority: 20
+    keywords: ["技术", "代码", "开发"]
+
+  # ───── 项目 / 产品 ─────
+  - domain_id: "project/sprint"
+    priority: 60
+    keywords: ["Sprint", "迭代", "敏捷"]
+
+  - domain_id: "project"
+    priority: 20
+    keywords: ["项目", "会议", "纪要"]
+
+  - domain_id: "product"
+    priority: 20
+    keywords: ["产品", "功能", "需求"]

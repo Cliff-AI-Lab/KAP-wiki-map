@@ -1,0 +1,76 @@
+# KAP · 能源行业 Domain 关键词字典
+#
+# 来源：原 llm_client._mock_infer_domain_id 的能源行业匹配逻辑（V15 实测）
+# 53 域知识体系参考：_refs/wiki-map/bookworm-agent/docs/energy-test-results.md
+
+rules:
+  # ───── 安全管理（细分优先）─────
+  - domain_id: "energy/safety/hazard"
+    priority: 100
+    keywords: ["隐患", "安全检查", "安全隐患", "排查"]
+
+  - domain_id: "energy/safety/training"
+    priority: 100
+    keywords: ["安全培训", "安全教育", "特种作业"]
+
+  - domain_id: "energy/safety/permit"
+    priority: 100
+    keywords: ["作业许可", "动火", "高处作业", "受限空间"]
+
+  - domain_id: "energy/safety"
+    priority: 70
+    keywords: ["安全", "安全生产", "安全管理"]
+
+  # ───── 生产管理 ─────
+  - domain_id: "energy/production/equipment/maintenance"
+    priority: 100
+    keywords: ["检维修规程", "预防性维护"]
+
+  - domain_id: "energy/production/equipment/inspection"
+    priority: 100
+    keywords: ["巡检标准", "巡检"]
+
+  - domain_id: "energy/production/equipment/fault"
+    priority: 100
+    keywords: ["故障处理", "故障手册"]
+
+  - domain_id: "energy/production/equipment"
+    priority: 80
+    keywords: ["设备", "检修", "维护", "维修"]
+
+  - domain_id: "energy/production/process/sop"
+    priority: 100
+    keywords: ["标准操作", "SOP", "操作规程"]
+
+  - domain_id: "energy/production/process/params"
+    priority: 100
+    keywords: ["工艺参数", "参数标准"]
+
+  - domain_id: "energy/production/process/optimization"
+    priority: 100
+    keywords: ["工艺优化", "优化记录"]
+
+  - domain_id: "energy/production/scheduling"
+    priority: 100
+    keywords: ["生产调度", "调度", "排产"]
+
+  - domain_id: "energy/production"
+    priority: 60
+    keywords: ["生产", "运行"]
+
+  # ───── 环保 / 应急 / 物流 / 采购 ─────
+  - domain_id: "energy/environment"
+    priority: 80
+    keywords: ["环保", "环境", "排放", "废水", "废气"]
+
+  - domain_id: "energy/emergency"
+    priority: 80
+    keywords: ["应急", "救援", "预案", "事故处置"]
+
+  - domain_id: "energy/logistics"
+    priority: 80
+    keywords: ["物流", "仓储", "运输", "配送"]
+
+  - domain_id: "energy/procurement"
+    priority: 80
+    keywords: ["采购", "供应商", "招标"]

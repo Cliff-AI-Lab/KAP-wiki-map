@@ -1,0 +1,45 @@
+# KAP · 制造行业 Domain 关键词字典（M0 占位）
+#
+# 现状：M0 阶段制造行业模板尚未完整建设，本文件仅基础占位。
+# M1 完整模板包就绪后扩充至 ISA-95 / IATF 16949 / ISO 9001 全套关键词。
+
+rules:
+  # ───── 研发体系 ─────
+  - domain_id: "manufacturing/rnd/design"
+    priority: 80
+    keywords: ["设计图纸", "结构设计", "CAD"]
+
+  - domain_id: "manufacturing/rnd/test"
+    priority: 80
+    keywords: ["试验", "性能验证", "型式试验"]
+
+  - domain_id: "manufacturing/rnd"
+    priority: 50
+    keywords: ["研发", "项目立项", "技术开发"]
+
+  # ───── 工艺与制造 ─────
+  - domain_id: "manufacturing/process/sop"
+    priority: 100
+    keywords: ["工艺规程", "操作规程", "SOP"]
+
+  - domain_id: "manufacturing/process/assembly"
+    priority: 80
+    keywords: ["装配", "总装", "试运行"]
+
+  - domain_id: "manufacturing/process"
+    priority: 60
+    keywords: ["工艺", "生产工艺"]
+
+  # ───── 质量与检验 ─────
+  - domain_id: "manufacturing/quality/inspection"
+    priority: 80
+    keywords: ["检验", "出厂检验", "首检"]
+
+  - domain_id: "manufacturing/quality"
+    priority: 60
+    keywords: ["质量", "质检", "QC"]
+
+  # ───── 设备与维保 ─────
+  - domain_id: "manufacturing/equipment"
+    priority: 60
+    keywords: ["设备", "保养", "维修"]

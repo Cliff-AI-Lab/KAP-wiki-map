@@ -1,11 +1,20 @@
 """Refiner Agent — 语义提炼。
 
 将通过质量审核的文档转化为结构化知识资产：摘要、目录、关键词、实体关系。
+
+M0-tech-debt 改造（坑 4b + 额外坑 B + 额外坑 E）：
+
+- ``_get_domain_list`` 由全局单例缓存改为按 ``(org_id, project_id)`` 维度缓存
+  → 修复多租户污染（决策书 §1.4 单实例多业务单元逻辑隔离）
+- ``_clean_domain_id`` 迁移至 ``packages.distillation.domain_inference`` 共享模块
+  → 与 ``_mock_infer_domain_id`` 共用统一净化逻辑
+- 兜底域名从 ``"regulation"`` 改为 ``ROUTING_PENDING_DOMAIN_ID``
+  → 未识别文档进入 W2 工位 DG 主审队列（决策书 §5.2）
 """
 
 from __future__ import annotations
 
-import re
+from functools import lru_cache
 
 from packages.common import get_logger
 from packages.common.types import (
@@ -16,30 +25,55 @@ from packages.common.types import (
     RawDocument,
     RefinedResult,
 )
+from packages.distillation.domain_inference import (
+    ROUTING_PENDING_DOMAIN_ID,
+    clean_domain_id as _clean_domain_id,
+)
 from packages.distillation.llm_client import call_llm_json
 from packages.distillation.prompts.templates import REFINER_SYSTEM, REFINER_USER
 
 log = get_logger("agent.refiner")
 
-# 从 Skills 动态生成知识域列表（只加载一次）
-_domain_list_cache: str | None = None
 
+@lru_cache(maxsize=128)
+def _get_domain_list(org_id: str = "default", project_id: str = "default") -> str:
+    """按 (org_id, project_id) 维度获取 Skills 定义的知识域列表文本。
 
-def _get_domain_list() -> str:
-    """获取当前组织 Skills 定义的知识域列表文本。"""
-    global _domain_list_cache
-    if _domain_list_cache is not None:
-        return _domain_list_cache
+    M0-tech-debt 修复：原 V15 用模块级单例缓存（``_domain_list_cache``），
+    多租户场景下第一个加载的 Skills 永久污染所有后续请求。改为 lru_cache
+    以 (org_id, project_id) 为键。
 
+    Args:
+        org_id: 组织 ID，对应 ``RawDocument.org_id``
+        project_id: 项目 ID（暂用 "default"，待 M1 项目维度扩展）
+
+    Returns:
+        知识域列表文本（fallback 到 taxonomy 时不为空）。
+
+    Notes:
+        - 缓存大小 128 项足够覆盖中等规模多租户场景
+        - 配置变更后调用 ``_get_domain_list.cache_clear()`` 强制重读
+    """
     try:
         from packages.retrieval.skills_loader import load_skills
+        # 注：skills_loader 当前不感知 (org_id, project_id)，是后续扩展位
         skills = load_skills()
-        _domain_list_cache = skills.to_refiner_domain_list()
-        if _domain_list_cache:
-            log.info("refiner_domain_list_from_skills", company=skills.company_alias)
-            return _domain_list_cache
-    except Exception as e:
-        log.warning("refiner_skills_load_failed", error=str(e))
+        text = skills.to_refiner_domain_list()
+        if text:
+            log.info(
+                "refiner_domain_list_from_skills",
+                org_id=org_id,
+                project_id=project_id,
+                company=skills.company_alias,
+            )
+            return text
+    except Exception as e:  # noqa: BLE001 — Skills 加载失败不应阻塞 Refiner
+        log.warning(
+            "refiner_skills_load_failed",
+            org_id=org_id,
+            project_id=project_id,
+            error=str(e),
+        )
 
     # fallback: 从 taxonomy 生成
     from packages.retrieval.taxonomy import get_default_taxonomy
@@ -47,45 +81,7 @@ def _get_domain_list() -> str:
     for d in get_default_taxonomy():
         prefix = "  - " if d.parent_id else "- "
         lines.append(f"{prefix}{d.domain_id}: {d.name} — {d.description[:80]}")
-    _domain_list_cache = "\n".join(lines)
-    return _domain_list_cache
-
-
-def _clean_domain_id(raw: str) -> str:
-    """清洗 LLM 返回的 domain_id，提取纯净的域路径。
-
-    LLM 可能返回:
-      - 正确: "tech/architecture"
-      - 带标注: "L1 [tech]: 技术文档 — ..."
-      - 多级拼接: "L1 [product]/L2 [product/roadmap]"
-      - 带引号: "'L1 [quality]'"
-    统一提取方括号中最具体（最长）的 domain_id。
-    """
-    if not raw:
-        return ""
-    raw = raw.strip().strip("'\"")
-
-    # 提取所有 [xxx] 中的内容
-    brackets = re.findall(r"\[([^\]]+)\]", raw)
-    if brackets:
-        # 取最长的（最具体的子域），如 [product] 和 [product/roadmap] 取后者
-        return max(brackets, key=len)
-
-    # 无方括号：可能是 "L1/product" 或 "tech/architecture" 格式
-    # 去掉 "L1 ", "L2 " 等前缀
-    cleaned = re.sub(r"^L\d+\s*", "", raw)
-    # 去掉 "L1/" 等前缀（如 "L1/product" → "product"）
-    cleaned = re.sub(r"^L\d+/", "", cleaned)
-    # 取冒号前的部分
-    if ":" in cleaned:
-        cleaned = cleaned.split(":")[0].strip()
-    # 取逗号前的部分
-    if "," in cleaned:
-        cleaned = cleaned.split(",")[0].strip()
-    # 去掉开头的斜杠
-    cleaned = cleaned.lstrip("/")
-
-    return cleaned
+    return "\n".join(lines)
 
 
 def _validate_and_fix_relations(
@@ -137,15 +133,23 @@ def run_refiner(
     doc: RawDocument,
     librarian_result: LibrarianResult,
     domain_list_text: str = "",
+    *,
+    project_id: str = "default",
 ) -> RefinedResult:
     """对 KEEP 的文档运行 Refiner Agent，提炼结构化知识。
 
     Args:
-        domain_list_text: 项目级知识域列表文本。为空时 fallback 到全局。
+        doc: 待精炼文档（含 ``org_id`` 用于多租户路由）
+        librarian_result: Librarian 阶段产出
+        domain_list_text: 项目级知识域列表文本。为空时按 ``doc.org_id`` + ``project_id`` 加载
+        project_id: 项目 ID（M1 扩展位，M0 保持 "default"）
     """
-    log.info("refiner_start", doc_id=doc.doc_id)
+    log.info("refiner_start", doc_id=doc.doc_id, org_id=doc.org_id, project_id=project_id)
 
-    effective_domain_list = domain_list_text or _get_domain_list()
+    effective_domain_list = domain_list_text or _get_domain_list(
+        org_id=doc.org_id,
+        project_id=project_id,
+    )
 
     user_prompt = REFINER_USER.format(
         title=doc.title,
@@ -177,7 +181,8 @@ def run_refiner(
         index_text = _build_index_text(doc.title, summary, catalog, keywords)
 
     # 知识域匹配 + 文档描述（给 LLM 路由用的）
-    domain_id = _clean_domain_id(data.get("domain_id", ""))
+    # 兜底改 routing_pending（M0-tech-debt 坑 4b）：未识别 → 进 W2 DG 主审队列
+    domain_id = _clean_domain_id(data.get("domain_id", "")) or ROUTING_PENDING_DOMAIN_ID
     doc_description = data.get("doc_description", "")
     key_elements = data.get("key_elements", [])
 

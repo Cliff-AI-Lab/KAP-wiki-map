@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -269,64 +270,54 @@ def _mock_judge(prompt: str) -> str:
 
 
 def _mock_infer_domain_id(prompt: str, title_text: str = "") -> str:
-    """V8: 从文档内容推断 domain_id（Mock模式）。"""
-    # 优先从标题+正文前500字推断，避免 prompt 模板中的干扰词
+    """从文档内容推断 domain_id（Mock 模式）。
+
+    M0-tech-debt 坑 4b 改造：原硬编码 50+ 行 if-else 已迁移到
+    ``backend/templates/<industry>/domain-keywords.yaml``。本函数现在只是
+    薄包装，调用 ``domain_inference.infer_domain_id``。
+
+    兜底未识别 → ``ROUTING_PENDING_DOMAIN_ID``（不再硬编码 ``"regulation"``），
+    上游路由到 W2 工位 DG 主审队列。
+
+    Notes:
+        - 行业由 ``KAP_INDUSTRY_TEMPLATE`` 环境变量决定（默认 ``_default``）
+        - 若 prompt 中含 Refiner "## 可用知识域" 部分，作为最后一道 fallback
+    """
+    from packages.distillation.domain_inference import (
+        ROUTING_PENDING_DOMAIN_ID,
+        infer_domain_id,
+    )
+
     content_start = prompt.find("## 完整正文")
     if content_start > 0:
         content_part = prompt[content_start:content_start + 500]
     else:
         content_part = prompt[:500]
-    text = title_text + " " + content_part
-    # 能源行业知识体系匹配（优先精确路径）
-    if any(kw in text for kw in ["隐患", "安全检查", "安全隐患"]):
-        return "energy/safety/hazard"
-    if any(kw in text for kw in ["安全培训", "安全教育", "特种作业"]):
-        return "energy/safety/training"
-    if any(kw in text for kw in ["作业许可", "动火", "高处作业", "受限空间"]):
-        return "energy/safety/permit"
-    if any(kw in text for kw in ["安全", "安全生产", "安全管理"]):
-        return "energy/safety"
-    if any(kw in text for kw in ["环保", "环境", "排放", "废水", "废气"]):
-        return "energy/environment"
-    if any(kw in text for kw in ["设备", "检修", "维护", "维修"]):
-        return "energy/production/equipment"
-    if any(kw in text for kw in ["生产", "运行", "工艺", "操作规程"]):
-        return "energy/production"
-    if any(kw in text for kw in ["应急", "救援", "预案"]):
-        return "energy/emergency"
-    if any(kw in text for kw in ["物流", "仓储", "运输", "配送"]):
-        return "energy/logistics"
-    if any(kw in text for kw in ["采购", "供应商", "招标"]):
-        return "energy/procurement"
-    # 从 Refiner prompt 的知识域列表中匹配
+
+    industry = os.environ.get("KAP_INDUSTRY_TEMPLATE", "_default")
+
+    # 1. 行业 + 默认模板逐级匹配
+    result = infer_domain_id(content_part, industry=industry, title=title_text)
+    if result.domain_id != ROUTING_PENDING_DOMAIN_ID:
+        return result.domain_id
+
+    # 2. 行业未命中 + 不是 _default → 退回 _default 再试一次
+    if industry != "_default":
+        fallback = infer_domain_id(content_part, industry="_default", title=title_text)
+        if fallback.domain_id != ROUTING_PENDING_DOMAIN_ID:
+            return fallback.domain_id
+
+    # 3. 兜底：从 Refiner prompt 的"## 可用知识域"列表中找命中
     if "## 可用知识域" in prompt or "L1" in prompt:
+        text_window = (title_text + " " + content_part)[:2000]
         domain_lines = re.findall(r"\[([^\]]+)\]:\s*(.+?)(?:\n|$)", prompt)
         for did, dname in domain_lines:
             name_part = dname.split("—")[0].strip()
-            if any(kw in text[:2000] for kw in name_part.split() if len(kw) >= 2):
+            if any(kw in text_window for kw in name_part.split() if len(kw) >= 2):
                 return did
-    # 通用企业模板
-    if any(kw in text for kw in ["报销", "费用", "差旅", "采购"]):
-        return "regulation/finance"
-    if any(kw in text for kw in ["入职", "离职", "考勤", "人事"]):
-        return "regulation/hr"
-    if any(kw in text for kw in ["架构", "选型", "技术方案"]):
-        return "tech/architecture"
-    if any(kw in text for kw in ["部署", "Docker", "运维", "服务器"]):
-        return "tech/deploy"
-    if any(kw in text for kw in ["API", "接口文档"]):
-        return "tech/api"
-    if any(kw in text for kw in ["Sprint", "迭代"]):
-        return "project/sprint"
-    if any(kw in text for kw in ["制度", "规定", "管理办法"]):
-        return "regulation"
-    if any(kw in text for kw in ["产品", "功能", "需求"]):
-        return "product"
-    if any(kw in text for kw in ["技术", "代码", "开发"]):
-        return "tech"
-    if any(kw in text for kw in ["项目", "会议", "纪要"]):
-        return "project"
-    return "regulation"
+
+    # 4. 真正兜底：进 W2 主审队列
+    return ROUTING_PENDING_DOMAIN_ID
 
 
 def _mock_refiner(prompt: str) -> str:
