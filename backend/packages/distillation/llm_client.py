@@ -1,4 +1,14 @@
-"""大模型 API 统一客户端 — 支持 OpenAI / Anthropic / Mock 模式。"""
+"""大模型 API 统一客户端 — 支持 OpenAI / Anthropic / Mock 模式。
+
+M0-tech-debt 坑 1 改造（2026-04-28）：
+
+- 同步 ``call_llm`` / ``call_llm_json`` 保留作为兼容入口（M0 双轨期）
+- 新增 ``acall_llm`` / ``acall_llm_json`` 异步版本（基于 ``httpx.AsyncClient``）
+- 新增 ``_get_async_openai`` / ``_get_async_anthropic`` 异步单例
+- ``verify`` 参数从 settings.llm_verify_ssl 读取（坑 D：sandbox/prod 强制 True）
+- mock fallback 受 ``settings.allow_mock_llm`` 门控（坑 F：sandbox/prod 强制禁用）
+- 异常路径不再静默回落 mock，让上层感知真实故障
+"""
 
 from __future__ import annotations
 
@@ -6,15 +16,24 @@ import json
 import os
 import re
 
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_not_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from packages.common import get_logger, settings
 from packages.common.exceptions import LLMCallError
 
 log = get_logger("llm_client")
 
+# 同步单例（M0 双轨期保留）
 _openai_client = None
 _anthropic_client = None
+# 异步单例（坑 1 新增）
+_async_openai_client = None
+_async_anthropic_client = None
 
 
 def _get_openai():
@@ -23,8 +42,7 @@ def _get_openai():
         from openai import OpenAI
         import httpx
 
-        # 睿动平台等部分 API 需要跳过 SSL 验证
-        http_client = httpx.Client(verify=False)
+        http_client = httpx.Client(verify=settings.llm_verify_ssl)
         _openai_client = OpenAI(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
@@ -40,6 +58,46 @@ def _get_anthropic():
 
         _anthropic_client = Anthropic(api_key=settings.anthropic_api_key)
     return _anthropic_client
+
+
+def _get_async_openai():
+    """异步 OpenAI 客户端（懒加载单例）。
+
+    Notes:
+        - ``httpx.AsyncClient`` 不能跨 event loop 复用；FastAPI 单 worker 场景下
+          此单例工作正常；多 worker / pytest 多 loop 测试需考虑 lifespan 注册或
+          每次新建（M1 优化点）
+        - ``verify`` 由 ``settings.llm_verify_ssl`` 控制（坑 D）
+    """
+    global _async_openai_client
+    if _async_openai_client is None:
+        from openai import AsyncOpenAI
+        import httpx
+
+        http_client = httpx.AsyncClient(verify=settings.llm_verify_ssl)
+        _async_openai_client = AsyncOpenAI(
+            api_key=settings.openai_api_key,
+            base_url=settings.openai_base_url,
+            http_client=http_client,
+        )
+    return _async_openai_client
+
+
+def _get_async_anthropic():
+    """异步 Anthropic 客户端（懒加载单例）。"""
+    global _async_anthropic_client
+    if _async_anthropic_client is None:
+        from anthropic import AsyncAnthropic
+
+        _async_anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+    return _async_anthropic_client
+
+
+def reset_async_clients() -> None:
+    """重置异步单例。pytest-asyncio 多 event loop 场景或配置热更新时调用。"""
+    global _async_openai_client, _async_anthropic_client
+    _async_openai_client = None
+    _async_anthropic_client = None
 
 
 def _extract_json(text: str) -> dict:
@@ -635,7 +693,26 @@ def _has_valid_api_key() -> bool:
     return False
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+def _check_mock_allowed(reason: str) -> None:
+    """坑 F：mock 触发前检查 ``settings.allow_mock_llm``，禁用时抛错。
+
+    sandbox/prod 环境通过 ``Settings.model_post_init`` 强制 ``allow_mock_llm=False``，
+    无视用户输入；dev 环境可显式开启用于本地调试。
+    """
+    if not settings.allow_mock_llm:
+        raise LLMCallError(
+            f"mock LLM fallback 被禁用（kap_env={settings.kap_env}, "
+            f"allow_mock_llm=False）。触发原因：{reason}。"
+            f"如需 dev 阶段使用 mock，设置 KAP_ALLOW_MOCK_LLM=true。"
+        )
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(min=1, max=10),
+    retry=retry_if_not_exception_type(LLMCallError),
+    reraise=True,
+)
 def call_llm(
     system_prompt: str,
     user_prompt: str,
@@ -643,60 +720,51 @@ def call_llm(
     temperature: float = 0.1,
     max_tokens: int = 4096,
 ) -> str:
-    """调用大模型并返回文本响应。
+    """调用大模型并返回文本响应（同步版，M0 兼容入口）。
 
-    当 provider 为 mock 或 API Key 未配置时，自动使用 Mock 模式。
-    当 API 调用失败时，降级到 Mock 模式并记录警告。
+    M0-tech-debt 坑 F 改造：mock fallback 受 ``settings.allow_mock_llm`` 门控；
+    异常路径不再静默回落 mock，让 tenacity 重试 + 异常上抛接管。
     """
     provider = settings.llm_provider
     model = model or settings.llm_model
 
-    # Mock 模式：显式配置或无有效 API Key
-    if provider == "mock" or not _has_valid_api_key():
-        if provider != "mock":
-            log.warning("llm_no_api_key_fallback_mock", provider=provider)
-        else:
-            log.debug("llm_mock_call")
+    if provider == "mock":
+        _check_mock_allowed(reason="provider=mock")
+        log.debug("llm_mock_call")
         return _mock_llm_call(system_prompt, user_prompt)
 
-    try:
-        if provider == "openai":
-            client = _get_openai()
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=temperature,
-                max_tokens=max_tokens,
-                timeout=60,
-            )
-            return resp.choices[0].message.content or ""
+    if not _has_valid_api_key():
+        _check_mock_allowed(reason=f"missing api_key for provider={provider}")
+        log.warning("llm_no_api_key_fallback_mock", provider=provider)
+        return _mock_llm_call(system_prompt, user_prompt)
 
-        elif provider == "anthropic":
-            client = _get_anthropic()
-            resp = client.messages.create(
-                model=model,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
-                temperature=temperature,
-                max_tokens=max_tokens,
-                timeout=10,
-            )
-            return resp.content[0].text
-
-        else:
-            raise LLMCallError(f"不支持的 LLM provider: {provider}")
-
-    except Exception as e:
-        log.warning(
-            "llm_call_failed_fallback_mock",
-            provider=provider,
+    if provider == "openai":
+        client = _get_openai()
+        resp = client.chat.completions.create(
             model=model,
-            error=str(e),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=settings.llm_http_timeout,
         )
-        return _mock_llm_call(system_prompt, user_prompt)
+        return resp.choices[0].message.content or ""
+
+    if provider == "anthropic":
+        client = _get_anthropic()
+        resp = client.messages.create(
+            model=model,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=settings.llm_http_timeout,
+        )
+        return resp.content[0].text
+
+    raise LLMCallError(f"不支持的 LLM provider: {provider}")
 
 
 def call_llm_json(
@@ -705,10 +773,106 @@ def call_llm_json(
     model: str | None = None,
     temperature: float = 0.1,
 ) -> dict:
-    """调用大模型并解析 JSON 响应。"""
+    """调用大模型并解析 JSON 响应（同步版，M0 兼容入口）。"""
     raw = call_llm(system_prompt, user_prompt, model=model, temperature=temperature)
     try:
         return _extract_json(raw)
     except (json.JSONDecodeError, ValueError) as e:
         log.warning("llm_json_parse_failed", raw_length=len(raw), error=str(e))
+        raise LLMCallError(f"JSON 解析失败: {e}\n原始回复: {raw[:500]}") from e
+
+
+# ── 异步版本（坑 1 主要交付物）────────────────────────
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(min=1, max=10),
+    retry=retry_if_not_exception_type(LLMCallError),
+    reraise=True,
+)
+async def acall_llm(
+    system_prompt: str,
+    user_prompt: str,
+    model: str | None = None,
+    temperature: float = 0.1,
+    max_tokens: int = 4096,
+) -> str:
+    """调用大模型并返回文本响应（**异步版**，M0 主要入口）。
+
+    与同步版 ``call_llm`` 行为完全一致，区别：
+
+    - 用 ``AsyncOpenAI`` / ``AsyncAnthropic``，httpx.AsyncClient 不阻塞 event loop
+    - tenacity ``@retry`` 装饰 async 函数（tenacity ≥6.2 原生支持）
+    - timeout 统一用 ``settings.llm_http_timeout``（修原 60/10 不一致）
+    - mock fallback 受 ``settings.allow_mock_llm`` 门控（坑 F）
+    - 异常路径不静默回落 mock，让上层感知
+
+    Args:
+        system_prompt: 系统提示词
+        user_prompt: 用户提示词
+        model: 模型名（None 时用 ``settings.llm_model``）
+        temperature: 采样温度
+        max_tokens: 最大输出 token 数
+
+    Returns:
+        模型生成的文本
+
+    Raises:
+        LLMCallError: API 调用失败 / mock 被禁用 / 不支持的 provider
+    """
+    provider = settings.llm_provider
+    model = model or settings.llm_model
+
+    if provider == "mock":
+        _check_mock_allowed(reason="provider=mock")
+        log.debug("llm_mock_call_async")
+        return _mock_llm_call(system_prompt, user_prompt)
+
+    if not _has_valid_api_key():
+        _check_mock_allowed(reason=f"missing api_key for provider={provider}")
+        log.warning("llm_no_api_key_fallback_mock_async", provider=provider)
+        return _mock_llm_call(system_prompt, user_prompt)
+
+    if provider == "openai":
+        client = _get_async_openai()
+        resp = await client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=settings.llm_http_timeout,
+        )
+        return resp.choices[0].message.content or ""
+
+    if provider == "anthropic":
+        client = _get_async_anthropic()
+        resp = await client.messages.create(
+            model=model,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=settings.llm_http_timeout,
+        )
+        return resp.content[0].text
+
+    raise LLMCallError(f"不支持的 LLM provider: {provider}")
+
+
+async def acall_llm_json(
+    system_prompt: str,
+    user_prompt: str,
+    model: str | None = None,
+    temperature: float = 0.1,
+) -> dict:
+    """调用大模型并解析 JSON 响应（**异步版**）。"""
+    raw = await acall_llm(system_prompt, user_prompt, model=model, temperature=temperature)
+    try:
+        return _extract_json(raw)
+    except (json.JSONDecodeError, ValueError) as e:
+        log.warning("llm_json_parse_failed_async", raw_length=len(raw), error=str(e))
         raise LLMCallError(f"JSON 解析失败: {e}\n原始回复: {raw[:500]}") from e
