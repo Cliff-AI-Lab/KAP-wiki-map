@@ -67,51 +67,64 @@
 
 后续：M1 企业级 v1（4×6 矩阵 + 脱敏 + 制造模板）→ M2 块① → M3 高级治理 → M4 GA → M5 PoC。
 
-### M0 进度快照（2026-04-28，会话末）
+### M0 进度快照（2026-04-28 二次会话末）
 
-**已完成（8 commits / ~6.5 人时实际，对比 Opus 估算 28h，节省 76%）**：
+**已完成（15 commits / ~8.5 人时实际，对比 Opus 估算 56h，节省 85%）**：
 
-| Commit | 内容 |
-|---|---|
-| `1dd9ebd` | M0 Day 0 骨架 + V15 主干导入到 backend/ + frontend/ |
-| `b56dab5` | 加 .claude/ 到 .gitignore |
-| `ff41e39` | T1 · KAP 品牌化（元数据 / 镜像 / 容器命名）+ T5 Neo4j 加入 compose |
-| `25f9124` | T2 · M0 技术债务地图（Opus 4.7 via kap-delegate 产出 docs/M0-tech-debt.md）|
-| `7125455` | T4 · 三环境配置（.env.dev / .env.sandbox / .env.prod + master）|
-| `7d08a42` | 坑 3 · Judge 阈值外置 + 决策函数化（22 测全绿，含 R3 review 通道）|
-| `e8f7dad` | 坑 4a+4b · 行业模板加载器 + 多租户域推断（29 测全绿，附带修复额外坑 B）|
+| Commit | 内容 | 测试 |
+|---|---|---|
+| `1dd9ebd` | M0 Day 0 骨架 + V15 主干导入 | — |
+| `b56dab5` | 加 .claude/ 到 .gitignore | — |
+| `ff41e39` | T1 · KAP 品牌化 + T5 Neo4j compose | — |
+| `25f9124` | T2 · M0 技术债务地图（Opus 4.7 产出）| — |
+| `7125455` | T4 · 三环境配置（.env.dev/sandbox/prod + master）| — |
+| `7d08a42` | 坑 3 · Judge 阈值外置 + 决策函数化 + R3 review 通道 | +22 ✓ |
+| `e8f7dad` | 坑 4a+4b · 行业模板加载器 + 多租户域推断（含坑 B）| +29 ✓ |
+| `1560bbe` | CLAUDE.md 进度快照 v1 | — |
+| `ad8e2b9` | **坑 1 批 0** · 三环境 settings + verify_ssl/allow_mock 门控 | +18 ✓ |
+| `37b8b3e` | **坑 1 批 1** · llm_client 双轨（acall_llm/_json）+ 坑 D/F 落地 | +14 ✓ |
+| `e9d2fc1` | **坑 1 批 2** · 4 个 agent arun_* 异步入口 | +9 ✓ |
+| `c7a6b13` | **坑 1 批 3** · pipeline asyncio.gather + Semaphore | +6 ✓ |
+| `87949c5` | **坑 1 批 4** · API endpoint 切 `await arun_pipeline` | — |
 
-**下一项（按 Opus DAG）**：**坑 1 · LLM 全链路异步化**（M0 最大 PR，~16 人时）
+**今日成果（5 commits in 1 session，~2h 实际 vs Opus 估 16h）**：
+- 坑 1（LLM 全链路异步化）+ 顺手坑 D（verify_ssl 开关）+ 顺手坑 F（mock fallback 门控）全部修复
+- httpx.Client → AsyncClient，pipeline ThreadPoolExecutor → asyncio.gather
+- 双轨保留（sync run_* 仍可用，M0 兼容期不破坏其他调用方）
+- tenacity 优化：业务异常不重试 + reraise=True
+- 新增 `arun_pipeline` 是块②③ 入库主入口，API 三处（ingest_demo / ingest_files / analyze_files）已切换
 
-涉及范围（按改造层级）：
-1. `packages/distillation/llm_client.py` — `httpx.Client` → `httpx.AsyncClient`，`call_llm` / `call_llm_json` → `acall_llm` / `acall_llm_json`
-2. `packages/distillation/agents/{librarian,conflict_auditor,judge,refiner}.py` — 全部 `async def`
-3. `packages/distillation/pipeline.py` — orchestrator 异步化（`asyncio.gather` 并行）
-4. `tenacity @retry` → `AsyncRetrying` 或 retry 的 async 模式
-5. **顺手修复额外坑 D**：`verify=False` 加 settings 开关（dev 允许，sandbox/prod 强制 true）
-6. **顺手修复额外坑 F**：tenacity catch-all + mock fallback 静默冲突 → mock 加 env gate (`KAP_ALLOW_MOCK_LLM`)
-7. **顺手修复额外坑 A**：mock 业务规则剥离（mock 仅返回 schema 合规占位数据）
-8. 全链路 fixture 升级：`asyncio.to_thread` 兼容旧同步测试
+**剩余 M0 清单（按 Opus DAG 推荐顺序）**：
 
-**剩余 M0 清单**：
 ```
-[ ] 坑 1 · LLM 异步化（含坑 A/D/F）        16h ← 下次开工
-[ ] 坑 2 · Milvus ConnectionManager + 双向量 12h
-[ ] 坑 6 · EmbeddingProvider + bge 接入     10h
-[ ] 坑 5 · Neo4j GraphStore + InMemory 降级 20h
-[ ] 坑 7 · RBAC 中间件骨架                   8h
-[ ] 坑 8 · Milvus access_level 字段          6h
+[ ] 坑 6 · EmbeddingProvider + bge 接入         10h ← 推荐下次首项（独立度高，块③ 召回必备）
+[ ] 坑 2 · Milvus ConnectionManager + 双向量    12h（与坑 6 配套）
+[ ] 坑 5 · Neo4j GraphStore + InMemory 降级    20h（M0 最重）
+[ ] 坑 7 · RBAC 中间件骨架                       8h
+[ ] 坑 8 · Milvus access_level 字段              6h
 ```
+
+剩余约 56h Opus 估时；按当前实际节奏（~12% Opus 估算）实际可能 ~7-10h。
 
 ### 下次开工提示词模板
 
-继续 KAP M0 实施。本次目标：**坑 1 · LLM 全链路异步化**（参见 docs/M0-tech-debt.md §2）。
+继续 KAP M0 实施。本次目标：**坑 6 · EmbeddingProvider 抽象 + bge-large-zh 本地接入**（参见 docs/M0-tech-debt.md §2 坑 6）。
 
-建议工作流：
-1. 先用 `kap-delegate.py --task-type plan --mode diagnosis` 让 Opus 4.7 出**异步化迁移地图**（按文件给 diff 顺序、影响面、风险）
-2. 按层级分批改造（llm_client → agents → pipeline）
-3. 每层一个 commit + 跑 `tests/unit/` 套件验证零回归
-4. 最后端到端烟测（uvicorn 起服 + 一份测试文档跑完整 W1-W5）
+建议工作流（参照坑 1 5 批模式，已验证有效）：
+1. 先用 `kap-delegate.py --task-type plan --mode diagnosis` 让 Opus 4.7 出 embedding 模块改造地图
+2. 分批落地：
+   - 批 a · `EmbeddingProvider` 抽象类 + `MockEmbedding` / `BGELocalEmbedding` / `RuidongEmbedding` 三实现
+   - 批 b · `vector_store.py` 集成 + 写入时挂 `embedding_model_version` 元数据（坑 6 + 坑 2 联动）
+   - 批 c · API + pipeline 切换调用方
+3. 每批独立 commit + 跑 `tests/unit/` 套件验证零回归
+4. 关键约束：`KAP_ALLOW_MOCK_EMBEDDING` 环境变量门控（仿照 `allow_mock_llm`）；sandbox/prod 强制 False
+
+**项目当前状态可直接接续**：
+- 文档：`docs/01-技术决策书.md` v1.1 / `docs/02-产品需求PRD.md` v1.2 / `docs/M0-tech-debt.md` v1.0 / `docs/M0-tech-debt-async-plan.md` v1.0
+- 设计：`design/index.html`（Plan A UI 原型）
+- 工具：`scripts/kap-delegate.py`（默认 Opus 4.7 via 睿动 CRS Anthropic 端点）
+- 代码：`backend/` (Python FastAPI) + `frontend/` (React) + `infra/` (compose) 全部就绪
+- 测试基线：181/183 通过（仅 V15 既有 connector mock 数据漂移 2 项与 KAP 改造无关）
 
 ## 目录约定
 
