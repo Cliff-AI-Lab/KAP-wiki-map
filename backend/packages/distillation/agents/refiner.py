@@ -29,7 +29,7 @@ from packages.distillation.domain_inference import (
     ROUTING_PENDING_DOMAIN_ID,
     clean_domain_id as _clean_domain_id,
 )
-from packages.distillation.llm_client import call_llm_json
+from packages.distillation.llm_client import acall_llm_json, call_llm_json
 from packages.distillation.prompts.templates import REFINER_SYSTEM, REFINER_USER
 
 log = get_logger("agent.refiner")
@@ -129,37 +129,36 @@ def _build_index_text(doc_title: str, summary: str, catalog: list[CatalogSection
     return " ".join(parts)
 
 
-def run_refiner(
+def _build_user_prompt(
     doc: RawDocument,
     librarian_result: LibrarianResult,
-    domain_list_text: str = "",
-    *,
-    project_id: str = "default",
-) -> RefinedResult:
-    """对 KEEP 的文档运行 Refiner Agent，提炼结构化知识。
+    domain_list_text: str,
+    project_id: str,
+) -> tuple[str, str]:
+    """组装 Refiner 用户提示词（纯函数，sync/async 共用）。
 
-    Args:
-        doc: 待精炼文档（含 ``org_id`` 用于多租户路由）
-        librarian_result: Librarian 阶段产出
-        domain_list_text: 项目级知识域列表文本。为空时按 ``doc.org_id`` + ``project_id`` 加载
-        project_id: 项目 ID（M1 扩展位，M0 保持 "default"）
+    Returns:
+        (effective_domain_list, user_prompt) 元组，其中 domain_list 已应用
+        多租户缓存（按 (org_id, project_id) 维度）
     """
-    log.info("refiner_start", doc_id=doc.doc_id, org_id=doc.org_id, project_id=project_id)
-
     effective_domain_list = domain_list_text or _get_domain_list(
         org_id=doc.org_id,
         project_id=project_id,
     )
-
     user_prompt = REFINER_USER.format(
         title=doc.title,
         doc_type=librarian_result.doc_type.value,
         full_content=doc.content[:8000],
         domain_list=effective_domain_list,
     )
+    return effective_domain_list, user_prompt
 
-    data = call_llm_json(REFINER_SYSTEM, user_prompt)
 
+def _build_refined_result(data: dict, doc: RawDocument) -> RefinedResult:
+    """从 LLM 返回 JSON 构造 RefinedResult（纯函数，sync/async 共用）。
+
+    包括 catalog / domain_id / 实体关系 / 关系后置校验。
+    """
     # 解析 catalog — 兼容旧格式（plain dict）和新格式（含 key_terms）
     catalog_raw = data.get("catalog", [])
     catalog = []
@@ -175,26 +174,20 @@ def run_refiner(
     keywords = data.get("keywords", [])
     summary = data.get("summary", "")
 
-    # index_text: 优先用 LLM 生成的，否则自动拼接
     index_text = data.get("index_text", "")
     if not index_text:
         index_text = _build_index_text(doc.title, summary, catalog, keywords)
 
-    # 知识域匹配 + 文档描述（给 LLM 路由用的）
-    # 兜底改 routing_pending（M0-tech-debt 坑 4b）：未识别 → 进 W2 DG 主审队列
+    # 知识域匹配 + 文档描述（坑 4b：兜底 routing_pending → W2 DG 主审队列）
     domain_id = _clean_domain_id(data.get("domain_id", "")) or ROUTING_PENDING_DOMAIN_ID
     doc_description = data.get("doc_description", "")
     key_elements = data.get("key_elements", [])
 
     if not doc_description:
-        # fallback: 从 summary 生成
         doc_description = f"本文档《{doc.title}》{summary[:200]}"
 
-    # 解析实体（V8: 兼容新增的8种类型）
     raw_entities = [MentionedEntity(**e) for e in data.get("entities", [])]
     raw_relations = [EntityRelation(**r) for r in data.get("relations", [])]
-
-    # V8: 后置校验 — 过滤无效关系（source/target 必须在 entities 中）
     validated_relations = _validate_and_fix_relations(raw_entities, raw_relations)
 
     if len(validated_relations) < len(raw_relations):
@@ -205,7 +198,7 @@ def run_refiner(
             valid=len(validated_relations),
         )
 
-    result = RefinedResult(
+    return RefinedResult(
         summary=summary,
         catalog=catalog,
         keywords=keywords,
@@ -217,8 +210,58 @@ def run_refiner(
         key_elements=key_elements,
     )
 
+
+def run_refiner(
+    doc: RawDocument,
+    librarian_result: LibrarianResult,
+    domain_list_text: str = "",
+    *,
+    project_id: str = "default",
+) -> RefinedResult:
+    """对 KEEP 的文档运行 Refiner Agent（**同步版**，M0 兼容入口）。
+
+    Args:
+        doc: 待精炼文档（含 ``org_id`` 用于多租户路由）
+        librarian_result: Librarian 阶段产出
+        domain_list_text: 项目级知识域列表文本。为空时按 ``(org_id, project_id)`` 加载
+        project_id: 项目 ID（M1 扩展位，M0 保持 "default"）
+    """
+    log.info("refiner_start", doc_id=doc.doc_id, org_id=doc.org_id, project_id=project_id)
+    _, user_prompt = _build_user_prompt(doc, librarian_result, domain_list_text, project_id)
+    data = call_llm_json(REFINER_SYSTEM, user_prompt)
+    result = _build_refined_result(data, doc)
     log.info(
         "refiner_done",
+        doc_id=doc.doc_id,
+        domain_id=result.domain_id,
+        summary_len=len(result.summary),
+        catalog_count=len(result.catalog),
+        keyword_count=len(result.keywords),
+        entity_count=len(result.entities),
+        relation_count=len(result.relations),
+    )
+    return result
+
+
+async def arun_refiner(
+    doc: RawDocument,
+    librarian_result: LibrarianResult,
+    domain_list_text: str = "",
+    *,
+    project_id: str = "default",
+) -> RefinedResult:
+    """对 KEEP 的文档运行 Refiner Agent（**异步版**，坑 1 批 2 主要交付物）。"""
+    log.info(
+        "refiner_start_async",
+        doc_id=doc.doc_id,
+        org_id=doc.org_id,
+        project_id=project_id,
+    )
+    _, user_prompt = _build_user_prompt(doc, librarian_result, domain_list_text, project_id)
+    data = await acall_llm_json(REFINER_SYSTEM, user_prompt)
+    result = _build_refined_result(data, doc)
+    log.info(
+        "refiner_done_async",
         doc_id=doc.doc_id,
         domain_id=result.domain_id,
         summary_len=len(result.summary),

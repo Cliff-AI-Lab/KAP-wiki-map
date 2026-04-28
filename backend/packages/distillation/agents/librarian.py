@@ -24,7 +24,7 @@ from packages.common.types import (
     MentionedEntity,
     RawDocument,
 )
-from packages.distillation.llm_client import call_llm_json
+from packages.distillation.llm_client import acall_llm_json, call_llm_json
 from packages.distillation.prompts.templates import LIBRARIAN_SYSTEM, LIBRARIAN_USER
 
 log = get_logger("agent.librarian")
@@ -35,25 +35,9 @@ _DOC_TYPE_MAP = {v.value: v for v in DocType}
 _VALUE_MAP = {v.value: v for v in EstimatedValue}
 
 
-def run_librarian(doc: RawDocument) -> LibrarianResult:
-    """对单个文档运行 Librarian Agent，提取结构化元数据。
-
-    处理流程：
-      1. 使用文档的来源系统、标题、时间、正文预览等信息组装提示词
-      2. 调用 LLM 返回 JSON 格式的元数据
-      3. 解析并校验 doc_type 和 estimated_value，无效值降级为默认值
-      4. 构造 MentionedEntity 列表
-
-    Args:
-        doc: 原始文档对象，包含 doc_id、标题、正文、来源系统、时间戳等。
-
-    Returns:
-        LibrarianResult: 结构化元数据结果，包含文档类型、主题、实体、价值评估等。
-    """
-    log.info("librarian_start", doc_id=doc.doc_id, title=doc.title)
-
-    # 组装用户提示词，截取正文前 N 个字符作为预览
-    user_prompt = LIBRARIAN_USER.format(
+def _build_user_prompt(doc: RawDocument) -> str:
+    """组装 Librarian 用户提示词（纯函数，sync/async 共用）。"""
+    return LIBRARIAN_USER.format(
         source_system=doc.source_system.value,
         title=doc.title,
         created_at=str(doc.created_at or "未知"),
@@ -62,10 +46,12 @@ def run_librarian(doc: RawDocument) -> LibrarianResult:
         content_preview=doc.content[:settings.librarian_preview_chars],
     )
 
-    # 调用 LLM 获取 JSON 格式的元数据提取结果
-    data = call_llm_json(LIBRARIAN_SYSTEM, user_prompt)
 
-    # 解析 doc_type，若 LLM 返回值不在合法枚举中则降级为 OTHER 并记录警告
+def _parse_librarian_response(data: dict, doc: RawDocument) -> LibrarianResult:
+    """解析 LLM 返回的 JSON 为 LibrarianResult（纯函数，sync/async 共用）。
+
+    无效枚举值降级为默认（DocType.OTHER / EstimatedValue.MEDIUM），并记录警告。
+    """
     raw_doc_type = data.get("doc_type", "")
     doc_type = _DOC_TYPE_MAP.get(raw_doc_type)
     if doc_type is None:
@@ -77,7 +63,6 @@ def run_librarian(doc: RawDocument) -> LibrarianResult:
         )
         doc_type = DocType.OTHER
 
-    # 解析 estimated_value，若 LLM 返回值不在合法枚举中则降级为 MEDIUM
     raw_value = data.get("estimated_value", "MEDIUM")
     estimated_value = _VALUE_MAP.get(raw_value)
     if estimated_value is None:
@@ -88,8 +73,7 @@ def run_librarian(doc: RawDocument) -> LibrarianResult:
         )
         estimated_value = EstimatedValue.MEDIUM
 
-    # 组装最终结果，将实体列表中的每个 dict 转为 MentionedEntity 对象
-    result = LibrarianResult(
+    return LibrarianResult(
         doc_type=doc_type,
         version_id=data.get("version_id"),
         key_topics=data.get("key_topics", []),
@@ -100,8 +84,34 @@ def run_librarian(doc: RawDocument) -> LibrarianResult:
         estimated_value=estimated_value,
     )
 
+
+def run_librarian(doc: RawDocument) -> LibrarianResult:
+    """对单个文档运行 Librarian Agent，提取结构化元数据（**同步版**，M0 兼容入口）。"""
+    log.info("librarian_start", doc_id=doc.doc_id, title=doc.title)
+    user_prompt = _build_user_prompt(doc)
+    data = call_llm_json(LIBRARIAN_SYSTEM, user_prompt)
+    result = _parse_librarian_response(data, doc)
     log.info(
         "librarian_done",
+        doc_id=doc.doc_id,
+        doc_type=result.doc_type.value,
+        topics=result.key_topics,
+        entity_count=len(result.mentioned_entities),
+    )
+    return result
+
+
+async def arun_librarian(doc: RawDocument) -> LibrarianResult:
+    """对单个文档运行 Librarian Agent（**异步版**，坑 1 批 2 主要交付物）。
+
+    与 ``run_librarian`` 行为一致，区别：调 ``acall_llm_json`` 不阻塞 event loop。
+    """
+    log.info("librarian_start_async", doc_id=doc.doc_id, title=doc.title)
+    user_prompt = _build_user_prompt(doc)
+    data = await acall_llm_json(LIBRARIAN_SYSTEM, user_prompt)
+    result = _parse_librarian_response(data, doc)
+    log.info(
+        "librarian_done_async",
         doc_id=doc.doc_id,
         doc_type=result.doc_type.value,
         topics=result.key_topics,

@@ -31,7 +31,7 @@ from packages.common.types import (
     LibrarianResult,
 )
 from packages.distillation.agents.judge_decision import decide
-from packages.distillation.llm_client import call_llm_json
+from packages.distillation.llm_client import acall_llm_json, call_llm_json
 from packages.distillation.prompts.templates import JUDGE_SYSTEM, JUDGE_USER
 from packages.distillation.scoring.judge_thresholds import (
     JudgeThresholds,
@@ -42,43 +42,16 @@ from packages.distillation.scoring.kpi_retain import compute_kpi_retain
 log = get_logger("agent.judge")
 
 
-def run_judge(
+def _build_user_prompt(
     doc: RawDocument,
     librarian_result: LibrarianResult,
-    audit_result: AuditResult | None = None,
-    *,
-    industry: str | None = None,
-    thresholds: JudgeThresholds | None = None,
-) -> JudgeResult:
-    """对单个文档运行 Judge Agent，输出保留/归档/丢弃决策。
-
-    处理流程：
-      1. 组装 LLM 提示词（含文档正文摘要 + 冲突审计上下文）
-      2. 调用 LLM 获取四维度评分（时效性、密度、完整性、冗余度）及初步决策
-      3. 计算 KPI_retain 量化指标
-      4. 综合 LLM 判定与 KPI 阈值，输出最终决策
-
-    Args:
-        doc: 原始文档对象，包含 doc_id、标题、正文、时间戳等信息。
-        librarian_result: Librarian Agent 提取的元数据，包含文档类型等。
-        audit_result: Conflict Auditor 的审计结果（可选），包含重叠分数和冲突摘要。
-            若为 None 表示该文档未参与同类目冲突审计。
-        industry: 行业模板名（如 ``"energy"`` / ``"manufacturing"``）。指定后从
-            ``templates/<industry>/judge-thresholds.yaml`` 加载阈值；为 None 走默认。
-        thresholds: 直接传入的阈值集（覆盖 ``industry`` 参数），主要给单测用。
-
-    Returns:
-        JudgeResult: 包含推理过程、最终决策、置信度、KPI 值、摘要和关键实体。
-    """
-    log.info("judge_start", doc_id=doc.doc_id)
-
-    # 准备冲突审计上下文：若有审计摘要则注入，否则使用默认占位文本
+    audit_result: AuditResult | None,
+) -> str:
+    """组装 Judge 用户提示词（纯函数，sync/async 共用）。"""
     audit_context = "无同类目文档对比信息。"
     if audit_result and audit_result.summary:
         audit_context = audit_result.summary
-
-    # 组装用户提示词，填充文档基本信息和正文摘要
-    user_prompt = JUDGE_USER.format(
+    return JUDGE_USER.format(
         doc_id=doc.doc_id,
         title=doc.title,
         source_system=doc.source_system.value,
@@ -89,10 +62,19 @@ def run_judge(
         audit_context=audit_context,
     )
 
-    # 调用 LLM 获取 JSON 格式的评分与决策
-    data = call_llm_json(JUDGE_SYSTEM, user_prompt)
 
-    # 解析 LLM 输出：提取四维度评分（各维度 0-10 分），缺失字段默认 5 分
+def _build_judge_result(
+    data: dict,
+    doc: RawDocument,
+    audit_result: AuditResult | None,
+    industry: str | None,
+    thresholds: JudgeThresholds | None,
+) -> tuple[JudgeResult, Decision, float]:
+    """从 LLM 返回 JSON + KPI 计算 + 决策规则，构造 JudgeResult（纯函数）。
+
+    Returns:
+        (result, llm_decision, kpi)：第二三项供日志记录。
+    """
     reasoning_data = data.get("reasoning", {})
     reasoning = JudgeReasoning(
         recency_analysis=reasoning_data.get("recency_analysis", ""),
@@ -105,16 +87,17 @@ def run_judge(
         redundancy_score=float(reasoning_data.get("redundancy_score", 5)),
     )
 
-    # 解析 LLM 的初步决策和置信度；无效决策值降级为 KEEP
     llm_decision_str = data.get("decision", "KEEP").upper()
-    llm_decision = Decision(llm_decision_str) if llm_decision_str in Decision.__members__ else Decision.KEEP
+    llm_decision = (
+        Decision(llm_decision_str)
+        if llm_decision_str in Decision.__members__
+        else Decision.KEEP
+    )
     confidence = float(data.get("confidence", 0.5))
 
-    # ---- 计算 KPI_retain ----
     # 冗余度取 Auditor 的重叠分数与 LLM 冗余评分中的较大值
     redundancy = audit_result.max_overlap_score if audit_result else 0.0
-    # LLM redundancy_score 越高 → 冗余度越高 → KPI 惩罚越大
-    llm_redundancy = reasoning.redundancy_score / 10.0  # 归一化到 0-1
+    llm_redundancy = reasoning.redundancy_score / 10.0
     effective_redundancy = max(redundancy, llm_redundancy)
 
     kpi = compute_kpi_retain(
@@ -123,7 +106,6 @@ def run_judge(
         redundancy_score=effective_redundancy,
     )
 
-    # ---- 综合决策（外置阈值 + 纯函数）----
     active_thresholds = thresholds if thresholds is not None else load_thresholds(industry)
     outcome = decide(
         kpi=kpi,
@@ -139,24 +121,67 @@ def run_judge(
         kpi_retain=kpi,
         summary=data.get("summary", ""),
         key_entities=data.get("key_entities", []),
-        # ── M0-tech-debt 坑 3：决策追溯字段 ──
         needs_review=outcome.needs_review,
         rule_hit=outcome.rule_hit,
         decision_reason=outcome.reason,
         thresholds_source=outcome.thresholds_source,
     )
+    return result, llm_decision, kpi
 
+
+def run_judge(
+    doc: RawDocument,
+    librarian_result: LibrarianResult,
+    audit_result: AuditResult | None = None,
+    *,
+    industry: str | None = None,
+    thresholds: JudgeThresholds | None = None,
+) -> JudgeResult:
+    """对单个文档运行 Judge Agent（**同步版**，M0 兼容入口）。"""
+    log.info("judge_start", doc_id=doc.doc_id)
+    user_prompt = _build_user_prompt(doc, librarian_result, audit_result)
+    data = call_llm_json(JUDGE_SYSTEM, user_prompt)
+    result, llm_decision, kpi = _build_judge_result(
+        data, doc, audit_result, industry, thresholds
+    )
     log.info(
         "judge_done",
         doc_id=doc.doc_id,
         llm_decision=llm_decision.value,
         kpi_retain=kpi,
-        final_decision=outcome.decision.value,
-        confidence=confidence,
-        rule_hit=outcome.rule_hit,
-        needs_review=outcome.needs_review,
-        thresholds_source=outcome.thresholds_source,
-        industry=active_thresholds.industry,
+        final_decision=result.decision.value,
+        confidence=result.confidence,
+        rule_hit=result.rule_hit,
+        needs_review=result.needs_review,
+        thresholds_source=result.thresholds_source,
     )
+    return result
 
+
+async def arun_judge(
+    doc: RawDocument,
+    librarian_result: LibrarianResult,
+    audit_result: AuditResult | None = None,
+    *,
+    industry: str | None = None,
+    thresholds: JudgeThresholds | None = None,
+) -> JudgeResult:
+    """对单个文档运行 Judge Agent（**异步版**，坑 1 批 2 主要交付物）。"""
+    log.info("judge_start_async", doc_id=doc.doc_id)
+    user_prompt = _build_user_prompt(doc, librarian_result, audit_result)
+    data = await acall_llm_json(JUDGE_SYSTEM, user_prompt)
+    result, llm_decision, kpi = _build_judge_result(
+        data, doc, audit_result, industry, thresholds
+    )
+    log.info(
+        "judge_done_async",
+        doc_id=doc.doc_id,
+        llm_decision=llm_decision.value,
+        kpi_retain=kpi,
+        final_decision=result.decision.value,
+        confidence=result.confidence,
+        rule_hit=result.rule_hit,
+        needs_review=result.needs_review,
+        thresholds_source=result.thresholds_source,
+    )
     return result
