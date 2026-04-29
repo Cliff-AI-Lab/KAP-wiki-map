@@ -83,6 +83,10 @@ class Settings(BaseSettings):
         if env in (KAP_ENV_SANDBOX, KAP_ENV_PROD) and self.allow_mock_llm:
             object.__setattr__(self, "allow_mock_llm", False)
 
+        # 5a. sandbox / prod 强制 allow_memory_fallback=False（坑 2）
+        if env in (KAP_ENV_SANDBOX, KAP_ENV_PROD) and self.allow_memory_fallback:
+            object.__setattr__(self, "allow_memory_fallback", False)
+
         # 5. sandbox / prod 强制 allow_mock_embedding=False（坑 6）
         #    mock embedding 是哈希伪向量，prod 启用会让块③ 召回完全失效
         if env in (KAP_ENV_SANDBOX, KAP_ENV_PROD) and self.allow_mock_embedding:
@@ -118,9 +122,33 @@ class Settings(BaseSettings):
     neo4j_user: str = "neo4j"
     neo4j_password: str = "bookworm123"
 
-    # --- Milvus ---
+    # --- Milvus（坑 2 改造）---
     milvus_host: str = "localhost"
     milvus_port: int = 19530
+    milvus_alias: str = Field(
+        default="default",
+        description="pymilvus connection alias，多 collection 隔离用",
+    )
+    milvus_health_check_interval: float = Field(
+        default=30.0,
+        description="健康检查间隔（秒），低于此间隔不重复探活",
+    )
+    milvus_max_reconnect_attempts: int = Field(
+        default=3,
+        description="重连失败上限；超过则熔断抛 StorageError，不再降级内存",
+    )
+    milvus_reconnect_backoff_base: float = Field(
+        default=1.5,
+        description="重连指数退避基数（秒）",
+    )
+    allow_memory_fallback: bool = Field(
+        default=False,
+        description=(
+            "Milvus 不可用时是否降级内存模式（坑 2）。"
+            "False 时连接失败直接抛 StorageError，避免数据进内存重启丢。"
+            "dev 可设 True；sandbox/prod 强制 False"
+        ),
+    )
 
     # --- Redis ---
     redis_url: str = "redis://localhost:6379/0"
