@@ -626,7 +626,7 @@ async def ingest_demo_data(
     for doc in all_docs:
         doc.org_id = project_id
 
-    # V11: Phase 1.5 — 保存原始文档到 RawStore（不可变层）
+    # V11: Phase 1.5 — 保存原始文档到 RawStore（不可变层，**保存原文**）
     from api.deps import get_raw_store, get_wiki_store
     raw_store = get_raw_store()
     for doc in all_docs:
@@ -636,7 +636,25 @@ async def ingest_demo_data(
             log.warning("raw_store_save_failed", doc_id=doc.doc_id, error=str(e))
     log.info("raw_store_saved", count=len(all_docs))
 
-    # Phase 2: 蒸馏（传入项目级知识域列表）
+    # M2 #2: W1 脱敏 hook（决策书 §5.4 D10 工位嵌入）
+    # 在 RawStore 保存原文后，对 doc.content 就地脱敏 + 映射持久化；
+    # pipeline 后续基于脱敏文做嵌入 + 入库（vec_redacted 默认）
+    try:
+        from packages.sensitive.ingest_hook import redact_and_persist_doc
+        from packages.sensitive.mapping_store import get_mapping_store
+        mstore = get_mapping_store()
+        await mstore.initialize()
+        redact_count = 0
+        for doc in all_docs:
+            r = await redact_and_persist_doc(doc, mapping_store=mstore)
+            if r.tokens:
+                redact_count += 1
+        log.info("ingest_redaction_done", redacted_docs=redact_count, total=len(all_docs))
+    except Exception as e:
+        # 脱敏失败不阻断 ingest（轻量化兜底）；生产应升级为告警
+        log.warning("ingest_redaction_failed_continue", error=str(e))
+
+    # Phase 2: 蒸馏（传入项目级知识域列表，**基于脱敏文**）
     batch = await arun_pipeline(all_docs, domain_list_text=project_domain_list)
     doc_map = {d.doc_id: d for d in all_docs}
 
