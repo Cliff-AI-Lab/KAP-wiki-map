@@ -25,13 +25,21 @@ from packages.ontology.base import (
     register_l2,
     reset_registry_for_test,
 )
+from packages.ontology.store import (
+    OntologyStore,
+    get_ontology_store,
+    reset_store_for_test,
+)
 
 __all__ = [
     "OntologyRegistry",
+    "OntologyStore",
     "get_current_l1",
     "get_current_l2",
+    "get_ontology_store",
     "get_registry",
     "register_l1",
     "register_l2",
     "reset_registry_for_test",
+    "reset_store_for_test",
 ]
