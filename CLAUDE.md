@@ -65,9 +65,11 @@
 
 **M0 KAP-Lite 已完工**（2026-04-29）：基于 Wiki-map V15 + ISS 接入 + 睿动；9 大坑全部技改；块②③ 主流程跑通；测试 250/252 ✓。
 
-**下一阶段 M1 企业级 v1**：4×6 矩阵审核台 + 脱敏管线 + 制造模板 + ISS 集成深化。
+**M1 企业级 v1 已完工**（2026-04-29，同日 follow-up）：ISS 集成 + 4×6 矩阵审核台 + W4 写入侧 + 敏感脱敏 + 制造 Facet + 矩阵 UI。10 commits / ~7.5h vs 原估 60-80h。
 
-后续路线：M1 → M2 块①（咨询智能体）→ M3 高级治理 → M4 GA → M5 PoC。
+**下一阶段 M2**：obsidian 风格力导向图谱 + LLM-Critic 6 维质疑 + 块①（咨询智能体）。
+
+后续路线：M2 → M3 高级治理 → M4 GA → M5 PoC。
 
 ### M0 进度快照 v3（2026-04-29 · M0 全部技改收口）
 
@@ -124,29 +126,71 @@
 - ✓ 行业模板 + 多租户域推断
 - ✓ 测试样例集（48 文档，5 行业子集，Obsidian 图谱完整）
 
-### 下次开工提示词模板（M1 入口）
+### M1 进度快照 v1（2026-04-29 · M1 全部主线交付）
 
-进入 **M1 企业级 v1**（决策书 §13 + PRD §10 路线图），目标：
+**M1 全部 6 项主线 + 1 项激活补丁完工（10 commits / ~7.5 人时实际 vs Opus 估算 60-80h，节省 ~90%）**
 
-1. **4×6 矩阵审核台**（DG/SME/SEC/AIOps × W1-W6 工位）— 前端工位看板 + 后端工单状态机
-2. **敏感实体识别 + 脱敏管线** — W4 工位增加 PII/PHI/秘级识别 → 写入侧分流到 `vec_redacted` / `vec_original`
-3. **制造行业模板包**（v1）— 设备故障 / 工艺标准 / SOP / 质量记录 4 套 facet schema
-4. **ISS 集成深化** — `iss-common-security` JWT claims 完整对接（`roles` / `data_scope_level`）+ `iss-common-datascope` 5 级数据权限 AOP
-5. **access_level 完整 4 级映射规则** — 按 Owner 角色 + Facet 推断（M0 默认全部 PUBLIC=0，写入侧需补）
+| Commit  | 内容                                                | 测试   |
+|:---|:---|:---:|
+| `4a4206a` | **ISS 集成 批 1** · JWT 验签 + UserContext + AuthMiddleware 三模式 dispatch | +21 ✓ |
+| `f942a1c` | **ISS 集成 批 2-4 合并** · DataScope 5 级 + dept descendants + 部署文档 | +19 ✓ |
+| `3faf120` | **矩阵审核台 批 1** · types 扩展 + 4×6 R/C/I 规则函数 | +49 ✓ |
+| `8435c8a` | **矩阵审核台 批 2** · Store 扩展 + SLA 超时升级 sweep | +16 ✓ |
+| `bc7daba` | **矩阵审核台 批 3** · API 端点 (matrix/claim/escalate) | +10 ✓ |
+| `f73dbe1` | **W4 写入侧 hook** · 蒸馏管线 → 4×6 矩阵双写 | +7 ✓  |
+| `99a2101` | **DataScope 激活** · documents.dept_id/created_by 落地 | +5 ✓  |
+| `8f97725` | **#1 敏感脱敏管线** · NER + Redactor + AES-256-GCM 加密 KV | +29 ✓ |
+| `92fd61c` | **#2 制造 Facet 模板** · 4 套 schema (设备故障/工艺/SOP/质量) | +21 ✓ |
+| `6a6e73a` | **#3 矩阵审核台前端 UI** · 4×6 网格 + 抽屉 + 角色染色 | —     |
+
+**M1 全景成果**：
+
+- **ISS 集成（零侵入）**：决策书 §9.1 写"100% 复用 iss-common-*"假设 Java 业务层，但 KAP backend 是 Python — 改走**协议层接入**：HS512 JWT 验签 + 共享 ISS Redis 拿 LoginUser + HTTP 调 RemoteUser/Dept；不改 ISS 任何 Java 源码 / 数据库 schema / 二方包。AuthMiddleware 三模式 dispatch（dev=API Key / sandbox=JWT 验签 / prod=网关 header 信任）
+- **DataScope 5 级**（决策书 §8.1）：Python 函数式等价（不复刻 ISS MyBatis SQL 拼接）；retriever 后过滤 RBAC 循环里激活；W4 写入侧补 dept_id/created_by 后真生效，老文档透明放行保 M0 兼容
+- **4×6 矩阵审核台**（决策书 §5.2 D6）：4 角色 (DG/SME/SEC/AIOps) × 6 工位 (W1-W6) R/C/I 表代码化；GovernanceQueueItem 加 8 字段（workstation/assigned_role/claimed_*/sla_due_at/confidence）；claim/escalate/list_matrix/find_overdue 操作；D12 SLA sweep 自动升级（AIOps→SME→DG，DG 顶级触发"积压告警"）
+- **W4 写入侧蒸馏 hook**：M0 坑 3 已标 needs_review，M1 在 knowledge.py 双写到 4×6 矩阵；workstation=W4 → assigned_role=SME（必审锁定）；priority 与 confidence 反相关
+- **敏感脱敏管线（lite 离线工具集）**（决策书 §5.4 D10/D11）：NER 三类（人名 / 工艺参数 / 客户名）+ Redactor 三策略（角色化 / 三级降精度 / 代码化）+ AES-256-GCM 加密 KV（Redis 持久 + dev 内存 fallback）；W1/W4 hook 集成 + 双向量 vec_redacted/vec_original 路由 → M2 批
+- **制造 Facet schema**（PRD §10.4 1129 行）：4 套（equipment_fault/process_standard/sop/quality_record），每套 6-10 字段 + 敏感字段标记 + primary_role；通过 IndustryTemplate.facets dict 注册，供 W3 切块 / W4 抽取阶段调
+- **矩阵审核台前端 UI**：4×6 网格（CSS Grid）+ R/C/I 标记 + 角色染色（DG=蓝/SME=橙/SEC=红/AIOps=绿，柔光发光）+ 待办>0 脉冲动画 + 抽屉滑入工单列表 + 5 操作（认领/通过/驳回/改/升级）+ SLA Tag
+
+**测试基线**：427/429 unit ✓（V15 dingtalk/wecom mock drift 仍 2 个，与 M0/M1 改造无关）
+
+**用户反馈已落地**（feedback memory）：
+- ISS 零侵入（`feedback_iss_no_modification.md`）— 全 KAP 侧改动，不动 Java 源码
+- AI native 轻量化（`feedback_kap_lightweight_ai_native.md`）— 函数式实现优先、能函数就别建类、勿过度对接
+- 图谱 obsidian 风格（`feedback_graph_obsidian_style.md`）— 矩阵 UI 加角色染色 + 柔光脉冲；力导向图谱留 M2
+
+**M2 启动条件**（M1 已交付）：
+- ✓ ISS 三模式认证 + DataScope 5 级激活
+- ✓ 4×6 矩阵审核台后端 + 前端
+- ✓ W4 写入侧 dept_id / created_by 持久化
+- ✓ 敏感脱敏离线工具集（NER + Redactor + 加密 KV）
+- ✓ 制造行业 Facet schema 4 套
+- ✓ 测试基线 427/429 ✓
+
+### 下次开工提示词模板（M2 入口）
+
+进入 **M2** — obsidian 风格图谱 + LLM-Critic + 块① 咨询智能体（决策书 §10 路线图）：
+
+1. **obsidian 风格力导向图谱**（M1 用户反馈延期）— `react-force-graph-2d`（已在依赖）改造，节点动态布局 + 染色维度切换（工位/角色/业务域/密级）+ 分支过滤侧边栏 + hover 卡片预览（参考 `feedback_graph_obsidian_style.md`）
+2. **LLM-Critic 6 维质疑**（决策书 §5.5 D13）— 双 Agent 互审（抽取 LLM-A + 质疑 LLM-B），6 维（一致性/完整性/证据强度/重复性/时效性/跨域），输出结构化质疑入审核台
+3. **块① 知识咨询智能体**（决策书 §1.5 块①）— `architect/agent.py` 对话式建体系，`taxonomy_builder.py` 状态机，`facet_advisor.py` Facet 提议器
+4. **W1/W4 脱敏管线 hook**（决策书 §5.4 工位嵌入）— 解析后调脱敏 → 入库分双向量 vec_redacted/vec_original → 召回路由按密级
+5. **能源 + 制造模板包扩充** — 完善 manufacturing-discrete / manufacturing-process / energy-power / energy-oil-gas 子模板
 
 建议工作流：
-1. 用 `kap-delegate.py --task-type plan --mode roadmap` 让 Opus 4.7 出 M1 DAG（参考 M0 节奏）
-2. 优先级顺序：**ISS 集成（解锁权限）→ 矩阵审核台后端 → 脱敏管线 → 制造模板包 → 矩阵审核台前端**
+1. 优先级顺序：**LLM-Critic（解锁审核台 AI 兜底）→ 脱敏 W1/W4 集成 → obsidian 图谱（产品视觉杀手锏）→ 块① 咨询智能体（最重，建议独立 plan agent 拆 DAG）**
+2. 关键约束：决策书 D13 双 Agent 互审；feedback memory 三条原则（轻量化 / ISS 零侵入 / obsidian 风格图谱）
 3. 每子模块独立 commit + 跑 `tests/unit/` + 新增 `tests/integration/`
-4. 关键约束：决策书 D12（审核台 SLA 不允许 LLM 自动通过）；ISS 复用不重写
 
 **项目当前状态可直接接续**：
-- 文档：`docs/01-技术决策书.md` v1.1 / `docs/02-产品需求PRD.md` v1.2 / `docs/M0-tech-debt.md` v1.0（M0 全部 closed）
-- 设计：`design/index.html`（Plan A UI 原型，M1 矩阵审核台需在此基础上扩展）
+- 文档：`docs/01-技术决策书.md` v1.1 / `docs/02-产品需求PRD.md` v1.2 / `docs/M0-tech-debt.md` v1.0（M0 closed）/ `docs/M1-iss-integration.md` v1.0（M1 部署指南）
+- 设计：`design/index.html`（Plan A UI 原型）+ `frontend/src/pages/v15/GovernanceMatrix.tsx`（M1 矩阵 UI 工程蓝图美学起点）
 - 工具：`scripts/kap-delegate.py`（默认 Opus 4.7 via 睿动 CRS Anthropic 端点）
-- 代码：`backend/` (Python FastAPI 异步全栈) + `frontend/` (React 19) + `infra/` (compose) 全部就绪
+- 代码：`backend/` Python 异步全栈 + `frontend/` React 19 + `infra/` compose 全部就绪
+- M1 新增包：`packages/auth/`（ISS 集成）+ `packages/sensitive/`（脱敏）+ `packages/governance/matrix.py` `sla.py` `distillation_hook.py` + `packages/templates/facets_manufacturing.py`
 - 测试样例：`test-samples/` 48 文档 5 行业子集 + Obsidian 图谱完整无孤岛
-- 测试基线：250/252 unit 通过（V15 遗留 2 项不涉及 KAP 改造）
+- 测试基线：427/429 unit 通过（V15 遗留 2 项不涉及 KAP 改造）
 
 ## 目录约定
 
