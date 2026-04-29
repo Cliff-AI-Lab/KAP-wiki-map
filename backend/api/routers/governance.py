@@ -1,10 +1,13 @@
-"""治理 API — V15 Phase C.
+"""治理 API — V15 Phase C + M1 4×6 矩阵审核台扩展。
 
 端点:
-  GET  /governance/queue     — 工单列表(按 project_id 过滤，可选 status / agent)
-  POST /governance/queue/{id}/decide — 人工决策 (approve/reject/edit)
-  POST /governance/seed      — 灌入 demo 工单
-  GET  /governance/health    — 治理健康面板(Wiki 覆盖率 / 兜底率 / 溯源完整度 / 队列计数)
+  GET  /governance/queue            — 工单列表（M1 加 workstation / assigned_role 过滤）
+  POST /governance/queue/{id}/decide   — 人工决策 (approve/reject/edit)
+  POST /governance/queue/{id}/claim    — 角色认领 (M1 矩阵审核台)
+  POST /governance/queue/{id}/escalate — 主动升级 (M1 D12)
+  POST /governance/seed             — 灌入 demo 工单
+  GET  /governance/health           — 治理健康面板
+  GET  /governance/matrix           — 4×6 矩阵看板（M1 新增）
 """
 
 from __future__ import annotations
@@ -13,7 +16,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from packages.common import get_logger
-from packages.common.types import GovernanceDecision, GovernanceQueueItem
+from packages.common.types import (
+    GovernanceDecision,
+    GovernanceQueueItem,
+    ReviewerRole,
+    Workstation,
+)
+from packages.governance.matrix import (
+    ALL_ROLES,
+    ALL_WORKSTATIONS,
+    next_role_in_chain,
+)
 from packages.storage.domain_store import DomainStore
 from packages.storage.governance_queue_store import GovernanceQueueStore
 from packages.storage.wiki_store import WikiStore
@@ -39,6 +52,16 @@ class DecideBody(BaseModel):
     resolver: str = "admin"
 
 
+class ClaimBody(BaseModel):
+    """M1 矩阵审核台 · 角色认领工单。"""
+    claimer: str  # 认领人 user_id（前端从 UserContext 拿）
+
+
+class EscalateBody(BaseModel):
+    """M1 D12 SLA 主动升级。"""
+    reason: str  # 升级原因（必填，回流训练 + 审计）
+
+
 class HealthResponse(BaseModel):
     wiki_coverage: int       # 0-100
     rag_fallback_rate: int   # 0-100
@@ -46,14 +69,34 @@ class HealthResponse(BaseModel):
     queue_counts: dict[str, int]  # agent -> pending 数
 
 
+class MatrixCell(BaseModel):
+    """矩阵单格：(workstation, role) → 待办计数。"""
+    workstation: str
+    assigned_role: str
+    count: int
+
+
+class MatrixResponse(BaseModel):
+    """4×6 矩阵看板响应。"""
+    project_id: str
+    cells: list[MatrixCell]                # 6 工位 × 4 角色 = 24 格 + uncategorized 桶
+    total: int                              # 全部待办数（pending+reviewing+escalated）
+    uncategorized: int                      # V15 既有 demo 不带工位的工单数
+
+
 @router.get("/queue", response_model=list[GovernanceQueueItem])
 async def list_queue(
     project_id: str,
     status: str | None = None,
     agent: str | None = None,
+    workstation: str | None = None,
+    assigned_role: str | None = None,
     store: GovernanceQueueStore = Depends(get_governance_queue_store),
 ) -> list[GovernanceQueueItem]:
-    return await store.list(project_id, status=status, agent=agent)
+    return await store.list(
+        project_id, status=status, agent=agent,
+        workstation=workstation, assigned_role=assigned_role,
+    )
 
 
 @router.post("/queue/{item_id}/decide", response_model=GovernanceQueueItem)
@@ -67,6 +110,68 @@ async def decide_queue_item(
         raise HTTPException(status_code=404, detail="工单不存在")
     log.info("governance_item_decided", item_id=item_id, decision=body.decision, resolver=body.resolver)
     return item
+
+
+@router.post("/queue/{item_id}/claim", response_model=GovernanceQueueItem)
+async def claim_queue_item(
+    item_id: str,
+    body: ClaimBody,
+    store: GovernanceQueueStore = Depends(get_governance_queue_store),
+) -> GovernanceQueueItem:
+    """M1 矩阵审核台 · 角色认领工单（pending → reviewing）。"""
+    item = await store.claim(item_id, body.claimer)
+    if not item:
+        raise HTTPException(
+            status_code=404,
+            detail="工单不存在或已 resolved/escalated 不可认领",
+        )
+    log.info("governance_item_claimed", item_id=item_id, claimer=body.claimer)
+    return item
+
+
+@router.post("/queue/{item_id}/escalate", response_model=GovernanceQueueItem)
+async def escalate_queue_item(
+    item_id: str,
+    body: EscalateBody,
+    store: GovernanceQueueStore = Depends(get_governance_queue_store),
+) -> GovernanceQueueItem:
+    """M1 D12 主动升级（无 SLA 时长限制，由人工或 sla.sweep_overdue_tasks 触发）。"""
+    item = await store.get(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    if item.assigned_role is None:
+        raise HTTPException(status_code=400, detail="工单未指定 assigned_role，无法升级")
+
+    target = next_role_in_chain(item.assigned_role)
+    result = await store.escalate(item_id, body.reason, target)
+    log.info(
+        "governance_item_escalated",
+        item_id=item_id, from_role=item.assigned_role, to_role=target,
+    )
+    return result
+
+
+@router.get("/matrix", response_model=MatrixResponse)
+async def matrix_view(
+    project_id: str,
+    store: GovernanceQueueStore = Depends(get_governance_queue_store),
+) -> MatrixResponse:
+    """M1 4×6 矩阵看板：返回每个 (工位, 角色) 格子的待办数。"""
+    raw = await store.list_matrix(project_id)
+    cells: list[MatrixCell] = []
+    for ws in ALL_WORKSTATIONS:
+        for role in ALL_ROLES:
+            count = raw.get((ws, role), 0)
+            if count > 0:
+                cells.append(MatrixCell(workstation=ws, assigned_role=role, count=count))
+    uncategorized = raw.get(("uncategorized", "uncategorized"), 0)
+    total = sum(raw.values())
+    return MatrixResponse(
+        project_id=project_id,
+        cells=cells,
+        total=total,
+        uncategorized=uncategorized,
+    )
 
 
 @router.post("/seed")
