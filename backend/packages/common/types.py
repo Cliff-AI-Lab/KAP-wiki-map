@@ -306,12 +306,23 @@ from typing import Literal
 
 GovernanceAgent = Literal["curator", "auditor", "deduper", "standardizer", "gardener"]
 GovernanceKind = Literal["draft_pending", "unverified", "conflict", "standardize_suggest", "archive_suggest"]
-GovernanceStatus = Literal["pending", "approved", "rejected", "edited"]
+# M1 矩阵审核台扩展：reviewing（已认领）/ escalated（D12 SLA 升级）
+GovernanceStatus = Literal["pending", "reviewing", "approved", "rejected", "edited", "escalated"]
 GovernanceDecision = Literal["approve", "reject", "edit"]
+
+# M1 4×6 矩阵审核台（决策书 §5.2 D6 + §5.5 D12）
+Workstation = Literal["W1", "W2", "W3", "W4", "W5", "W6"]
+ReviewerRole = Literal["DG", "SME", "SEC", "AIOps"]
+ReviewerInvolvement = Literal["R", "C", "I"]  # R 主审 / C 协审 / I 知会
 
 
 class GovernanceQueueItem(BaseModel):
-    """治理工单 — 四 Agent 产出的待人工决策事项。"""
+    """治理工单 — V15 4 Agent 产出 + M1 矩阵审核台扩展。
+
+    V15 字段维持兼容（agent / kind / status 旧值不破坏）。
+    M1 新增 8 个可选字段承接 4×6 矩阵 + D12 SLA 升级语义；
+    旧调用方零改造，新调用方按需填充。
+    """
     id: str
     project_id: str
     agent: GovernanceAgent
@@ -324,3 +335,13 @@ class GovernanceQueueItem(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
     resolved_at: Optional[datetime] = None
     resolver: Optional[str] = None
+
+    # M1 矩阵审核台扩展（决策书 §5.2 ReviewTask 模型最小子集）
+    workstation: Optional[Workstation] = None       # 所属工位 W1-W6
+    assigned_role: Optional[ReviewerRole] = None    # 当前主审角色
+    claimed_by: Optional[str] = None                # 认领人 user_id
+    claimed_at: Optional[datetime] = None
+    escalated_to: Optional[ReviewerRole] = None     # 升级目标角色（D12）
+    escalation_reason: str = ""
+    sla_due_at: Optional[datetime] = None           # 截止时刻；超时由 sweep_overdue_tasks 升级
+    confidence: Optional[float] = None              # LLM Critic 置信度 0-1（决定是否入审核台）
