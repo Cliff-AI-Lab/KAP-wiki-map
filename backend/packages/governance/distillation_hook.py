@@ -5,8 +5,12 @@
 带 ``workstation=W4`` / ``assigned_role=SME``（W4 主审角色，§5.2 锁定）+
 ``sla_due_at``（默认 60 分钟，配置项 kap_w4_sla_minutes）。
 
+M2 升级（决策书 §5.5 D13）：
+- 入工单前调 ``arun_critic`` 6 维质疑，把 finding 摘要拼到 description
+- 即使 judge 高置信度，critic blocking issue 也强制升级 needs_review
+- ``include_critic`` 参数可关闭（dev 测试 / 离线工具用）
+
 V15 既有 ``metadata_store.enqueue_review`` 路径不动，本 hook 是**双写**而非替代。
-M2/M3 决定退役 V15 manual_review_queue 时再单线。
 """
 
 from __future__ import annotations
@@ -16,7 +20,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from packages.common import get_logger, settings
-from packages.common.types import GovernanceQueueItem
+from packages.common.types import (
+    AuditResult,
+    GovernanceQueueItem,
+    JudgeResult,
+    LibrarianResult,
+    RawDocument,
+)
 from packages.governance.matrix import primary_role_for
 from packages.storage.governance_queue_store import GovernanceQueueStore
 
@@ -33,6 +43,12 @@ async def enqueue_low_confidence_review(
     proposed_decision: str,
     reason: str,
     workstation: str = "W4",
+    # M2 #1 critic 集成（可选；非空时 hook 内部调 acritic 增强 description）
+    doc: RawDocument | None = None,
+    librarian: LibrarianResult | None = None,
+    audit: AuditResult | None = None,
+    judge: JudgeResult | None = None,
+    include_critic: bool = True,
 ) -> GovernanceQueueItem:
     """蒸馏管线低置信度 → 4×6 矩阵审核台双写。
 
@@ -56,16 +72,35 @@ async def enqueue_low_confidence_review(
     # priority 与置信度反相关：confidence 越低优先级越高（最低 0.0 → priority 100）
     priority = max(0, min(100, int((1.0 - confidence) * 100)))
 
+    base_desc = (
+        f"AI 建议: {proposed_decision} · 置信度 {confidence:.2f} · "
+        f"理由: {reason[:200]}"
+    )
+    description = base_desc
+
+    # M2 #1: 调 LLM-Critic 6 维质疑（决策书 §5.5 D13），把 finding 拼到 description
+    # 失败/超时静默降级（critic 内部已 try/catch），不阻塞工单创建
+    if include_critic and doc and librarian and judge:
+        try:
+            from packages.distillation.agents.critic import (
+                arun_critic,
+                critic_to_review_description,
+            )
+            critic_result = await arun_critic(doc, librarian, audit, judge)
+            description = critic_to_review_description(critic_result, base_desc)
+            # critic blocking 提升优先级（即使原 confidence 一般）
+            if critic_result.has_blocking_issue():
+                priority = min(100, priority + 20)
+        except Exception as e:
+            log.warning("critic_hook_failed_skip", doc_id=doc_id, error=str(e))
+
     item = GovernanceQueueItem(
         id=f"gq_{uuid.uuid4().hex[:10]}",
         project_id=project_id,
         agent="distillation",  # type: ignore[arg-type]
         kind="low_confidence_extract",  # type: ignore[arg-type]
         title=f"[W4-SME 必审] {doc_title[:80]}",
-        description=(
-            f"AI 建议: {proposed_decision} · 置信度 {confidence:.2f} · "
-            f"理由: {reason[:200]}"
-        ),
+        description=description[:1000],  # 防 description 撑爆 UI
         target_ref=f"doc/{doc_id}",
         priority=priority,
         status="pending",

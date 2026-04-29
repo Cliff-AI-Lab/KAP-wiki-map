@@ -97,3 +97,72 @@ class TestEnqueueLowConfidenceReview:
         )
         matrix = await store.list_matrix("p1")
         assert matrix.get(("W4", "SME")) == 1
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M2 #1 · Critic 集成（决策书 §5.5 D13）
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestCriticIntegration:
+    async def test_critic_findings_in_description(self, store) -> None:
+        """传入 doc/librarian/judge 时，critic 6 维 finding 拼到 description。"""
+        from datetime import datetime
+        from unittest.mock import patch
+        from packages.common.types import (
+            Decision, DocType, JudgeReasoning, JudgeResult,
+            LibrarianResult, RawDocument, SourceSystem,
+        )
+
+        doc = RawDocument(
+            doc_id="d1", title="t", content="x" * 100,
+            source_system=SourceSystem.LOCAL, source_id="1", org_id="default",
+            created_at=datetime(2026, 1, 1), updated_at=datetime(2026, 4, 1),
+        )
+        librarian = LibrarianResult(
+            doc_type=DocType.REGULATION, version_id=None,
+            key_topics=[], mentioned_entities=[],
+            is_conversational=False, estimated_value="HIGH",
+        )
+        judge = JudgeResult(
+            reasoning=JudgeReasoning(
+                recency_analysis="x", recency_score=8,
+                density_analysis="x", density_score=7,
+                completeness_analysis="x", completeness_score=6,
+                redundancy_analysis="x", redundancy_score=2,
+            ),
+            decision=Decision.KEEP, confidence=0.4, kpi_retain=0.5,
+            summary="保留", needs_review=True,
+        )
+
+        with patch(
+            "packages.distillation.agents.critic.acall_llm_json",
+            return_value={
+                "findings": [
+                    {"dimension": "timeliness", "severity": 0.85,
+                     "finding": "GB/T 6075-2003 已作废"},
+                ],
+                "summary": "时效问题",
+            },
+        ):
+            item = await enqueue_low_confidence_review(
+                store=store, project_id="p1",
+                doc_id=doc.doc_id, doc_title=doc.title,
+                confidence=0.4, proposed_decision="KEEP", reason="低置信度",
+                doc=doc, librarian=librarian, judge=judge,
+            )
+
+        assert "时效问题" in item.description
+        assert "timeliness" in item.description
+        # blocking 提升 priority +20
+        assert item.priority >= 60  # 基础 60 + 20
+
+    async def test_no_critic_when_args_missing(self, store) -> None:
+        """不传 doc/librarian/judge 时不调 critic（向后兼容旧调用方）。"""
+        item = await enqueue_low_confidence_review(
+            store=store, project_id="p1",
+            doc_id="d1", doc_title="t",
+            confidence=0.4, proposed_decision="KEEP", reason="低置信度",
+        )
+        assert "时效问题" not in item.description
+        assert item.priority == 60  # 基础值，未提升

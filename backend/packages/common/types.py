@@ -322,6 +322,37 @@ ReviewerRole = Literal["DG", "SME", "SEC", "AIOps"]
 ReviewerInvolvement = Literal["R", "C", "I"]  # R 主审 / C 协审 / I 知会
 
 
+# M2 LLM-Critic 6 维质疑（决策书 §5.5 D13）
+CriticDimension = Literal[
+    "consistency",  # 一致性 — 实体定义/关系是否在不同文档中冲突
+    "completeness", # 完整性 — 本体要求的必填属性是否覆盖
+    "evidence",     # 证据强度 — 论断是否有原文充分支撑
+    "duplication",  # 重复性 — 与图谱已有节点是否高度相似
+    "timeliness",   # 时效性 — 引用标准/制度是否已作废
+    "cross_domain", # 跨域 — 跨文档关联推断（最有价值）
+]
+
+
+class CriticFinding(BaseModel):
+    """单维度质疑发现。"""
+    dimension: CriticDimension
+    severity: float = Field(default=0.5, ge=0.0, le=1.0)  # 0=无疑 / 1=重大问题
+    finding: str = ""           # 具体问题描述
+    evidence: str = ""          # 原文佐证（短句引用）
+    suggestion: str = ""        # 处置建议
+
+
+class CriticResult(BaseModel):
+    """Critic Agent 完整产出（决策书 §5.5 6 维清单）。"""
+    findings: list[CriticFinding] = Field(default_factory=list)
+    overall_severity: float = Field(default=0.0, ge=0.0, le=1.0)  # 6 维 max
+    summary: str = ""           # 一句话总结，写入审核台 description
+
+    def has_blocking_issue(self, threshold: float = 0.6) -> bool:
+        """是否存在阻断级问题（severity >= threshold 任一维）。"""
+        return any(f.severity >= threshold for f in self.findings)
+
+
 class GovernanceQueueItem(BaseModel):
     """治理工单 — V15 4 Agent 产出 + M1 矩阵审核台扩展。
 
