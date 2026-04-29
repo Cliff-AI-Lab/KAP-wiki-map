@@ -12,9 +12,20 @@ status: completed
 tags: [kap, m2]
 ---
 
-> [← M1 企业级 v1](M1-snapshot.md) · 设计蓝本：[决策书 §5.5 D13 双 Agent + §5.4 脱敏 + §4 块①](../01-技术决策书.md) / [PRD §3 块①](../02-产品需求PRD.md) · [→ M3 高级治理](M3-snapshot.md)
+> 进程链：[M0 KAP-Lite](M0-KAP-Lite.md) → [M1 企业级 v1](M1-企业级v1.md) → **【M2 AI native】** → [M3 高级治理](M3-高级治理.md) → [M4 重抽影子库](M4-重抽影子库.md) → M5⬜
+>
+> 设计蓝本：[决策书 §5.5 D13 双 Agent](../01-技术决策书.md) · [§5.4 脱敏](../01-技术决策书.md) · [§4 块①](../01-技术决策书.md) · [PRD §3 块①](../02-产品需求PRD.md)
 
 # M2 AI native（7 commits / ~5h vs Opus 估 30h，节省 83%）
+
+## 参考项目引用（M2 主要是 KAP 自研，参考项目仅承袭）
+
+### 🟠 [Wiki-map V15](../../_refs/wiki-map/bookworm-agent/) — 继续承袭
+- M2 #3 在 V15 既有 [`frontend/src/pages/v15/GraphView.tsx`](../../frontend/src/pages/v15/GraphView.tsx) 力导向图基础上**增量改造**柔光发光 + 染色维度三模式（不重写）
+- M2 #2 W1 脱敏 hook 接入 V15 [`api/routers/knowledge.py`](../../backend/api/routers/knowledge.py) ingest 主路径
+
+### 🔴 [ISS 参考项目](../../_refs/iss-kb/) — M2 不直接引用代码
+- M2 沿用 M1 已建立的 ISS 集成通道（JWT / DataScope）；本里程碑无新增 ISS 引用
 
 > LLM-Critic 6 维 + W1 脱敏 hook + GraphView obsidian 风格 + 块① 咨询智能体（KAP 三块产品形态全部就位）
 

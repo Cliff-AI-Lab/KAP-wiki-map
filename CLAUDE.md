@@ -63,26 +63,39 @@
 
 ## 当前阶段
 
-**当前最新里程碑**：[M4 重抽影子库](docs/progress/M4-snapshot.md) 已完工（2026-04-29）
+```
+[M0 KAP-Lite]──→[M1 企业级v1]──→[M2 AI-native]──→[M3 高级治理]──→[M4 重抽影子库]──→ M5⬜
+```
 
-线性进程：[M0](docs/progress/M0-snapshot.md) → [M1](docs/progress/M1-snapshot.md) → [M2](docs/progress/M2-snapshot.md) → [M3](docs/progress/M3-snapshot.md) → [M4](docs/progress/M4-snapshot.md) → M5（待启动）
-
-进度索引：[`docs/progress/`](docs/progress/README.md)（含 obsidian 图谱配色建议）
+进程链（按时间正序，每份是独立快照）：
+[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → M5（待启动）
 
 **KAP 累计**：~80 commits / 测试 714/716 ✓ / 实际 ~51h vs Opus 估 ~390h，节省 ~87%。
 
-**KAP 三块产品形态全部就位**：
-- 块①（M2 #4 + M3 #3 完整对话式建体系）
-- 块②（M0+M1 6 工位 + 4×6 矩阵 + 脱敏 + M3 W4 LLM 实体抽取 + M4 重抽影子库）
+**三块产品形态全部就位**：
+- 块①（M2 + M3 完整对话式建体系）
+- 块②（M0+M1+M3 6 工位 + 4×6 矩阵 + 脱敏 + W4 LLM 抽取 + M4 重抽）
 - 块③（M0+M2 三路召回 + obsidian 图谱）
-- M3+M4 双层本体演化 + 全量重抽影子库（决策书 §5.3 D8/D9 KAP IP 引擎闭环）
+- M3+M4 双层本体演化 + 全量重抽影子库（[决策书 §5.3 D8/D9](docs/01-技术决策书.md) KAP IP 引擎闭环）
 
 **下一阶段 M5 待启动**：监测条件 2/3/4 完整 LLM / as_of 历史回溯 / 7 天自动观察 / 独立物理 Neo4j 实例。
 
-> 详细 commit 时间线、代码模块关联、决策书章节引用等见 `docs/progress/M{N}-snapshot.md`。
+### Obsidian 图谱配色建议
+
+打开 obsidian → Graph view → ⚙️ Filters → Color groups，按路径 query 设：
+
+| 节点                  | 路径模式（query）                                 | 建议颜色 |
+|:---|:---|:---:|
+| KAP 新作              | `path:docs/ OR path:backend/ OR path:frontend/`   | 🔵 蓝色 |
+| KAP 进程链            | `path:docs/progress/`                              | 🟢 绿色（线性递增） |
+| 设计蓝本（中心）      | `path:docs/01-技术决策书 OR path:docs/02-产品需求` | 🟡 黄色 |
+| ISS 参考项目          | `path:_refs/iss-kb/`                              | 🔴 红色 |
+| Wiki-map V15 参考     | `path:_refs/wiki-map/`                            | 🟠 橙色 |
+
+> 详细 commit 时间线、ISS / Wiki-map 引用关系、代码模块关联等见各 [`docs/progress/M{N}-...md`](docs/progress/) 快照。
 > 不要在 CLAUDE.md 重复维护快照内容（避免与进度文档双源不一致）。
 
-<!-- M0 v3 / M1 v1 / M2 v2 / M3 v1 / M4 v1 详细快照已迁移到 docs/progress/M{N}-snapshot.md
+<!-- M0 v3 / M1 v1 / M2 v2 / M3 v1 / M4 v1 详细快照已迁移到 docs/progress/M{N}-...md
      避免本文件大爆炸式中心化（feedback memory · obsidian 进程版本化）
 
 历史快照内容（不再维护，请去 docs/progress/）：

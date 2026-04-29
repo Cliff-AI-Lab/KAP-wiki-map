@@ -12,9 +12,27 @@ status: completed
 tags: [kap, m0]
 ---
 
-> **起点** · 设计蓝本：[决策书](../01-技术决策书.md) / [PRD](../02-产品需求PRD.md) · 下一步：[→ M1 企业级 v1](M1-snapshot.md)
+> 进程链：**【M0 KAP-Lite】** → [M1 企业级 v1](M1-企业级v1.md) → [M2 AI native](M2-AI-native.md) → [M3 高级治理](M3-高级治理.md) → [M4 重抽影子库](M4-重抽影子库.md) → M5⬜
+>
+> 设计蓝本：[决策书](../01-技术决策书.md) · [PRD](../02-产品需求PRD.md)
 
 # M0 KAP-Lite 进度快照 v3
+
+## 参考项目引用（M0 是从 V15 起步的关键里程碑）
+
+### 🟠 [Wiki-map V15](../../_refs/wiki-map/bookworm-agent/) — KAP 起点骨架（全量复用）
+- **后端**：[`bookworm-agent/backend/`](../../_refs/wiki-map/bookworm-agent/backend/) → 整套导入 KAP [`backend/`](../../backend/)
+  - 蒸馏 4 Agent（Librarian / ConflictAuditor / Judge / Refiner）
+  - V15 治理 5 Agent（Curator / Auditor / Deduper / Standardizer / Gardener）
+  - 6 工位流水线（W1 解析 → W6 监控）
+  - 双视角图谱（实体视角 + 文档视角）
+- **前端**：[`bookworm-agent/frontend/`](../../_refs/wiki-map/bookworm-agent/frontend/) → 整套导入 KAP [`frontend/`](../../frontend/)
+- **冻结约束**：V15 同步 `httpx.Client` 不带到 KAP（必须 AsyncClient，本里程碑坑 1 改造完成）
+- **测试样例**：48 文档 5 行业子集移植到 [`test-samples/`](../../test-samples/) + 重写 navigation 链路
+
+### 🔴 ISS 参考项目（M0 暂未直接引用代码，M1 起接入）
+- M0 仅"准备"：决策书 §9.1 锁定复用清单，但本里程碑还未写 ISS 集成代码
+- 后续传递点：`UserContext.access_level` 字段为 M1 ISS LoginUser 对接预留（坑 7+8）
 
 **M0 全部 9 大坑 + 4 个顺手坑全部完工（23 commits / ~12.5 人时实际 vs Opus 估算 112h，节省 89%）**
 
@@ -129,5 +147,5 @@ tags: [kap, m0]
 
 - **决策依据**：[决策书](../01-技术决策书.md) D5/D7/D8/D11/D17 + §5.6 / §8.1
 - **实施计划**：[M0-tech-debt](../M0-tech-debt.md)（Opus 4.7 产出 9 坑地图） / [M0-tech-debt-async-plan](../M0-tech-debt-async-plan.md)（坑 1 异步 5 批迁移）
-- **下一阶段**：[→ M1 企业级 v1](M1-snapshot.md)
+- **下一阶段**：[→ M1 企业级 v1](M1-企业级v1.md)
 - **测试样例**：[test-samples/](../../test-samples/)（48 文档 5 行业子集）
