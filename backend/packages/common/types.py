@@ -322,6 +322,15 @@ ReviewerRole = Literal["DG", "SME", "SEC", "AIOps"]
 ReviewerInvolvement = Literal["R", "C", "I"]  # R 主审 / C 协审 / I 知会
 
 
+# M2 #4 块① 知识咨询智能体（决策书 §4 / PRD §3）
+ArchitectStage = Literal[
+    "identify",   # 行业识别中（上传样本 → 推断行业）
+    "propose",    # 主树提议中（基于行业模板 → LLM 修订）
+    "refine",     # 客户对话调整中（add/remove/rename，M3 完整 CRUD）
+    "export",     # 已导出（注册到 INDUSTRY_REGISTRY）
+]
+
+
 # M2 LLM-Critic 6 维质疑（决策书 §5.5 D13）
 CriticDimension = Literal[
     "consistency",  # 一致性 — 实体定义/关系是否在不同文档中冲突
@@ -351,6 +360,37 @@ class CriticResult(BaseModel):
     def has_blocking_issue(self, threshold: float = 0.6) -> bool:
         """是否存在阻断级问题（severity >= threshold 任一维）。"""
         return any(f.severity >= threshold for f in self.findings)
+
+
+# M2 #4 块① 主树草稿 + 会话状态（PRD F1.2-F1.7）
+
+class IndustryCandidate(BaseModel):
+    """行业识别候选（top 3 用，PRD F1.2.5 置信度展示）。"""
+    industry_code: str
+    industry_name: str
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    matched_keywords: list[str] = Field(default_factory=list)
+
+
+class TaxonomyDraft(BaseModel):
+    """主树草稿（导出前的 IndustryTemplate 子集）。"""
+    industry_code: str = ""           # manufacturing / energy 等
+    industry_name: str = ""
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    taxonomy: list = Field(default_factory=list)  # list[TaxonomyNode]，避免循环 import
+    recognized_signals: list[str] = Field(default_factory=list)  # PRD F1.2.5 识别依据
+    top_candidates: list[IndustryCandidate] = Field(default_factory=list)
+
+
+class ArchitectSession(BaseModel):
+    """块① 对话会话（M2 lite 内存存储；M3 落 PG）。"""
+    session_id: str
+    project_id: str
+    stage: ArchitectStage = "identify"
+    draft: TaxonomyDraft | None = None
+    history: list[dict] = Field(default_factory=list)  # [{role, content, timestamp}]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
 
 
 class GovernanceQueueItem(BaseModel):
