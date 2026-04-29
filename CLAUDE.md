@@ -63,55 +63,30 @@
 
 ## 当前阶段
 
-**M0 KAP-Lite 已完工**（2026-04-29）：基于 Wiki-map V15 + ISS 接入 + 睿动；9 大坑全部技改；块②③ 主流程跑通；测试 250/252 ✓。
+**当前最新里程碑**：[M4 重抽影子库](docs/progress/M4-snapshot.md) 已完工（2026-04-29）
 
-**M1 企业级 v1 已完工**（2026-04-29，同日 follow-up）：ISS 集成 + 4×6 矩阵审核台 + W4 写入侧 + 敏感脱敏 + 制造 Facet + 矩阵 UI。10 commits / ~7.5h vs 原估 60-80h。
+线性进程：[M0](docs/progress/M0-snapshot.md) → [M1](docs/progress/M1-snapshot.md) → [M2](docs/progress/M2-snapshot.md) → [M3](docs/progress/M3-snapshot.md) → [M4](docs/progress/M4-snapshot.md) → M5（待启动）
 
-**M2 已完工**（2026-04-29）：4/4 项交付 — LLM-Critic + 脱敏 W1 hook + GraphView obsidian + 块① 咨询智能体。7 commits / ~5h。
+进度索引：[`docs/progress/`](docs/progress/README.md)（含 obsidian 图谱配色建议）
 
-**M3 已完工**（2026-04-29）：5/5 项交付 — 双层本体 + 双 Agent 互审 pipeline 接入 + 块① 完整化（Facet/命名/主树高级/冲突预演）+ W4 LLM 实体抽取 + PG 持久化。12 commits / ~10h。
+**KAP 累计**：~80 commits / 测试 714/716 ✓ / 实际 ~51h vs Opus 估 ~390h，节省 ~87%。
 
-**KAP 三块产品形态全部就位** + M3 高级治理 IP：
+**KAP 三块产品形态全部就位**：
 - 块①（M2 #4 + M3 #3 完整对话式建体系）
-- 块②（M0+M1 6 工位 + 4×6 矩阵 + 脱敏 + M3 W4 LLM 实体抽取）
+- 块②（M0+M1 6 工位 + 4×6 矩阵 + 脱敏 + M3 W4 LLM 实体抽取 + M4 重抽影子库）
 - 块③（M0+M2 三路召回 + obsidian 图谱）
-- M3 双层本体演化（决策书 §5.3 D8/D9 KAP IP 引擎）
+- M3+M4 双层本体演化 + 全量重抽影子库（决策书 §5.3 D8/D9 KAP IP 引擎闭环）
 
-后续路线：M4 全量重抽影子库 + 灰度切换 + 7 天回滚（M3 演化的工程闭环）→ M5 GA → M6 PoC。
+**下一阶段 M5 待启动**：监测条件 2/3/4 完整 LLM / as_of 历史回溯 / 7 天自动观察 / 独立物理 Neo4j 实例。
 
-### M0 进度快照 v3（2026-04-29 · M0 全部技改收口）
+> 详细 commit 时间线、代码模块关联、决策书章节引用等见 `docs/progress/M{N}-snapshot.md`。
+> 不要在 CLAUDE.md 重复维护快照内容（避免与进度文档双源不一致）。
 
-**M0 全部 9 大坑 + 4 个顺手坑全部完工（23 commits / ~12.5 人时实际 vs Opus 估算 112h，节省 89%）**
+<!-- M0 v3 / M1 v1 / M2 v2 / M3 v1 / M4 v1 详细快照已迁移到 docs/progress/M{N}-snapshot.md
+     避免本文件大爆炸式中心化（feedback memory · obsidian 进程版本化）
 
-| Commit | 内容 | 测试 |
-|---|---|---|
-| `1dd9ebd` | M0 Day 0 骨架 + V15 主干导入 | — |
-| `b56dab5` | 加 .claude/ 到 .gitignore | — |
-| `ff41e39` | T1 · KAP 品牌化 + T5 Neo4j compose | — |
-| `25f9124` | T2 · M0 技术债务地图（Opus 4.7 产出）| — |
-| `7125455` | T4 · 三环境配置（.env.dev/sandbox/prod + master）| — |
-| `7d08a42` | 坑 3 · Judge 阈值外置 + 决策函数化 + R3 review 通道 | +22 ✓ |
-| `e8f7dad` | 坑 4a+4b · 行业模板加载器 + 多租户域推断（含坑 B）| +29 ✓ |
-| `1560bbe` | CLAUDE.md 进度快照 v1 | — |
-| `ad8e2b9` | **坑 1 批 0** · 三环境 settings + verify_ssl/allow_mock 门控 | +18 ✓ |
-| `37b8b3e` | **坑 1 批 1** · llm_client 双轨（acall_llm/_json）+ 坑 D/F 落地 | +14 ✓ |
-| `e9d2fc1` | **坑 1 批 2** · 4 个 agent arun_* 异步入口 | +9 ✓ |
-| `c7a6b13` | **坑 1 批 3** · pipeline asyncio.gather + Semaphore | +6 ✓ |
-| `87949c5` | **坑 1 批 4** · API endpoint 切 `await arun_pipeline` | — |
-| `973aebc` | CLAUDE.md 进度快照 v2 | — |
-| `d1b5691` | **坑 6** · EmbeddingProvider 抽象 + bge 接入 + 异步双轨 | +20 ✓ |
-| `6c169ad` | docs(refs) · 修复 _refs 乱码 + 建立 Wiki-map/ISS 关联索引 | — |
-| `1ad3d0f` | feat(test-samples) · 48 文档按行业打包为 KAP 测试样例集 | — |
-| `8f9e387` | **坑 2** · Milvus ConnectionManager + 双向量 schema（含坑 8 access_level 预留）| +13 ✓ |
-| `7e385ef` | docs(test-samples) · 用 markdown link 全面理顺 Obsidian 图谱关系 | — |
-| `df5c9c1` | **坑 5** · Neo4j GraphStore 修静默 fallback + 加 ontology_version | +14 ✓ |
-| `f751be7` | feat(test-samples) · 为 39 份非 .md 样本生成 .md 索引页 | — |
-| `5bc2047` | feat(test-samples) · 给 9 份 V15 原始 .md 注入 navigation header | — |
-| `4ff7af8` | **坑 7+8** · KAP 5 角色枚举 + RBAC Dependency + 召回阶段密级路由 | +25 ✓ |
-
-**M0 全景成果**：
-
-- **坑 1**（LLM 全链路异步化）：`httpx.Client` → `AsyncClient`，pipeline `ThreadPoolExecutor` → `asyncio.gather` + `Semaphore`，双轨保留（sync `run_*` + async `arun_*`），tenacity 业务异常不重试 + `reraise=True`
+历史快照内容（不再维护，请去 docs/progress/）：
+- 坑 1（LLM 全链路异步化）：`httpx.Client` → `AsyncClient`，pipeline `ThreadPoolExecutor` → `asyncio.gather` + `Semaphore`
 - **坑 2**（Milvus ConnectionManager + 双向量）：`MilvusConnectionManager` 健康检查 + 熔断；schema 增加 `vector_type` / `embedding_model_version` / `access_level` int8 字段，原始向量与脱敏向量物理分离
 - **坑 3**（Judge 阈值外置）：阈值 → `judge_thresholds.yaml`；决策函数化 `decide_action()`；`R3 review` 通道独立
 - **坑 4a+4b**（行业模板 + 多租户域）：制造/能源行业模板 loader + 多租户 domain 推断（含坑 B：domain_path 覆写）
@@ -276,7 +251,9 @@ M3 #1 lite 仅做了双层本体设计 + LLM 提议；M4 是**演化机制的工
 2. 优先级顺序：**影子图谱机制 → 增量哈希 → as_of 回溯 → 灰度切换 + 回滚 → 监测条件 2/3/4 → PG 全面接入**
 3. 关键约束：决策书 D8（影子库不出域，独立 Neo4j 实例）；feedback memory 三条原则
 4. 每子模块独立 commit + 跑 `tests/unit/` + 集成测试（影子库需 docker-compose 测试）
+-->
 
+<!--
 **项目当前状态可直接接续**：
 - 文档：`docs/01-技术决策书.md` v1.1 / `docs/02-产品需求PRD.md` v1.2 / `docs/M0-tech-debt.md` v1.0（M0 closed）/ `docs/M1-iss-integration.md` v1.0（M1 部署指南）
 - 设计：`design/index.html`（Plan A UI 原型）+ `frontend/src/pages/v15/GovernanceMatrix.tsx`（M1 矩阵 UI 工程蓝图美学）+ `frontend/src/pages/v15/GraphView.tsx`（M2 obsidian 风格力导向图谱）
@@ -297,6 +274,7 @@ M3 #1 lite 仅做了双层本体设计 + LLM 提议；M4 是**演化机制的工
   - pipeline 加 critic 主路径接入（settings.pipeline_critic_enabled flag）
 - 测试样例：`test-samples/` 48 文档 5 行业子集 + Obsidian 图谱完整无孤岛
 - 测试基线：655/657 unit 通过（V15 遗留 2 项不涉及 KAP 改造）
+-->
 
 ## 目录约定
 

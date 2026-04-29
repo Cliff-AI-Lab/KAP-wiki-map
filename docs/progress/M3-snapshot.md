@@ -1,0 +1,97 @@
+---
+title: M3 高级治理 进度快照
+milestone: M3
+version: v1
+date: 2026-04-29
+commits: 12
+tests: +160
+hours: ~10
+opus-estimate: 50-60h
+savings: ~83%
+status: completed
+tags: [kap, m3]
+---
+
+> [← M2 AI native](M2-snapshot.md) · 设计蓝本：[决策书 §5.3 D8/D9 双层本体 + §5.5 双 Agent + §5.2 W4](../01-技术决策书.md) / [PRD F1.3-F1.6](../02-产品需求PRD.md) · [→ M4 重抽影子库](M4-snapshot.md)
+
+# M3 高级治理（12 commits / ~10h vs Opus 估 50-60h，节省 ~83%）
+
+> 双层本体（L1+L2）+ 双 Agent 互审 pipeline + 块① 完整化 4 项 + W4 LLM 实体抽取 + PG 持久化
+
+---
+
+## 全景成果
+
+### 双层本体（[决策书 §5.3 D8/D9 lite](../01-技术决策书.md)）
+- L1 平台预置（制造 9 实体 + 8 关系；能源 IEC CIM 10+6）+ L2 客户私有可演化
+- OntologyStore 版本管理（patch/minor bump + diff + 多项目隔离）
+- LLM 演化提议器（监测条件 1：未匹配实体超阈值 → 提议新类型）
+- 7 API 端点 + 联动 4×6 矩阵审核台 W4-SME 必审
+- **关联代码**：[`packages/ontology/`](../../backend/packages/ontology/)（base / store / evolution_proposer / proposal_store / builtin/manufacturing_l1.py / energy_l1.py） / [`api/routers/ontology.py`](../../backend/api/routers/ontology.py)
+
+### 双 Agent 互审 pipeline 主路径接入（[决策书 §5.5 完整版](../01-技术决策书.md)）
+- `pipeline_critic_enabled` flag 默认关闭（M2 lite 兼容）
+- 开启时 asyncio.gather 并发跑 critic
+- blocking issue（severity ≥ 0.6）强制 `needs_review=True`，覆盖 judge 高置信度
+- **关联代码**：[`packages/distillation/pipeline.py`](../../backend/packages/distillation/pipeline.py)（_run_critic_for_pr） / [`packages/common/config.py`](../../backend/packages/common/config.py)
+
+### 块① 完整化（[PRD F1.3-F1.6 lite](../02-产品需求PRD.md)）
+
+#### #3a Facet 提议器（[PRD F1.4](../02-产品需求PRD.md)）
+LLM 基于样本归纳 doc_type → FacetSchema 6-10 字段 + 敏感标记，复用 M1 制造 4 套经验。
+- **关联代码**：[`packages/architect/facet_advisor.py`](../../backend/packages/architect/facet_advisor.py)
+
+#### #3b 命名规范生成器（[决策书 §4.4 + PRD F1.5](../01-技术决策书.md)）
+默认 8 字段（KB-CS-SOP-...）+ 实时预览 + 校验函数 + reorder/required 调整。
+- **关联代码**：[`packages/architect/naming_convention.py`](../../backend/packages/architect/naming_convention.py)
+
+#### #3c 主树高级 CRUD（[PRD F1.3.4](../02-产品需求PRD.md)）
+merge_nodes（子节点合并去重）+ split_node + 撤销栈（LIFO 20 限）。
+- **关联代码**：[`packages/architect/taxonomy_builder.py`](../../backend/packages/architect/taxonomy_builder.py)
+
+#### #3d 冲突预演（[PRD F1.6](../02-产品需求PRD.md)）
+LLM 用上传材料预演归类 → 冲突（双归 ≥ 0.5）/ 重复（标题标准化）/ 孤立 三类清单。
+- **关联代码**：[`packages/architect/conflict_detector.py`](../../backend/packages/architect/conflict_detector.py)
+
+### W4 LLM 实体抽取（[决策书 §5.2 W4](../01-技术决策书.md)）
+本体严格约束 type_id 必须在 L1+L2 注册集合（防 LLM 幻觉）；关系 source/target 类型符合定义域；复用 packages/sensitive NER 标记敏感实体。
+- **关联代码**：[`packages/extraction/entity_extractor.py`](../../backend/packages/extraction/entity_extractor.py)
+
+### PG 持久化
+ArchitectSessionStore + OntologyProposalStore Protocol + InMemory（默认）+ Pg（CREATE TABLE IF NOT EXISTS 幂等 + JSONB 字段 + 索引 + ON CONFLICT upsert）；ArchitectAgent / ontology router 接入 PG 留 M4。
+- **关联代码**：[`packages/architect/session_store.py`](../../backend/packages/architect/session_store.py) / [`packages/ontology/proposal_store.py`](../../backend/packages/ontology/proposal_store.py)
+
+---
+
+## Commits 时间线
+
+| Commit  | 内容                                      | 测试   |
+|:---|:---|:---:|
+| `170ed06` | **#1 双层本体 批 1** · 类型 + L1 内置（制造 9+8 / 能源 10+6） | +17 ✓ |
+| `0dacd88` | **#1 批 2** · OntologyStore + 版本管理 + diff | +17 ✓ |
+| `a8ba4d5` | **#1 批 3** · LLM 演化提议器（监测条件 1） | +10 ✓ |
+| `a516d86` | **#1 批 4** · API 7 端点 + 4×6 矩阵审核台联动 | +13 ✓ |
+| `9ade622` | **#2 双 Agent 互审** · pipeline 主路径接入 + critic blocking 强制 review | +8 ✓ |
+| `b884dcb` | **#3a Facet 提议器** · LLM 归纳 doc_type → FacetSchema | +16 ✓ |
+| `0ec6173` | **#3b 命名规范生成器** · 决策书 §4.4 模板 + 校验 + 调整 | +20 ✓ |
+| `53c7b4d` | **#3d 冲突预演** · LLM 归类 + 重复 + 孤立检测 | +13 ✓ |
+| `1728642` | **#3c 主树高级 CRUD** · merge/split/undo 撤销栈 | +13 ✓ |
+| `1d7b11c` | **#4 W4 LLM 实体抽取** · 本体约束 + 敏感标记 + 关系定义域 | +14 ✓ |
+| `918b86f` | **#5 PG 持久化** · ArchitectSession + OntologyProposal Store 抽象 | +11 ✓ |
+
+---
+
+## 测试基线
+
+`655/657 unit ✓`（V15 mock drift 仍 2 个）
+
+---
+
+## M4 启动条件（M3 已交付）
+
+- ✓ L1+L2 双层本体注册 + 版本管理 + diff
+- ✓ 演化提议器 → 矩阵审核台 W4-SME
+- ✓ Critic 6 维质疑 pipeline 主路径接入（可选开启）
+- ✓ 块① 4 项完整功能（Facet/命名/主树高级/冲突预演）
+- ✓ W4 LLM 实体抽取（本体约束 + 敏感标记）
+- ✓ session/proposal store 持久化抽象
