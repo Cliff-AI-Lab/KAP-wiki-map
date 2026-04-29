@@ -521,6 +521,45 @@ class ExtractionResult(BaseModel):
     error: str = ""
 
 
+# M4 全量重抽（决策书 §5.3 工程闭环）
+
+RebuildStatus = Literal["pending", "running", "completed", "failed", "cancelled"]
+
+
+class RebuildJob(BaseModel):
+    """全量重抽任务（决策书 §5.3 影子库工程闭环）。"""
+    job_id: str
+    project_id: str
+    source_version: str               # 当前生效本体版本
+    target_version: str               # 目标本体版本（影子库写入）
+    status: RebuildStatus = "pending"
+    progress: float = Field(default=0.0, ge=0.0, le=1.0)
+    chunks_total: int = 0
+    chunks_processed: int = 0
+    chunks_hash_hit: int = 0          # 增量哈希命中数（跳过 W4 抽取）
+    chunks_extracted: int = 0          # 实际调用 W4 抽取数
+    error: str = ""
+    started_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
+    finished_at: datetime | None = None
+
+
+class RebuildDiffReport(BaseModel):
+    """新旧本体版本图谱对比（灰度切换前的报告）。"""
+    project_id: str
+    source_version: str
+    target_version: str
+    source_node_count: int = 0
+    target_node_count: int = 0
+    source_relation_count: int = 0
+    target_relation_count: int = 0
+    entity_type_distribution_source: dict[str, int] = Field(default_factory=dict)
+    entity_type_distribution_target: dict[str, int] = Field(default_factory=dict)
+    added_entity_types: list[str] = Field(default_factory=list)
+    removed_entity_types: list[str] = Field(default_factory=list)
+    safe_to_promote: bool = False     # M4 lite 启发式判定
+    safety_reasons: list[str] = Field(default_factory=list)
+
+
 class OntologyEvolutionProposal(BaseModel):
     """本体演化提议（决策书 §5.3 LLM 提议 + SME 审批）。"""
     proposal_id: str
