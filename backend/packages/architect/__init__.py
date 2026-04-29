@@ -20,6 +20,12 @@ from packages.architect.facet_advisor import (
     propose_facets_for_doc_type,
     propose_facets_for_taxonomy,
 )
+from packages.architect.naming_convention import (
+    apply_user_changes as apply_naming_changes,
+    default_naming_convention,
+    preview_filename,
+    validate_filename,
+)
 from packages.architect.industry_recognizer import (
     IndustryRecognitionResult,
     recognize_industry,
@@ -32,14 +38,18 @@ from packages.architect.taxonomy_builder import (
 __all__ = [
     "ArchitectAgent",
     "IndustryRecognitionResult",
+    "apply_naming_changes",
     "apply_user_command",
+    "default_naming_convention",
     "export_to_industry_template",
     "get_architect_agent",
+    "preview_filename",
     "propose_facets_for_doc_type",
     "propose_facets_for_taxonomy",
     "propose_taxonomy",
     "recognize_industry",
     "to_json",
     "to_yaml",
+    "validate_filename",
     "write_to_file",
 ]

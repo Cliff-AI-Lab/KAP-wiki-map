@@ -384,6 +384,36 @@ class TaxonomyDraft(BaseModel):
     top_candidates: list[IndustryCandidate] = Field(default_factory=list)
     # M3 #3a Facet 提议器（PRD F1.4）：doc_type → FacetSchema dict
     facets: dict = Field(default_factory=dict)  # dict[str, FacetSchema]，导出时挂到 IndustryTemplate
+    # M3 #3b 命名规范（PRD F1.5）
+    naming_convention: dict = Field(default_factory=dict)  # NamingConvention dump，避免循环 import
+
+
+class NamingField(BaseModel):
+    """命名规范单字段（决策书 §4.4 拼接顺序）。"""
+    key: str                              # 字段 key（hierarchy_code / domain_code / doc_type / title / version / access_level / owner / lifecycle）
+    name: str                             # 中文显示
+    required: bool = True
+    placeholder: str = ""                 # 默认/示例值
+    description: str = ""
+
+
+class NamingConvention(BaseModel):
+    """命名规范定义（PRD F1.5）。
+
+    决策书 §4.4 默认模板：
+        [层级编码]-[业务域代码]-[文档类型]-[标题]-[版本]-[密级]-[Owner]-[生命周期态]
+    示例：KB-CS-SOP-投诉处理-v2.3-内部-客服部-生效中
+    """
+    industry_code: str = ""
+    project_id: str = ""
+    separator: str = "-"
+    fields: list[NamingField] = Field(default_factory=list)
+    example: str = ""                     # 拼接预览
+    notes: str = ""
+
+    def template_string(self) -> str:
+        """返回模板拼接字符串，如 '[层级编码]-[业务域代码]-...'"""
+        return self.separator.join(f"[{f.name}]" for f in self.fields)
 
 
 class ArchitectSession(BaseModel):
