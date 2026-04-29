@@ -69,9 +69,15 @@
 
 **M2 已完工**（2026-04-29）：4/4 项交付 — LLM-Critic + 脱敏 W1 hook + GraphView obsidian + 块① 咨询智能体。7 commits / ~5h。
 
-**KAP 三块产品形态全部就位**：块①（M2 #4 咨询智能体 / 对话式建体系）+ 块②（M0+M1 6 工位 + 4×6 矩阵 + 脱敏）+ 块③（M0+M2 三路召回 + obsidian 图谱）。
+**M3 已完工**（2026-04-29）：5/5 项交付 — 双层本体 + 双 Agent 互审 pipeline 接入 + 块① 完整化（Facet/命名/主树高级/冲突预演）+ W4 LLM 实体抽取 + PG 持久化。12 commits / ~10h。
 
-后续路线：M3 高级治理（双层本体 + 全量重抽 + 双 Agent 互审）→ M4 GA → M5 PoC。
+**KAP 三块产品形态全部就位** + M3 高级治理 IP：
+- 块①（M2 #4 + M3 #3 完整对话式建体系）
+- 块②（M0+M1 6 工位 + 4×6 矩阵 + 脱敏 + M3 W4 LLM 实体抽取）
+- 块③（M0+M2 三路召回 + obsidian 图谱）
+- M3 双层本体演化（决策书 §5.3 D8/D9 KAP IP 引擎）
+
+后续路线：M4 全量重抽影子库 + 灰度切换 + 7 天回滚（M3 演化的工程闭环）→ M5 GA → M6 PoC。
 
 ### M0 进度快照 v3（2026-04-29 · M0 全部技改收口）
 
@@ -211,21 +217,65 @@
 - ✓ 4×6 矩阵审核台 + W4 写入侧
 - ✓ 测试基线 503/505 ✓
 
-### 下次开工提示词模板（M3 入口）
+### M3 进度快照 v1（2026-04-29 · 全部 5 项交付）
 
-进入 **M3 高级治理**（决策书 §10 路线图 + §5.3 双层本体）：
+**M3 全部完工（12 commits / ~10h vs Opus 估 50-60h，节省 ~83%）**
 
-1. **双层本体演化**（决策书 §5.3 D8/D9）— L1 行业本体 + L2 企业本体两层；演化提议器 + 全量重抽影子库 + 增量哈希对比 + 灰度切换 + 回滚
-2. **LLM-Critic 完整双 Agent 互审**（决策书 §5.5 完整版） — 抽取 LLM-A + 质疑 LLM-B 独立提示词，pipeline 主路径接入（M2 lite 仅 W4 hook 触发）
-3. **块① 高级功能**（PRD F1.3-F1.6 完整） — 主树协同 CRUD（合并/拆分/撤销/协同）+ Facet 提议器（基于 M1 制造 4 套抽通用算法）+ 命名规范生成器 + 冲突检测预演
-4. **块② W4 LLM 实体抽取** — 当前 KAP graph_store 写入是 W5 阶段，W4 完整 NER + 关系抽取 + 敏感实体打标 → graph_store 双向索引
-5. **session 持久化** — M2 lite ArchitectSession + governance_queue 都内存模式，M3 接 PG architect_sessions + sensitive_mappings 反向索引
+| Commit  | 内容                                      | 测试   |
+|:---|:---|:---:|
+| `170ed06` | **#1 双层本体 批 1** · 类型 + L1 内置（制造 9+8 / 能源 10+6） | +17 ✓ |
+| `0dacd88` | **#1 批 2** · OntologyStore + 版本管理 + diff | +17 ✓ |
+| `a8ba4d5` | **#1 批 3** · LLM 演化提议器（监测条件 1） | +10 ✓ |
+| `a516d86` | **#1 批 4** · API 7 端点 + 4×6 矩阵审核台联动 | +13 ✓ |
+| `9ade622` | **#2 双 Agent 互审** · pipeline 主路径接入 + critic blocking 强制 review | +8 ✓ |
+| `b884dcb` | **#3a Facet 提议器** · LLM 归纳 doc_type → FacetSchema | +16 ✓ |
+| `0ec6173` | **#3b 命名规范生成器** · 决策书 §4.4 模板 + 校验 + 调整 | +20 ✓ |
+| `53c7b4d` | **#3d 冲突预演** · LLM 归类 + 重复 + 孤立检测 | +13 ✓ |
+| `1728642` | **#3c 主树高级 CRUD** · merge/split/undo 撤销栈 | +13 ✓ |
+| `1d7b11c` | **#4 W4 LLM 实体抽取** · 本体约束 + 敏感标记 + 关系定义域 | +14 ✓ |
+| `918b86f` | **#5 PG 持久化** · ArchitectSession + OntologyProposal Store 抽象 | +11 ✓ |
+
+**M3 全景成果**：
+
+- **双层本体（决策书 §5.3 D8/D9 lite）**：L1 平台预置（制造 9 实体 + 8 关系；能源 IEC CIM 10+6） + L2 客户私有可演化；OntologyStore 版本管理（patch/minor bump + diff + 多项目隔离）；LLM 演化提议器（监测条件 1：未匹配实体超阈值 → 提议新类型）；7 API 端点 + 联动 4×6 矩阵审核台 W4-SME 必审
+- **双 Agent 互审 pipeline 主路径接入**：``pipeline_critic_enabled`` flag 默认关闭（M2 lite 兼容），开启时 asyncio.gather 并发跑 critic；blocking issue（severity ≥ 0.6）强制 ``needs_review=True``，覆盖 judge 高置信度
+- **块① 完整化（PRD F1.3-F1.6 lite）**：
+  - **#3a Facet 提议器**：LLM 基于样本归纳 doc_type → FacetSchema 6-10 字段 + 敏感标记，复用 M1 制造 4 套经验
+  - **#3b 命名规范生成器**：决策书 §4.4 默认 8 字段（KB-CS-SOP-...）+ 实时预览 + 校验函数 + reorder/required 调整
+  - **#3c 主树高级 CRUD**：merge_nodes（子节点合并去重）+ split_node + 撤销栈（LIFO 20 限）
+  - **#3d 冲突预演**：LLM 用上传材料预演归类 → 冲突（双归 ≥ 0.5）/ 重复（标题标准化）/ 孤立 三类清单
+- **W4 LLM 实体抽取（决策书 §5.2）**：本体严格约束 type_id 必须在 L1+L2 注册集合（防 LLM 幻觉）；关系 source/target 类型符合定义域；复用 packages/sensitive NER 标记敏感实体；ExtractedEntity/Relation/Result Pydantic 三层
+- **PG 持久化**：ArchitectSessionStore + OntologyProposalStore Protocol + InMemory（默认）+ Pg（CREATE TABLE IF NOT EXISTS 幂等 + JSONB 字段 + 索引 + ON CONFLICT upsert）；ArchitectAgent / ontology router 接入 PG 留 M4
+
+**测试基线**：655/657 unit ✓（V15 dingtalk/wecom mock drift 仍 2 个）
+
+**M4 启动条件**（M3 已交付）：
+- ✓ L1+L2 双层本体注册 + 版本管理 + diff
+- ✓ 演化提议器 → 矩阵审核台 W4-SME
+- ✓ Critic 6 维质疑 pipeline 主路径接入（可选开启）
+- ✓ 块① 4 项完整功能（Facet/命名/主树高级/冲突预演）
+- ✓ W4 LLM 实体抽取（本体约束 + 敏感标记）
+- ✓ session/proposal store 持久化抽象（PG 实现就绪，ArchitectAgent/router 待切换）
+- ✓ 测试基线 655/657 ✓
+
+### 下次开工提示词模板（M4 入口）
+
+进入 **M4 全量重抽影子库**（决策书 §5.3 D8 工程闭环）：
+
+M3 #1 lite 仅做了双层本体设计 + LLM 提议；M4 是**演化机制的工程化收口**：
+
+1. **影子图谱机制**（决策书 §5.3 核心工程难点）— 独立 Neo4j 实例 / 数据库；本体变更触发后台全量重抽，日常入库不阻塞主图谱
+2. **增量哈希**（成本控制命门）— chunk content hash 未变 → 跳过实体抽取，仅按新本体重映射；schema-affected 部分才重跑
+3. **as_of 历史回溯**（决策书 §5.3）— Cypher 查询带 ontology_version timestamp filter
+4. **灰度切换 + 7 天回滚**（决策书 §5.3）— 影子图谱对比报告 + 指标观察期；指标恶化（召回率/SME 驳回率/命中率）一键回退
+5. **PG 持久化全面接入** — ArchitectAgent / ontology router 切到 PG store（M3 #5 store 抽象已就位）
+6. **演化监测条件 2/3/4**（决策书 §5.3 剩余 3 种）— 自定义关系反复 / 语义漂移 / 行业标准升版
 
 建议工作流：
-1. 优先级顺序：**双层本体（解锁 M3 全部）→ 双 Agent 互审 → 块① 高级 + Facet 提议 → W4 LLM 抽取 → 持久化**
-2. 关键约束：决策书 D8/D9（影子库不出域）；feedback memory 三条原则
-3. 双层本体最重，建议独立 plan agent 拆 DAG（参考 M2 块① 4 批模式）
-4. 每子模块独立 commit + 跑 `tests/unit/` + 集成测试
+1. **必先 plan**（M4 是工程量最重的一块，~15-20h，需 DAG 拆 5+ 批）
+2. 优先级顺序：**影子图谱机制 → 增量哈希 → as_of 回溯 → 灰度切换 + 回滚 → 监测条件 2/3/4 → PG 全面接入**
+3. 关键约束：决策书 D8（影子库不出域，独立 Neo4j 实例）；feedback memory 三条原则
+4. 每子模块独立 commit + 跑 `tests/unit/` + 集成测试（影子库需 docker-compose 测试）
 
 **项目当前状态可直接接续**：
 - 文档：`docs/01-技术决策书.md` v1.1 / `docs/02-产品需求PRD.md` v1.2 / `docs/M0-tech-debt.md` v1.0（M0 closed）/ `docs/M1-iss-integration.md` v1.0（M1 部署指南）
@@ -238,8 +288,15 @@
   - `packages/sensitive/ingest_hook.py`（W1 脱敏 hook）+ `api/routers/sensitive.py`（解码端点）
   - `packages/architect/`（块① 咨询智能体：agent / industry_recognizer / taxonomy_builder / exporter / prompts）
   - `api/routers/architect.py`（5 端点）
+- M3 新增模块：
+  - `packages/ontology/`（双层本体：base / store / evolution_proposer / proposal_store / builtin/manufacturing_l1.py & energy_l1.py）
+  - `api/routers/ontology.py`（7 端点）
+  - `packages/architect/facet_advisor.py` `naming_convention.py` `conflict_detector.py` `session_store.py`（块① 4 项完整 + PG）
+  - `packages/architect/taxonomy_builder.py` 加 merge_nodes / split_node / undo
+  - `packages/extraction/entity_extractor.py`（W4 LLM 实体抽取，本体约束）
+  - pipeline 加 critic 主路径接入（settings.pipeline_critic_enabled flag）
 - 测试样例：`test-samples/` 48 文档 5 行业子集 + Obsidian 图谱完整无孤岛
-- 测试基线：503/505 unit 通过（V15 遗留 2 项不涉及 KAP 改造）
+- 测试基线：655/657 unit 通过（V15 遗留 2 项不涉及 KAP 改造）
 
 ## 目录约定
 
