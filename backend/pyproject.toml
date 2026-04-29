@@ -25,6 +25,7 @@ dependencies = [
     "numpy>=1.26.0",
     "python-docx>=1.1.0",
     "pyyaml>=6.0.0",
+    "pyjwt>=2.10.0",
 ]
 
 [project.optional-dependencies]
@@ -34,6 +35,8 @@ dev = [
     "pytest-cov>=6.0.0",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
+    "fakeredis>=2.26.0",
+    "respx>=0.21.0",
 ]
 local-models = [
     "transformers>=4.46.0",

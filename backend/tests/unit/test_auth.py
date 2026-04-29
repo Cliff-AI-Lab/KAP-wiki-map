@@ -2,7 +2,14 @@
 
 import pytest
 from packages.common.auth import UserContext
-from api.middleware.auth import AuthMiddleware, _API_KEY_MAP, SKIP_PATHS
+from api.middleware.auth import AuthMiddleware, SKIP_PATHS, _get_api_key_map, reset_api_key_map_for_test
+
+
+@pytest.fixture(autouse=True)
+def _reset_key_map():
+    reset_api_key_map_for_test()
+    yield
+    reset_api_key_map_for_test()
 
 
 class TestUserContext:
@@ -38,19 +45,22 @@ class TestAPIKeyMap:
     """内置 API Key 映射测试。"""
 
     def test_default_key_exists(self):
-        assert "bw-default-key" in _API_KEY_MAP
-        ctx = _API_KEY_MAP["bw-default-key"]
+        api_key_map = _get_api_key_map()
+        assert "bw-default-key" in api_key_map
+        ctx = api_key_map["bw-default-key"]
         assert ctx.user_id == "default_user"
         assert ctx.org_id == "default"
 
     def test_admin_key_exists(self):
-        assert "bw-admin-key" in _API_KEY_MAP
-        ctx = _API_KEY_MAP["bw-admin-key"]
+        api_key_map = _get_api_key_map()
+        assert "bw-admin-key" in api_key_map
+        ctx = api_key_map["bw-admin-key"]
         assert ctx.access_level == "SECRET"
         assert "admin" in ctx.roles
 
     def test_unknown_key_not_in_map(self):
-        assert "nonexistent-key" not in _API_KEY_MAP
+        api_key_map = _get_api_key_map()
+        assert "nonexistent-key" not in api_key_map
 
 
 class TestSkipPaths:

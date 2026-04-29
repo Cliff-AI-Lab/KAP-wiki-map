@@ -98,6 +98,36 @@ class Settings(BaseSettings):
                 f"请设置 EMBEDDING_PROVIDER=bge / ruidong / openai 之一。"
             )
 
+        # 6. M1 ISS 集成：sandbox/prod 强制非 api_key 模式（决策书 §9.1 / PRD F4.1）
+        # api_key 模式是 PoC 静态字典，sandbox/prod 必须走 ISS JWT 或网关 header 模式
+        auth_mode = self.kap_auth_mode.strip().lower()
+        if auth_mode not in ("api_key", "jwt", "gateway_header"):
+            raise ValueError(
+                f"非法 kap_auth_mode={self.kap_auth_mode}"
+                f"（合法值：api_key / jwt / gateway_header）"
+            )
+        if auth_mode != self.kap_auth_mode:
+            object.__setattr__(self, "kap_auth_mode", auth_mode)
+
+        if env in (KAP_ENV_SANDBOX, KAP_ENV_PROD) and auth_mode == "api_key":
+            # 与 verify_ssl / allow_mock_llm 同款策略：静默纠正为最安全默认值
+            # gateway_header 不需要 secret/redis 即可工作，最小阻力路径
+            object.__setattr__(self, "kap_auth_mode", "gateway_header")
+            auth_mode = "gateway_header"
+
+        # 7. jwt 模式（任意环境）必须有 secret 和 redis_url（避免静默旁路）
+        if auth_mode == "jwt":
+            if not self.iss_jwt_secret:
+                raise ValueError(
+                    "kap_auth_mode=jwt 但 ISS_JWT_SECRET 未配置；"
+                    "JWT 验签必须有共享密钥（与 ISS-Auth 对齐）。"
+                )
+            if not self.iss_redis_url:
+                raise ValueError(
+                    "kap_auth_mode=jwt 但 ISS_REDIS_URL 未配置；"
+                    "JWT 模式下需要从 ISS Redis 读取 LoginUser。"
+                )
+
     # --- 飞书 ---
     feishu_app_id: str = ""
     feishu_app_secret: str = ""
@@ -254,6 +284,54 @@ class Settings(BaseSettings):
     # --- 认证 ---
     auth_required: bool = Field(default=False, description="是否强制认证(PoC默认关闭)")
     api_keys: str = Field(default="", description="逗号分隔的 API Key 列表，格式: key:user_id:role")
+
+    # --- M1 ISS 集成（决策书 §9.1 + PRD §10.4）---
+    kap_auth_mode: str = Field(
+        default="api_key",
+        description=(
+            "认证模式：api_key（M0 PoC，本地静态字典）/ jwt（验签 ISS HS512 + 共享 Redis 拿 LoginUser）/"
+            " gateway_header（信任网关注入的 X-User-* header，KAP 部署在 ISS-Gateway 后面时用）。"
+            "sandbox/prod 由 model_post_init 强制非 api_key"
+        ),
+    )
+    iss_jwt_secret: str = Field(
+        default="",
+        description=(
+            "ISS-Auth JWT HS512 共享密钥。仅 kap_auth_mode=jwt 时必填；"
+            "sandbox/prod 强制非空。绝不写入代码 / 文档（决策书 §8.3）"
+        ),
+    )
+    iss_jwt_algorithm: str = Field(
+        default="HS512",
+        description="JWT 算法（与 ISS JwtUtils 对齐，固定 HS512）",
+    )
+    iss_jwt_user_key_claim: str = Field(
+        default="user_key",
+        description="JWT claims 中承载 user_key UUID 的字段名（ISS SecurityConstants.USER_KEY）",
+    )
+    iss_redis_url: str = Field(
+        default="",
+        description=(
+            "ISS-Auth Redis 地址（独立连接池，与 KAP redis_url 分离，私有化部署可能不同实例）。"
+            "格式 redis://[user:pass@]host:port/db。kap_auth_mode=jwt 时必填"
+        ),
+    )
+    iss_token_key_prefix: str = Field(
+        default="login_tokens:",
+        description="ISS Redis 中 LoginUser 的 key 前缀（CacheConstants.LOGIN_TOKEN_KEY），完整 key=prefix+user_key",
+    )
+    iss_system_base_url: str = Field(
+        default="",
+        description="ISS-System 服务 base URL（如 http://iss-system:9201），用于 RemoteUser/Dept 调用",
+    )
+    iss_remote_timeout: float = Field(
+        default=5.0,
+        description="ISS Remote HTTP 调用超时（秒）",
+    )
+    iss_dept_cache_ttl: int = Field(
+        default=300,
+        description="部门树本地缓存 TTL（秒）",
+    )
 
     # --- CORS ---
     cors_origins: str = Field(
