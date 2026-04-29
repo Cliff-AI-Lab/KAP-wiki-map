@@ -63,13 +63,15 @@
 
 ## 当前阶段
 
-**M0 KAP-Lite**（前 4 周）：基于 Wiki-map V15 + ISS 接入 + 睿动；单角色；块②③ 主流程跑通；可演示给客户。
+**M0 KAP-Lite 已完工**（2026-04-29）：基于 Wiki-map V15 + ISS 接入 + 睿动；9 大坑全部技改；块②③ 主流程跑通；测试 250/252 ✓。
 
-后续：M1 企业级 v1（4×6 矩阵 + 脱敏 + 制造模板）→ M2 块① → M3 高级治理 → M4 GA → M5 PoC。
+**下一阶段 M1 企业级 v1**：4×6 矩阵审核台 + 脱敏管线 + 制造模板 + ISS 集成深化。
 
-### M0 进度快照（2026-04-28 二次会话末）
+后续路线：M1 → M2 块①（咨询智能体）→ M3 高级治理 → M4 GA → M5 PoC。
 
-**已完成（15 commits / ~8.5 人时实际，对比 Opus 估算 56h，节省 85%）**：
+### M0 进度快照 v3（2026-04-29 · M0 全部技改收口）
+
+**M0 全部 9 大坑 + 4 个顺手坑全部完工（23 commits / ~12.5 人时实际 vs Opus 估算 112h，节省 89%）**
 
 | Commit | 内容 | 测试 |
 |---|---|---|
@@ -86,45 +88,65 @@
 | `e9d2fc1` | **坑 1 批 2** · 4 个 agent arun_* 异步入口 | +9 ✓ |
 | `c7a6b13` | **坑 1 批 3** · pipeline asyncio.gather + Semaphore | +6 ✓ |
 | `87949c5` | **坑 1 批 4** · API endpoint 切 `await arun_pipeline` | — |
+| `973aebc` | CLAUDE.md 进度快照 v2 | — |
+| `d1b5691` | **坑 6** · EmbeddingProvider 抽象 + bge 接入 + 异步双轨 | +20 ✓ |
+| `6c169ad` | docs(refs) · 修复 _refs 乱码 + 建立 Wiki-map/ISS 关联索引 | — |
+| `1ad3d0f` | feat(test-samples) · 48 文档按行业打包为 KAP 测试样例集 | — |
+| `8f9e387` | **坑 2** · Milvus ConnectionManager + 双向量 schema（含坑 8 access_level 预留）| +13 ✓ |
+| `7e385ef` | docs(test-samples) · 用 markdown link 全面理顺 Obsidian 图谱关系 | — |
+| `df5c9c1` | **坑 5** · Neo4j GraphStore 修静默 fallback + 加 ontology_version | +14 ✓ |
+| `f751be7` | feat(test-samples) · 为 39 份非 .md 样本生成 .md 索引页 | — |
+| `5bc2047` | feat(test-samples) · 给 9 份 V15 原始 .md 注入 navigation header | — |
+| `4ff7af8` | **坑 7+8** · KAP 5 角色枚举 + RBAC Dependency + 召回阶段密级路由 | +25 ✓ |
 
-**今日成果（5 commits in 1 session，~2h 实际 vs Opus 估 16h）**：
-- 坑 1（LLM 全链路异步化）+ 顺手坑 D（verify_ssl 开关）+ 顺手坑 F（mock fallback 门控）全部修复
-- httpx.Client → AsyncClient，pipeline ThreadPoolExecutor → asyncio.gather
-- 双轨保留（sync run_* 仍可用，M0 兼容期不破坏其他调用方）
-- tenacity 优化：业务异常不重试 + reraise=True
-- 新增 `arun_pipeline` 是块②③ 入库主入口，API 三处（ingest_demo / ingest_files / analyze_files）已切换
+**M0 全景成果**：
 
-**剩余 M0 清单（按 Opus DAG 推荐顺序）**：
+- **坑 1**（LLM 全链路异步化）：`httpx.Client` → `AsyncClient`，pipeline `ThreadPoolExecutor` → `asyncio.gather` + `Semaphore`，双轨保留（sync `run_*` + async `arun_*`），tenacity 业务异常不重试 + `reraise=True`
+- **坑 2**（Milvus ConnectionManager + 双向量）：`MilvusConnectionManager` 健康检查 + 熔断；schema 增加 `vector_type` / `embedding_model_version` / `access_level` int8 字段，原始向量与脱敏向量物理分离
+- **坑 3**（Judge 阈值外置）：阈值 → `judge_thresholds.yaml`；决策函数化 `decide_action()`；`R3 review` 通道独立
+- **坑 4a+4b**（行业模板 + 多租户域）：制造/能源行业模板 loader + 多租户 domain 推断（含坑 B：domain_path 覆写）
+- **坑 5**（Neo4j GraphStore）：移除内存模式静默 fallback，加 `ontology_version` 字段；启动失败 fail-fast 而非误用 InMemory
+- **坑 6**（EmbeddingProvider 抽象）：`EmbeddingProvider` ABC + `Mock` / `Ruidong` / `BGELocal` 三实现；`current_model_version()` 写入物料元数据
+- **坑 7+8**（RBAC + 召回密级路由）：5 KAP 角色枚举（DG/SME/SEC/AIOps/READER）+ V15 admin/editor 别名兼容；`UserContext.max_access_level: int` 自动同步；`RequireRole/RequireAccessLevel` Dependency；retriever 三处 `vector_store.search()` 注入 `max_access_level` filter
+- **顺手坑 A**（Settings 强制策略）：`model_post_init` enforce sandbox/prod 的 `allow_mock_*` / `allow_memory_fallback` / `verify_ssl`
+- **顺手坑 B**（domain_path 覆写）：QA 引擎已计算时 retriever 直接使用，避免重复 SkillsRouter
+- **顺手坑 D**（verify_ssl 开关）：dev 可关、sandbox/prod 强制开
+- **顺手坑 F**（mock fallback 门控）：sandbox/prod 完全屏蔽 mock embedding/llm
 
-```
-[ ] 坑 6 · EmbeddingProvider + bge 接入         10h ← 推荐下次首项（独立度高，块③ 召回必备）
-[ ] 坑 2 · Milvus ConnectionManager + 双向量    12h（与坑 6 配套）
-[ ] 坑 5 · Neo4j GraphStore + InMemory 降级    20h（M0 最重）
-[ ] 坑 7 · RBAC 中间件骨架                       8h
-[ ] 坑 8 · Milvus access_level 字段              6h
-```
+**测试基线**：250/252 通过（仅 V15 既有 connector mock 数据漂移 2 项与 KAP 改造无关）
 
-剩余约 56h Opus 估时；按当前实际节奏（~12% Opus 估算）实际可能 ~7-10h。
+**M1 启动条件**（M0 已交付）：
+- ✓ 三环境隔离 + 强制策略
+- ✓ LLM/Embedding 全链路异步 + 双轨可降级
+- ✓ Milvus 双向量 schema + 召回密级过滤
+- ✓ Neo4j GraphStore fail-fast + 本体版本化
+- ✓ KAP 5 角色 + RBAC Dependency
+- ✓ 行业模板 + 多租户域推断
+- ✓ 测试样例集（48 文档，5 行业子集，Obsidian 图谱完整）
 
-### 下次开工提示词模板
+### 下次开工提示词模板（M1 入口）
 
-继续 KAP M0 实施。本次目标：**坑 6 · EmbeddingProvider 抽象 + bge-large-zh 本地接入**（参见 docs/M0-tech-debt.md §2 坑 6）。
+进入 **M1 企业级 v1**（决策书 §13 + PRD §10 路线图），目标：
 
-建议工作流（参照坑 1 5 批模式，已验证有效）：
-1. 先用 `kap-delegate.py --task-type plan --mode diagnosis` 让 Opus 4.7 出 embedding 模块改造地图
-2. 分批落地：
-   - 批 a · `EmbeddingProvider` 抽象类 + `MockEmbedding` / `BGELocalEmbedding` / `RuidongEmbedding` 三实现
-   - 批 b · `vector_store.py` 集成 + 写入时挂 `embedding_model_version` 元数据（坑 6 + 坑 2 联动）
-   - 批 c · API + pipeline 切换调用方
-3. 每批独立 commit + 跑 `tests/unit/` 套件验证零回归
-4. 关键约束：`KAP_ALLOW_MOCK_EMBEDDING` 环境变量门控（仿照 `allow_mock_llm`）；sandbox/prod 强制 False
+1. **4×6 矩阵审核台**（DG/SME/SEC/AIOps × W1-W6 工位）— 前端工位看板 + 后端工单状态机
+2. **敏感实体识别 + 脱敏管线** — W4 工位增加 PII/PHI/秘级识别 → 写入侧分流到 `vec_redacted` / `vec_original`
+3. **制造行业模板包**（v1）— 设备故障 / 工艺标准 / SOP / 质量记录 4 套 facet schema
+4. **ISS 集成深化** — `iss-common-security` JWT claims 完整对接（`roles` / `data_scope_level`）+ `iss-common-datascope` 5 级数据权限 AOP
+5. **access_level 完整 4 级映射规则** — 按 Owner 角色 + Facet 推断（M0 默认全部 PUBLIC=0，写入侧需补）
+
+建议工作流：
+1. 用 `kap-delegate.py --task-type plan --mode roadmap` 让 Opus 4.7 出 M1 DAG（参考 M0 节奏）
+2. 优先级顺序：**ISS 集成（解锁权限）→ 矩阵审核台后端 → 脱敏管线 → 制造模板包 → 矩阵审核台前端**
+3. 每子模块独立 commit + 跑 `tests/unit/` + 新增 `tests/integration/`
+4. 关键约束：决策书 D12（审核台 SLA 不允许 LLM 自动通过）；ISS 复用不重写
 
 **项目当前状态可直接接续**：
-- 文档：`docs/01-技术决策书.md` v1.1 / `docs/02-产品需求PRD.md` v1.2 / `docs/M0-tech-debt.md` v1.0 / `docs/M0-tech-debt-async-plan.md` v1.0
-- 设计：`design/index.html`（Plan A UI 原型）
+- 文档：`docs/01-技术决策书.md` v1.1 / `docs/02-产品需求PRD.md` v1.2 / `docs/M0-tech-debt.md` v1.0（M0 全部 closed）
+- 设计：`design/index.html`（Plan A UI 原型，M1 矩阵审核台需在此基础上扩展）
 - 工具：`scripts/kap-delegate.py`（默认 Opus 4.7 via 睿动 CRS Anthropic 端点）
-- 代码：`backend/` (Python FastAPI) + `frontend/` (React) + `infra/` (compose) 全部就绪
-- 测试基线：181/183 通过（仅 V15 既有 connector mock 数据漂移 2 项与 KAP 改造无关）
+- 代码：`backend/` (Python FastAPI 异步全栈) + `frontend/` (React 19) + `infra/` (compose) 全部就绪
+- 测试样例：`test-samples/` 48 文档 5 行业子集 + Obsidian 图谱完整无孤岛
+- 测试基线：250/252 unit 通过（V15 遗留 2 项不涉及 KAP 改造）
 
 ## 目录约定
 
