@@ -67,9 +67,9 @@
 
 **M1 企业级 v1 已完工**（2026-04-29，同日 follow-up）：ISS 集成 + 4×6 矩阵审核台 + W4 写入侧 + 敏感脱敏 + 制造 Facet + 矩阵 UI。10 commits / ~7.5h vs 原估 60-80h。
 
-**下一阶段 M2**：obsidian 风格力导向图谱 + LLM-Critic 6 维质疑 + 块①（咨询智能体）。
+**M2 进行中**（2026-04-29）：3/4 项完工 — LLM-Critic 6 维质疑 + 脱敏 W1 hook + GraphView obsidian 升级。剩 **块① 咨询智能体**（最重，下次开工拆 DAG）。
 
-后续路线：M2 → M3 高级治理 → M4 GA → M5 PoC。
+后续路线：M2 完工 → M3 高级治理 → M4 GA → M5 PoC。
 
 ### M0 进度快照 v3（2026-04-29 · M0 全部技改收口）
 
@@ -168,29 +168,57 @@
 - ✓ 制造行业 Facet schema 4 套
 - ✓ 测试基线 427/429 ✓
 
-### 下次开工提示词模板（M2 入口）
+### M2 进度快照 v1（2026-04-29 · 3/4 项交付，剩块①）
 
-进入 **M2** — obsidian 风格图谱 + LLM-Critic + 块① 咨询智能体（决策书 §10 路线图）：
+**M2 已完成 3 项（3 commits / ~3h vs 原 plan 估 ~30h，节省 90%）**
 
-1. **obsidian 风格力导向图谱**（M1 用户反馈延期）— `react-force-graph-2d`（已在依赖）改造，节点动态布局 + 染色维度切换（工位/角色/业务域/密级）+ 分支过滤侧边栏 + hover 卡片预览（参考 `feedback_graph_obsidian_style.md`）
-2. **LLM-Critic 6 维质疑**（决策书 §5.5 D13）— 双 Agent 互审（抽取 LLM-A + 质疑 LLM-B），6 维（一致性/完整性/证据强度/重复性/时效性/跨域），输出结构化质疑入审核台
-3. **块① 知识咨询智能体**（决策书 §1.5 块①）— `architect/agent.py` 对话式建体系，`taxonomy_builder.py` 状态机，`facet_advisor.py` Facet 提议器
-4. **W1/W4 脱敏管线 hook**（决策书 §5.4 工位嵌入）— 解析后调脱敏 → 入库分双向量 vec_redacted/vec_original → 召回路由按密级
-5. **能源 + 制造模板包扩充** — 完善 manufacturing-discrete / manufacturing-process / energy-power / energy-oil-gas 子模板
+| Commit  | 内容                                           | 测试   |
+|:---|:---|:---:|
+| `6175808` | **#1 LLM-Critic 6 维质疑** · prompt + sync/async 双轨 + 容错 + W4 hook 集成 | +16 ✓ |
+| `b9cca04` | **#2 W1 脱敏 ingest hook** · redact_and_persist_doc + /sensitive/decode 高密解码 + 审计日志 | +8 ✓  |
+| `ca544be` | **#3 GraphView obsidian 风格升级** · 柔光外发光 + 染色维度切换（社区/类型/中心性） | —     |
+
+**M2 已交付成果**：
+
+- **LLM-Critic（决策书 §5.5 D13 lite）**：单 LLM 调用 6 维质疑（一致性/完整性/证据强度/重复性/时效性/跨域），CriticResult 含 findings + overall_severity + has_blocking_issue()；轻量化路线 — 不接 pipeline 主路径，**只在 W4 写入侧 hook（低置信度兜底场景）调用**，符合"AI native + 人工兜底"；critic blocking 触发工单 priority +20
+- **W1 脱敏接入（§5.4 D10）**：ingest 主路径在 RawStore 保存原文之后调 `redact_and_persist_doc`，doc.content 就地替换为脱敏文 + mapping 写加密 KV；pipeline 后续基于脱敏文做嵌入 + 入库（向量库不存原文）；新增 `/api/v1/sensitive/decode/{mapping_id}` 高密解码端点（`RequireAccessLevel(CONFIDENTIAL)` + 每次访问写审计日志）
+- **GraphView obsidian 升级（feedback memory）**：增量改造不重写 — canvas `shadowBlur` 柔光外发光（选中 22 / 聚焦 10）+ 染色维度三模式 toggle（社区 Louvain / 实体类型 8 类 / 中心性 3 档梯度）+ 详情面板 + 图例联动；保留所有既有交互（拖拽 / 1-hop / 搜索 / 推理虚线）
+
+**测试基线**：451/453 unit ✓（V15 mock drift 仍 2 个）
+
+**M2 剩余**：
+- **#4 块① 知识咨询智能体**（决策书 §1.5 / §10 PRD §10.4 1132）— 对话式建知识体系最重项，需独立 plan：`architect/agent.py` 对话状态机 + `industry_recognizer.py` 行业识别 + `taxonomy_builder.py` 主树构建 + `facet_advisor.py` Facet 提议器 + `conflict_detector.py` + `exporter.py`
+
+### 下次开工提示词模板（M2 #4 块①）
+
+进入 **M2 #4 块① 知识咨询智能体** 实施（决策书 §1.5 + PRD §10.4 1132 行）：
+
+**块① 概念**：AI 对话式建知识体系。客户首次部署 KAP 时，咨询智能体引导客户描述业务场景 → 自动识别行业 → 推荐 L1 主树 + L2 部门分支 → 客户审核 → 导出为 IndustryTemplate（M1 制造 Facet 已是产物形态）。
+
+**最小可用范围（lite）**：
+1. `architect/agent.py` — 主对话状态机（识别行业 → 主树 → Facet → 导出 4 阶段）
+2. `architect/industry_recognizer.py` — 基于 SkillsRouter 扩展，行业关键词 + LLM 二轮判定
+3. `architect/taxonomy_builder.py` — 主树构建对话状态（add/remove/rename 节点）
+4. `architect/facet_advisor.py` — Facet 字段提议（基于 doc_type 复用 M1 4 套 schema 经验）
+5. `architect/exporter.py` — 导出为 IndustryTemplate Pydantic
+6. `api/routers/architect.py` — 对话端点（POST /architect/chat + GET /architect/draft）
+7. 前端 `pages/architect/` 对话 UI（M2 后续批，本批先后端）
 
 建议工作流：
-1. 优先级顺序：**LLM-Critic（解锁审核台 AI 兜底）→ 脱敏 W1/W4 集成 → obsidian 图谱（产品视觉杀手锏）→ 块① 咨询智能体（最重，建议独立 plan agent 拆 DAG）**
-2. 关键约束：决策书 D13 双 Agent 互审；feedback memory 三条原则（轻量化 / ISS 零侵入 / obsidian 风格图谱）
-3. 每子模块独立 commit + 跑 `tests/unit/` + 新增 `tests/integration/`
+1. **先 plan**（块① 是 KAP 旗舰功能，工作量 ~10-15h，需 DAG 拆批）
+2. 优先后端对话状态机 + industry_recognizer + exporter；前端 UI 单独批
+3. 关键约束：feedback memory 三条（轻量化 / ISS 零侵入 / obsidian 图谱）；不重新发明 SkillsRouter / IndustryTemplate
+4. 每子模块独立 commit + 跑 `tests/unit/` + 集成测试块① → 块② 衔接路径
 
 **项目当前状态可直接接续**：
 - 文档：`docs/01-技术决策书.md` v1.1 / `docs/02-产品需求PRD.md` v1.2 / `docs/M0-tech-debt.md` v1.0（M0 closed）/ `docs/M1-iss-integration.md` v1.0（M1 部署指南）
-- 设计：`design/index.html`（Plan A UI 原型）+ `frontend/src/pages/v15/GovernanceMatrix.tsx`（M1 矩阵 UI 工程蓝图美学起点）
+- 设计：`design/index.html`（Plan A UI 原型）+ `frontend/src/pages/v15/GovernanceMatrix.tsx`（M1 矩阵 UI 工程蓝图美学）+ `frontend/src/pages/v15/GraphView.tsx`（M2 obsidian 风格力导向图谱）
 - 工具：`scripts/kap-delegate.py`（默认 Opus 4.7 via 睿动 CRS Anthropic 端点）
 - 代码：`backend/` Python 异步全栈 + `frontend/` React 19 + `infra/` compose 全部就绪
-- M1 新增包：`packages/auth/`（ISS 集成）+ `packages/sensitive/`（脱敏）+ `packages/governance/matrix.py` `sla.py` `distillation_hook.py` + `packages/templates/facets_manufacturing.py`
+- M1 新增包：`packages/auth/`（ISS 集成）+ `packages/sensitive/`（脱敏离线工具）+ `packages/governance/matrix.py` `sla.py` `distillation_hook.py` + `packages/templates/facets_manufacturing.py`
+- M2 新增模块：`packages/distillation/agents/critic.py`（6 维质疑）+ `packages/sensitive/ingest_hook.py`（W1 脱敏 hook）+ `api/routers/sensitive.py`（解码端点）
 - 测试样例：`test-samples/` 48 文档 5 行业子集 + Obsidian 图谱完整无孤岛
-- 测试基线：427/429 unit 通过（V15 遗留 2 项不涉及 KAP 改造）
+- 测试基线：451/453 unit 通过（V15 遗留 2 项不涉及 KAP 改造）
 
 ## 目录约定
 
