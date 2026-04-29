@@ -1,16 +1,19 @@
-"""图数据库存储 — V8 重构：双向索引 + 实体归一化 + 关系去重。
+"""图数据库存储 — V8 双向索引 + KAP 坑 5 改造。
 
-核心理念（对齐书虫五大原则）：
-- 图谱不做存储系统，只做实体关系可视化（轻量化定位）
-- 图谱按知识体系分支逐层展开（知识图谱逐层展开）
-- 双向索引支撑文档关联发现（清晰快捷的知识梳理）
-
-V8 改造要点：
+V8 改造要点（已落地）：
 - 新增 _entity_docs 反向索引（entity→docs）
 - 新增 _edge_index 关系去重合并（同对实体同关系 → weight++）
 - 实体名归一化（NFKC + 同义映射）
 - get_entities_by_domain 返回增加 doc_ids, weight
 - 新增 get_docs_by_entity, get_shared_entity_docs, get_doc_view_graph
+
+KAP 坑 5 改造（M0）：
+- 关闭静默 fallback：连接 Neo4j 失败时按 settings.allow_memory_fallback 决定降级
+  · sandbox/prod 强制不降级（settings.model_post_init 已硬拦），Neo4j 不可用直接抛 StorageError
+  · dev 默认允许降级，但需显式 KAP_ALLOW_MEMORY_FALLBACK=true
+- 实体节点和关系写入时挂 ontology_version 属性
+  · 默认 settings.neo4j_ontology_version='v1'
+  · M3 本体演化启用 as_of 历史回溯时直接用此字段
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ import unicodedata
 from typing import Optional
 
 from packages.common import get_logger, settings
+from packages.common.exceptions import StorageError
 from packages.common.types import EntityRelation, MentionedEntity
 
 log = get_logger("storage.graph")
@@ -48,8 +52,13 @@ class GraphStore:
         self._synonym_map: dict[str, str] = {}
 
     async def initialize(self) -> None:
+        """初始化 Neo4j 驱动 + 探活。
+
+        失败时按 ``settings.allow_memory_fallback`` 决定是否降级（坑 5）。
+        sandbox/prod 由 settings.model_post_init 强制 False，会直接抛 StorageError。
+        """
         if self._use_memory:
-            log.info("graph_store_memory_mode_v8")
+            log.info("graph_store_memory_mode_explicit")
             return
 
         try:
@@ -62,10 +71,30 @@ class GraphStore:
             async with self._driver.session() as session:
                 await session.run("RETURN 1")
             await self.refresh_counts()
-            log.info("graph_store_neo4j_connected_v8")
-        except Exception as e:
-            log.warning("graph_store_fallback_to_memory", error=str(e))
+            log.info(
+                "graph_store_neo4j_connected",
+                uri=settings.neo4j_uri,
+                ontology_version=settings.neo4j_ontology_version,
+            )
+        except Exception as e:  # noqa: BLE001
+            self._handle_init_failure(e)
+
+    def _handle_init_failure(self, err: Exception) -> None:
+        """连接失败处理：dev + allow_memory_fallback 才降级；否则抛 StorageError（坑 5）。"""
+        if settings.allow_memory_fallback and settings.kap_env == "dev":
+            log.warning(
+                "graph_store_fallback_to_memory",
+                kap_env=settings.kap_env,
+                error=str(err),
+            )
             self._use_memory = True
+            self._driver = None
+            return
+        raise StorageError(
+            f"Neo4j 连接失败（kap_env={settings.kap_env}, "
+            f"allow_memory_fallback={settings.allow_memory_fallback}）："
+            f"{err}。如需 dev 阶段降级到内存，设置 KAP_ALLOW_MEMORY_FALLBACK=true。"
+        ) from err
 
     # ── V8: 实体归一化 ──────────────────────────────────────
 
@@ -106,6 +135,8 @@ class GraphStore:
                     "type": label,
                     "domain_id": domain_id or existing.get("domain_id", ""),
                     "doc_ids": list(doc_ids),
+                    # 坑 5：本体版本（M3 本体演化启用 as_of 时用）
+                    "ontology_version": settings.neo4j_ontology_version,
                 }
             else:
                 async with self._driver.session() as session:
@@ -113,6 +144,7 @@ class GraphStore:
                         f"""
                         MERGE (e:{label} {{name: $name}})
                         SET e.domain_id = COALESCE($domain_id, e.domain_id, '')
+                        SET e.ontology_version = $ontology_version
                         SET e.doc_ids = CASE
                             WHEN e.doc_ids IS NULL THEN [$doc_id]
                             WHEN NOT $doc_id IN e.doc_ids THEN e.doc_ids + $doc_id
@@ -122,6 +154,7 @@ class GraphStore:
                         name=normalized_name,
                         domain_id=domain_id,
                         doc_id=doc_id,
+                        ontology_version=settings.neo4j_ontology_version,
                     )
 
             # V8: 更新反向索引
@@ -181,10 +214,13 @@ class GraphStore:
                         MERGE (a {name: $src})
                         MERGE (b {name: $tgt})
                         MERGE (a)-[r:RELATES {type: $rel}]->(b)
+                        SET r.ontology_version = $ontology_version
+                        SET r.weight = COALESCE(r.weight, 0) + 1
                         """,
                         src=src,
                         tgt=tgt,
                         rel=rel.relation,
+                        ontology_version=settings.neo4j_ontology_version,
                     )
 
     # ── 查询方法 ────────────────────────────────────────────

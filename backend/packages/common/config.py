@@ -117,10 +117,21 @@ class Settings(BaseSettings):
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
 
-    # --- Neo4j ---
+    # --- Neo4j（坑 5 改造）---
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
     neo4j_password: str = "bookworm123"
+    neo4j_ontology_version: str = Field(
+        default="v1",
+        description=(
+            "当前本体版本（M0 默认 v1，M3 本体演化启用）。"
+            "实体节点和关系写入时挂此属性，未来支持 as_of 历史回溯查询"
+        ),
+    )
+    neo4j_max_reconnect_attempts: int = Field(
+        default=3,
+        description="Neo4j 重连失败上限",
+    )
 
     # --- Milvus（坑 2 改造）---
     milvus_host: str = "localhost"
