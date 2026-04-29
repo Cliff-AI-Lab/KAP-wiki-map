@@ -57,6 +57,8 @@ class PipelineResult:
     decision: Decision | None = None
     needs_review: bool = False
     error: str | None = None
+    # M3 #2 双 Agent 互审：critic 结果（仅 pipeline_critic_enabled=True 时填充）
+    critic_result: object | None = None  # CriticResult，避免 pipeline 强依赖 import
 
 
 @dataclass
@@ -518,6 +520,50 @@ def _apply_judge_decision(
         batch.discarded += 1
 
 
+async def _run_critic_for_pr(
+    pr: PipelineResult,
+    doc: RawDocument,
+    audit_result: AuditResult | None,
+    judge: JudgeResult,
+    batch: BatchPipelineResult,
+) -> None:
+    """M3 #2 双 Agent 互审主路径接入（决策书 §5.5 D13 完整版）。
+
+    在 _apply_judge_decision_to_pr 之后调用：
+    - 调 acritic 6 维质疑（独立 LLM 提示词，相当于 LLM-B 质疑 Agent）
+    - critic.has_blocking_issue() 时强制 pr.needs_review = True（即使 judge 高置信度）
+    - critic 失败静默降级（不阻断 pipeline）
+
+    门控：仅 settings.pipeline_critic_enabled=True 时调用方触发本函数。
+    """
+    if not pr.librarian_result:
+        return  # 缺前置 Agent 结果，跳过 critic
+
+    try:
+        from packages.distillation.agents.critic import arun_critic
+        critic = await arun_critic(doc, pr.librarian_result, audit_result, judge)
+    except Exception as e:
+        log.warning("pipeline_critic_failed_skip", doc_id=doc.doc_id, error=str(e))
+        return
+
+    pr.critic_result = critic
+
+    # critic blocking 强制升级 needs_review（即使 judge 已经过关）
+    blocking_threshold = getattr(settings, "critic_blocking_threshold", 0.6)
+    if critic.has_blocking_issue(blocking_threshold) and not pr.needs_review:
+        pr.needs_review = True
+        # 决策不变（KEEP/ARCHIVE/DISCARD），但状态从 kept 移到 pending_review
+        if pr.decision == Decision.KEEP and batch.kept > 0:
+            batch.kept -= 1
+            batch.pending_review += 1
+        log.info(
+            "critic_forced_review",
+            doc_id=doc.doc_id,
+            overall_severity=critic.overall_severity,
+            judge_confidence=judge.confidence,
+        )
+
+
 async def arun_pipeline(
     documents: list[RawDocument],
     domain_list_text: str = "",
@@ -684,6 +730,31 @@ async def arun_pipeline(
         kept=batch.kept,
         elapsed_ms=_elapsed_ms(t_step),
     )
+
+    # ── M3 #2 双 Agent 互审（pipeline 主路径接入，决策书 §5.5 D13 完整版）──
+    # 仅 settings.pipeline_critic_enabled=True 时启用；并发跑 critic
+    if getattr(settings, "pipeline_critic_enabled", False):
+        t_step = time.monotonic()
+        critic_targets = [
+            (doc, pipeline_results[doc.doc_id])
+            for doc in judgeable_docs
+            if pipeline_results[doc.doc_id].judge_result is not None
+        ]
+        log.info("pipeline_step_async", step="critic", targets=len(critic_targets))
+        await asyncio.gather(
+            *(
+                _run_critic_for_pr(
+                    pr, doc, audit_results.get(doc.doc_id), pr.judge_result, batch,
+                )
+                for doc, pr in critic_targets
+            ),
+            return_exceptions=False,
+        )
+        log.info(
+            "critic_done_async",
+            critic_count=len(critic_targets),
+            elapsed_ms=_elapsed_ms(t_step),
+        )
 
     # ── Step 6: Refiner Agent（仅 KEEP，asyncio.gather 并行）
     t_step = time.monotonic()

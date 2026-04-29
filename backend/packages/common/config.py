@@ -266,6 +266,21 @@ class Settings(BaseSettings):
         description="W4 实体抽取低置信度工单的 SLA 截止分钟数；超时由 sla.sweep_overdue_tasks 升级",
     )
 
+    # M3 #2 双 Agent 互审完整版（决策书 §5.5 D13 完整版）
+    pipeline_critic_enabled: bool = Field(
+        default=False,
+        description=(
+            "是否在蒸馏 pipeline 主路径上每文档跑 LLM-Critic 6 维质疑。"
+            "False（默认）= M2 lite 行为，仅 W4 hook 在低置信度时触发 critic；"
+            "True = M3 完整版，主路径每文档都跑 critic，blocking issue 强制 needs_review。"
+            "开启会增加 LLM 调用成本（每文档 +1 LLM 调用）。"
+        ),
+    )
+    critic_blocking_threshold: float = Field(
+        default=0.6,
+        description="Critic 任一维度 severity ≥ 此值视为 blocking，强制 needs_review = True",
+    )
+
     # M1 敏感实体识别 + 脱敏管线（决策书 §5.4 D10/D11）
     sensitive_aes_key: str = Field(
         default="",
