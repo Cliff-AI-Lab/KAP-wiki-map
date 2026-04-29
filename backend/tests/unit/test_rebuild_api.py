@@ -339,3 +339,45 @@ class TestAsOfEndpoint:
     def test_as_of_missing_param_returns_422(self, client) -> None:
         r = client.get("/api/v1/rebuild/as-of?project_id=p1&version=v1")
         assert r.status_code == 422
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M6 #2 · tick-all 端点
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestTickAllEndpoint:
+    def test_tick_all_empty_returns_empty(self, client) -> None:
+        r = client.post(
+            "/api/v1/rebuild/observations/tick-all",
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 200
+        assert r.json() == []
+
+    def test_tick_all_non_sme_blocked(self, client) -> None:
+        r = client.post(
+            "/api/v1/rebuild/observations/tick-all",
+            headers={"X-Test-Roles": "READER"},
+        )
+        assert r.status_code == 403
+
+    def test_tick_all_returns_active_observations(self, client) -> None:
+        from packages.rebuild import (
+            get_shadow_store,
+            start_observation,
+        )
+        s = get_shadow_store()
+        for i in range(5):
+            s.add_entity("p1", "v1", entity_name=f"E{i}",
+                         type_id="equipment", doc_id="d")
+        start_observation("p1", "v1", shadow=s)
+
+        r = client.post(
+            "/api/v1/rebuild/observations/tick-all",
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert len(body) == 1
+        assert body[0]["project_id"] == "p1"

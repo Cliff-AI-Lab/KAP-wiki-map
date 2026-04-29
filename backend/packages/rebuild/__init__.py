@@ -41,6 +41,7 @@ from packages.rebuild.promotion_observer import (
     mark_rolled_back,
     reset_observations_for_test,
     start_observation,
+    tick_all_observations,
     tick_observation,
 )
 from packages.rebuild.rebuild_orchestrator import (
@@ -90,5 +91,6 @@ __all__ = [
     "should_reextract",
     "start_observation",
     "start_rebuild",
+    "tick_all_observations",
     "tick_observation",
 ]

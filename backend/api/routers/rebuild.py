@@ -39,6 +39,7 @@ from packages.rebuild import (
     promote_shadow,
     rollback_promotion,
     start_rebuild,
+    tick_all_observations,
     tick_observation,
 )
 
@@ -204,6 +205,25 @@ async def get_current_observation_endpoint(
     if obs is None:
         raise HTTPException(status_code=404, detail="该项目无活跃观察期")
     return obs
+
+
+@router.post("/observations/tick-all", response_model=list[PromotionObservation])
+async def tick_all_observations_endpoint(
+    user=Depends(RequireRole(ROLE_SME)),
+) -> list[PromotionObservation]:
+    """批量 tick 所有活跃观察期（M6 #2 · 外部 cron / ISS-Job 入口）。
+
+    给定时器 / Quartz 调度器一次性触发的端点，避免逐项目轮询。
+    返回每个被 tick 的观察期最新状态（含 watching / alert / expired）。
+    """
+    out = tick_all_observations()
+    log.info(
+        "observations_ticked_all",
+        count=len(out),
+        alerts=sum(1 for o in out if o.status == "alert"),
+        user=getattr(user, "user_id", "?"),
+    )
+    return out
 
 
 @router.post("/observations/tick", response_model=PromotionObservation)

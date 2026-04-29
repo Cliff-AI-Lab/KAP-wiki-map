@@ -26,6 +26,7 @@ from packages.rebuild import (
     reset_shadow_store_for_test,
     rollback_promotion,
     start_observation,
+    tick_all_observations,
     tick_observation,
 )
 from packages.rebuild import promotion_observer as obs_mod
@@ -260,3 +261,61 @@ class TestPromoteRollbackWiring:
         obs = get_current_observation("p1")
         assert obs is not None
         assert obs.status == "rolled_back"
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M6 #2 · tick_all_observations
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestTickAll:
+    def test_tick_all_empty_returns_empty(self) -> None:
+        assert tick_all_observations() == []
+
+    def test_tick_all_processes_multiple_projects(self) -> None:
+        s = _build_shadow("v1")
+        s2 = ShadowGraphStore()
+        for i in range(5):
+            s2.add_entity("p2", "v1", entity_name=f"E{i}",
+                          type_id="equipment", doc_id="d")
+
+        start_observation("p1", "v1", shadow=s)
+        start_observation("p2", "v1", shadow=s2)
+        # 用 p1 的 shadow 作为通用 shadow 不正确（数据隔离），逐项目调
+        # 这里关键测：tick_all 把两个观察期都 tick 一次
+        results = tick_all_observations(shadow=s)
+        # 至少返回 2 个观察期更新（p1 的 snapshot 应有数据，p2 的可能为空但 obs 仍返回）
+        assert len(results) == 2
+        assert {o.project_id for o in results} == {"p1", "p2"}
+
+    def test_tick_all_skips_rolled_back(self) -> None:
+        s = _build_shadow("v1")
+        start_observation("p1", "v1", shadow=s)
+        mark_rolled_back("p1")
+
+        results = tick_all_observations(shadow=s)
+        # rolled_back 状态仍被返回（保持状态可见）
+        assert len(results) == 1
+        assert results[0].status == "rolled_back"
+
+    def test_tick_all_handles_per_project_failure(self, monkeypatch) -> None:
+        """单 project 异常不阻断其他项目。"""
+        s = _build_shadow("v1")
+        start_observation("p1", "v1", shadow=s)
+        start_observation("p2", "v1", shadow=s)
+
+        from packages.rebuild import promotion_observer as po
+        original = po.tick_observation
+        call_count = {"n": 0}
+
+        def flaky(project_id, **kwargs):
+            call_count["n"] += 1
+            if project_id == "p1":
+                raise RuntimeError("boom")
+            return original(project_id, **kwargs)
+
+        monkeypatch.setattr(po, "tick_observation", flaky)
+        results = po.tick_all_observations(shadow=s)
+        # p2 仍成功；p1 被吞掉
+        assert any(o.project_id == "p2" for o in results)
+        assert call_count["n"] == 2

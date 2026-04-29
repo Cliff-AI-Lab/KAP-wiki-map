@@ -186,6 +186,43 @@ def mark_rolled_back(project_id: str) -> bool:
     return True
 
 
+def tick_all_observations(
+    *,
+    known_relation_type_ids: set[str] | None = None,
+    shadow: ShadowGraphStore | None = None,
+) -> list[PromotionObservation]:
+    """批量 tick 所有当前活跃观察期（M6 #2 · 外部 cron / ISS-Job 入口）。
+
+    遍历 ``_current`` 中所有 project_id，逐个调 ``tick_observation``，
+    返回更新后的观察期列表（含已转 expired / alert 的）。
+
+    设计（feedback memory · ISS 零侵入 + 轻量化）：
+        - 不接 Quartz；任何 cron / ISS-Job 走 HTTP 端点即可
+        - 顺序执行（活跃观察期通常 < 100，无需并发）
+        - 单 project 失败不阻断其他
+    """
+    out: list[PromotionObservation] = []
+    project_ids = list(_current.keys())
+    for project_id in project_ids:
+        try:
+            obs = tick_observation(
+                project_id,
+                known_relation_type_ids=known_relation_type_ids,
+                shadow=shadow,
+            )
+            if obs is not None:
+                out.append(obs)
+        except Exception as e:
+            log.warning(
+                "tick_all_project_failed",
+                project_id=project_id, error=str(e),
+            )
+    log.info("tick_all_completed",
+             projects_processed=len(project_ids),
+             observations_returned=len(out))
+    return out
+
+
 # ────────────────────────────────────────────────────────────────────────
 #  告警规则
 # ────────────────────────────────────────────────────────────────────────
