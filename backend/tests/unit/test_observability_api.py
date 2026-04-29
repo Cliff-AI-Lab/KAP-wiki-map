@@ -15,6 +15,12 @@ from packages.observability import (
     reset_decisions_for_test,
     reset_queries_for_test,
 )
+from packages.rebuild import (
+    ShadowGraphStore,
+    reset_observations_for_test,
+    reset_shadow_store_for_test,
+    start_observation,
+)
 
 
 class _UserInjectMiddleware(BaseHTTPMiddleware):
@@ -36,9 +42,13 @@ def _build_app() -> FastAPI:
 def _reset():
     reset_decisions_for_test()
     reset_queries_for_test()
+    reset_observations_for_test()
+    reset_shadow_store_for_test()
     yield
     reset_decisions_for_test()
     reset_queries_for_test()
+    reset_observations_for_test()
+    reset_shadow_store_for_test()
 
 
 @pytest.fixture
@@ -132,3 +142,68 @@ class TestQueryEndpoints:
         assert body["hits"] == 3
         assert body["hit_rate"] == 0.75
         assert body["avg_latency_ms"] > 0
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M7 #3 · 综合运营仪表盘
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestDashboard:
+    def test_empty_dashboard(self, client) -> None:
+        r = client.get("/api/v1/observability/dashboard")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["decisions"]["total"] == 0
+        assert body["queries"]["total"] == 0
+        assert body["observations"]["total"] == 0
+        assert body["observations"]["active"] == 0
+        assert body["observations"]["alerting"] == 0
+
+    def test_dashboard_aggregates_three_sources(self, client) -> None:
+        # 决策事件
+        record_decision(project_id="p1", decision_type="approve_proposal")
+        record_decision(project_id="p1", decision_type="reject_proposal")
+        record_decision(project_id="p1", decision_type="promote")
+        # 查询事件
+        record_query(project_id="p1", query_text="a", source_count=2,
+                     latency_ms=50)
+        record_query(project_id="p1", query_text="b", source_count=0,
+                     latency_ms=80)
+        # 观察期
+        s = ShadowGraphStore()
+        for i in range(5):
+            s.add_entity("p1", "v1", entity_name=f"E{i}",
+                         type_id="equipment", doc_id="d")
+        start_observation("p1", "v1", shadow=s)
+
+        r = client.get(
+            "/api/v1/observability/dashboard?project_id=p1"
+        )
+        assert r.status_code == 200
+        body = r.json()
+
+        assert body["decisions"]["total"] == 3
+        assert body["decisions"]["by_type"]["approve_proposal"] == 1
+        assert body["decisions"]["promote_rollback_ratio"] == 1.0
+
+        assert body["queries"]["total"] == 2
+        assert body["queries"]["hit_rate"] == 0.5
+
+        assert body["observations"]["total"] == 1
+        assert body["observations"]["active"] == 1
+        assert body["observations"]["alerting"] == 0
+        assert body["observations"]["items"][0]["project_id"] == "p1"
+        assert "snapshots" not in body["observations"]["items"][0]
+        # 摘要不返回 snapshots 全量
+        assert body["observations"]["items"][0]["snapshots_count"] == 0
+
+    def test_dashboard_filters_by_project(self, client) -> None:
+        record_decision(project_id="p1", decision_type="approve_proposal")
+        record_decision(project_id="p2", decision_type="approve_proposal")
+
+        r = client.get(
+            "/api/v1/observability/dashboard?project_id=p1"
+        )
+        body = r.json()
+        assert body["decisions"]["total"] == 1
