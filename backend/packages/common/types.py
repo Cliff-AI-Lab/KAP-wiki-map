@@ -304,8 +304,14 @@ class QAResponse(BaseModel):
 
 from typing import Literal
 
-GovernanceAgent = Literal["curator", "auditor", "deduper", "standardizer", "gardener"]
-GovernanceKind = Literal["draft_pending", "unverified", "conflict", "standardize_suggest", "archive_suggest"]
+GovernanceAgent = Literal[
+    "curator", "auditor", "deduper", "standardizer", "gardener",
+    "distillation",  # M1 W4 写入侧：蒸馏管线低置信度产出
+]
+GovernanceKind = Literal[
+    "draft_pending", "unverified", "conflict", "standardize_suggest", "archive_suggest",
+    "low_confidence_extract",  # M1 W4：实体抽取低置信度待 SME 审核（决策书 §5.2 W4 必审）
+]
 # M1 矩阵审核台扩展：reviewing（已认领）/ escalated（D12 SLA 升级）
 GovernanceStatus = Literal["pending", "reviewing", "approved", "rejected", "edited", "escalated"]
 GovernanceDecision = Literal["approve", "reject", "edit"]

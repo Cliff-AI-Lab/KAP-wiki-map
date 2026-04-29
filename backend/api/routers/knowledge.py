@@ -706,6 +706,22 @@ async def ingest_demo_data(
                 kpi_retain=r.judge_result.kpi_retain,
                 reason=r.judge_result.summary or "低置信度自动进入审核",
             )
+            # M1 W4 写入侧：双写到 4×6 矩阵审核台（决策书 §5.2 W4 必审）
+            from api.deps import get_governance_queue_store
+            from packages.governance.distillation_hook import enqueue_low_confidence_review
+            try:
+                await enqueue_low_confidence_review(
+                    store=get_governance_queue_store(),
+                    project_id=project_id,
+                    doc_id=doc.doc_id,
+                    doc_title=doc.title,
+                    confidence=r.judge_result.confidence,
+                    proposed_decision=r.decision.value,
+                    reason=r.judge_result.summary or "低置信度自动进入审核",
+                )
+            except Exception as e:
+                # 双写失败不影响 V15 主路径，仅记日志
+                log.warning("matrix_review_enqueue_failed", doc_id=doc.doc_id, error=str(e))
             review_enqueued += 1
 
         # BUG-003 修复：DISCARD 文档写入影子归档（30天可恢复）
@@ -945,6 +961,21 @@ async def ingest_files(
                 kpi_retain=r.judge_result.kpi_retain,
                 reason=r.judge_result.summary or "低置信度",
             )
+            # M1 W4 写入侧：双写到 4×6 矩阵审核台
+            from api.deps import get_governance_queue_store
+            from packages.governance.distillation_hook import enqueue_low_confidence_review
+            try:
+                await enqueue_low_confidence_review(
+                    store=get_governance_queue_store(),
+                    project_id=project_id,
+                    doc_id=doc.doc_id,
+                    doc_title=doc.title,
+                    confidence=r.judge_result.confidence,
+                    proposed_decision=r.decision.value,
+                    reason=r.judge_result.summary or "低置信度",
+                )
+            except Exception as e:
+                log.warning("matrix_review_enqueue_failed", doc_id=doc.doc_id, error=str(e))
 
         if r.decision != Decision.KEEP:
             continue

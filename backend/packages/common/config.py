@@ -260,6 +260,12 @@ class Settings(BaseSettings):
     kpi_archive_threshold: float = Field(default=0.45, description="KPI 低于此值倾向 ARCHIVE")
     review_confidence_threshold: float = Field(default=0.60, description="Judge 置信度低于此值进入人工审核")
 
+    # M1 4×6 矩阵审核台 SLA（决策书 §5.5 D12）
+    kap_w4_sla_minutes: int = Field(
+        default=60,
+        description="W4 实体抽取低置信度工单的 SLA 截止分钟数；超时由 sla.sweep_overdue_tasks 升级",
+    )
+
     # --- Agent 参数 ---
     librarian_preview_chars: int = Field(default=2000, description="Librarian 发送给 LLM 的内容预览长度")
     judge_content_chars: int = Field(default=3000, description="Judge 发送给 LLM 的内容摘录长度")
