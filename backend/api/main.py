@@ -29,7 +29,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from api.deps import init_stores, shutdown_stores
 from api.middleware.auth import AuthMiddleware
-from api.routers import analysis, audit, governance, health, knowledge, platform, projects, qa, recall_test, sensitive, settings, system, v15, wiki
+from api.routers import analysis, architect, audit, governance, health, knowledge, platform, projects, qa, recall_test, sensitive, settings, system, v15, wiki
 from packages.common.config import settings as app_settings
 
 log = structlog.get_logger(__name__)
@@ -105,6 +105,7 @@ app.include_router(wiki.router, prefix="/api/v1")          # V11: Wiki 知识编
 app.include_router(system.router, prefix="/api/v1")        # V15: 组件状态
 app.include_router(governance.router, prefix="/api/v1")    # V15: 治理工单
 app.include_router(sensitive.router, prefix="/api/v1")    # M2: 敏感映射解码
+app.include_router(architect.router, prefix="/api/v1")    # M2 #4: 块① 咨询智能体
 app.include_router(v15.router, prefix="/api/v1")           # V15: 专属路由 (Phase L 起)
 app.include_router(platform.router)                        # 平台级接口
 app.include_router(settings.router)                        # 系统设置
