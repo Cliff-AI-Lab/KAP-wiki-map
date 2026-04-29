@@ -69,15 +69,21 @@ class BookwormRetriever:
         user_department: str | None = None,
         org_id: str = "default",
         domain_path: str = "",
+        user: object | None = None,
     ) -> list[SearchResult]:
         """
         V7 Skills 模式检索：
         1. 意图分类 → 动态权重
         2. LLM 读知识域目录 → 选择分支（路由）
         3. Milvus 按 domain_id 精准检索
-        4. RBAC 权限过滤
+        4. RBAC 权限过滤（含 M1 ISS DataScope 5 级，user 提供时生效）
         5. 实体共现 + BM25 混合评分
         6. Reranker 精排
+
+        Args:
+            user: M1 ISS 集成（批 2-4）— 可选 ``UserContext``，提供则走 DataScope
+                5 级过滤（dept_id / created_by 维度）；不提供则仅走 V15 access_level
+                兼容路径，保持 M0 行为
         """
         log.info("retrieval_start", query=query[:100], top_k=top_k)
 
@@ -198,6 +204,11 @@ class BookwormRetriever:
 
         # ── Step 4: RBAC 权限过滤 ────────────────────
         user_rank = _ACCESS_LEVEL_RANK.get(user_access_level, 1)
+        # M1 ISS DataScope（批 2-4）：仅在传入 UserContext 且非 ALL 级别时生效
+        data_scope_active = False
+        if user is not None:
+            from packages.auth.data_scope import DATA_SCOPE_ALL
+            data_scope_active = getattr(user, "data_scope_level", DATA_SCOPE_ALL) != DATA_SCOPE_ALL
         filtered_hits = []
         for hit in vector_hits:
             doc_id = hit["doc_id"]
@@ -214,6 +225,21 @@ class BookwormRetriever:
                 doc_dept = doc_meta.get("department_id", "")
                 if doc_dept and user_department and doc_dept != user_department:
                     continue
+
+            # M1 ISS DataScope 后过滤：临时兼容期，缺 dept_id 透明放行
+            # 待 W4 工位写入侧补全 dept_id / created_by 后这里强校验
+            if data_scope_active:
+                from packages.auth.data_scope import matches as ds_matches
+                doc_dept_raw = doc_meta.get("dept_id") or doc_meta.get("department_id")
+                try:
+                    doc_dept_int = int(doc_dept_raw) if doc_dept_raw not in (None, "") else None
+                except (TypeError, ValueError):
+                    doc_dept_int = None
+                doc_owner = doc_meta.get("created_by") or doc_meta.get("owner_id")
+                # 仅在文档至少有一个范围字段时走严格过滤
+                if doc_dept_int is not None or doc_owner:
+                    if not await ds_matches(user, doc_dept_int, doc_owner):
+                        continue
 
             hit["_meta"] = doc_meta
             filtered_hits.append(hit)
