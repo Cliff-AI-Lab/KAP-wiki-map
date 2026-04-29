@@ -80,17 +80,20 @@
 
 **下一阶段 M5 待启动**：监测条件 2/3/4 完整 LLM / as_of 历史回溯 / 7 天自动观察 / 独立物理 Neo4j 实例。
 
-### Obsidian 图谱配色建议
+### Obsidian 图谱配色（已配置）
 
-打开 obsidian → Graph view → ⚙️ Filters → Color groups，按路径 query 设：
+vault 配置文件 `E:\Obsidian\知识PPL\.obsidian\graph.json` 已直接写入 5 组着色规则，
+打开 obsidian Graph view 即可看到自动分色，不需要手动设置：
 
-| 节点                  | 路径模式（query）                                 | 建议颜色 |
-|:---|:---|:---:|
-| KAP 新作              | `path:docs/ OR path:backend/ OR path:frontend/`   | 🔵 蓝色 |
-| KAP 进程链            | `path:docs/progress/`                              | 🟢 绿色（线性递增） |
-| 设计蓝本（中心）      | `path:docs/01-技术决策书 OR path:docs/02-产品需求` | 🟡 黄色 |
-| ISS 参考项目          | `path:_refs/iss-kb/`                              | 🔴 红色 |
-| Wiki-map V15 参考     | `path:_refs/wiki-map/`                            | 🟠 橙色 |
+| 节点                | 路径匹配                                                                | 颜色      | RGB     |
+|:---|:---|:---|:---:|
+| 设计蓝本（中心）    | `docs/01-技术决策书` / `docs/02-产品需求`                              | 🟡 黄色   | #FFCB00 |
+| KAP 进程链          | `docs/progress/`                                                        | 🟢 绿色   | #22C55E |
+| ISS 参考项目        | `_refs/iss-kb/` 或 `raw/ISS知识库`                                     | 🔴 红色   | #EF4444 |
+| Wiki-map V15 参考   | `_refs/wiki-map/` 或 `raw/Wiki-map`                                    | 🟠 橙色   | #F97316 |
+| KAP 新作（其他）    | `raw/KAP知识智能体平台/` 整体兜底                                       | 🔵 蓝色   | #3B82F6 |
+
+> obsidian colorGroups 按列表顺序匹配（第一个命中生效），所以设计蓝本和进程链放在最前。
 
 > 详细 commit 时间线、ISS / Wiki-map 引用关系、代码模块关联等见各 [`docs/progress/M{N}-...md`](docs/progress/) 快照。
 > 不要在 CLAUDE.md 重复维护快照内容（避免与进度文档双源不一致）。
