@@ -188,3 +188,183 @@ def apply_user_command(draft: TaxonomyDraft, command: str) -> TaxonomyDraft:
 
     log.info("user_cmd_unrecognized", command=command[:60])
     return draft
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M3 #3c 主树高级 CRUD（PRD F1.3.4 节点合并 / 拆分 / 撤销）
+# ════════════════════════════════════════════════════════════════════════
+
+# 撤销栈：session_id → list[snapshot]，每个 snapshot = list[dict]（taxonomy dump）
+# M3 lite 内存模式（M4 接 PG 持久化）
+_undo_stack: dict[str, list[list[dict]]] = {}
+_UNDO_LIMIT = 20  # 每会话最多保留 20 个快照
+
+
+def _snapshot_taxonomy(taxonomy: list) -> list[dict]:
+    """把 taxonomy 列表深拷贝为 dict 形式（撤销栈用）。"""
+    out: list[dict] = []
+    for n in taxonomy:
+        if isinstance(n, TaxonomyNode):
+            out.append(n.model_dump())
+        elif isinstance(n, dict):
+            out.append(dict(n))
+    return out
+
+
+def _restore_taxonomy(snapshot: list[dict]) -> list[TaxonomyNode]:
+    return [TaxonomyNode.model_validate(d) for d in snapshot]
+
+
+def push_undo_snapshot(session_id: str, draft: TaxonomyDraft) -> None:
+    """在 mutation 操作前调一次，把当前 taxonomy 入撤销栈。"""
+    if not session_id:
+        return
+    stack = _undo_stack.setdefault(session_id, [])
+    stack.append(_snapshot_taxonomy(draft.taxonomy or []))
+    if len(stack) > _UNDO_LIMIT:
+        stack.pop(0)  # FIFO 截断
+
+
+def undo(session_id: str, draft: TaxonomyDraft) -> tuple[TaxonomyDraft, bool]:
+    """撤销最近一次操作。
+
+    Returns:
+        (draft, did_undo) — did_undo=False 表示栈空无可撤销
+    """
+    stack = _undo_stack.get(session_id, [])
+    if not stack:
+        return draft, False
+    snapshot = stack.pop()
+    draft.taxonomy = _restore_taxonomy(snapshot)
+    log.info("taxonomy_undo", session_id=session_id, remaining=len(stack))
+    return draft, True
+
+
+def reset_undo_for_test() -> None:
+    _undo_stack.clear()
+
+
+# ── merge ──
+
+
+def merge_nodes(
+    draft: TaxonomyDraft,
+    *,
+    source_ids: list[str],
+    target_name: str,
+    target_id: str = "",
+    description: str = "",
+) -> TaxonomyDraft:
+    """合并多个节点为一个新节点（PRD F1.3.4）。
+
+    Args:
+        source_ids: 待合并的节点 id 列表（≥2）
+        target_name: 合并后的新节点名
+        target_id: 新节点 id（默认从 target_name 推导）
+        description: 新节点描述（默认拼接源节点 name）
+
+    Returns:
+        修改后的 draft；source_ids 节点都不存在时静默不动
+    """
+    if not draft or len(source_ids) < 2:
+        return draft
+
+    src_set = set(source_ids)
+    taxonomy: list[TaxonomyNode] = []
+    matched: list[TaxonomyNode] = []
+
+    for n in draft.taxonomy or []:
+        node = n if isinstance(n, TaxonomyNode) else TaxonomyNode.model_validate(n)
+        if node.id in src_set:
+            matched.append(node)
+        else:
+            taxonomy.append(node)
+
+    if len(matched) < 2:
+        log.info("merge_skipped_too_few_matches",
+                 source_ids=source_ids, matched=len(matched))
+        return draft
+
+    if not target_id:
+        target_id = re.sub(r"[^a-zA-Z0-9_]", "_", target_name.lower())[:32] or "merged"
+
+    desc = description or f"合并自 {' / '.join(m.name for m in matched)}"
+    # 子节点合并去重（按 id）
+    children: list[TaxonomyNode] = []
+    seen_child_ids: set[str] = set()
+    for m in matched:
+        for c in m.children or []:
+            cn = c if isinstance(c, TaxonomyNode) else TaxonomyNode.model_validate(c)
+            if cn.id not in seen_child_ids:
+                seen_child_ids.add(cn.id)
+                children.append(cn)
+
+    taxonomy.append(TaxonomyNode(
+        id=target_id,
+        name=target_name,
+        level=matched[0].level,
+        description=desc,
+        children=children,
+    ))
+    draft.taxonomy = taxonomy
+    log.info("merge_done", source_ids=source_ids, target_id=target_id,
+             merged_count=len(matched))
+    return draft
+
+
+# ── split ──
+
+
+def split_node(
+    draft: TaxonomyDraft,
+    *,
+    source_id: str,
+    new_nodes: list[dict],
+) -> TaxonomyDraft:
+    """把一个节点拆分为多个新节点（PRD F1.3.4）。
+
+    Args:
+        source_id: 待拆分的节点 id
+        new_nodes: 新节点定义 [{"id": ..., "name": ..., "description": ...}, ...]
+
+    Returns:
+        修改后的 draft；source 不存在或 new_nodes 为空时不动
+    """
+    if not draft or not new_nodes or not source_id:
+        return draft
+
+    taxonomy: list[TaxonomyNode] = []
+    matched: TaxonomyNode | None = None
+
+    for n in draft.taxonomy or []:
+        node = n if isinstance(n, TaxonomyNode) else TaxonomyNode.model_validate(n)
+        if node.id == source_id:
+            matched = node
+        else:
+            taxonomy.append(node)
+
+    if matched is None:
+        log.info("split_source_not_found", source_id=source_id)
+        return draft
+
+    # 创建新节点（保留原 level）
+    for nd in new_nodes:
+        if not isinstance(nd, dict):
+            continue
+        new_id = nd.get("id") or re.sub(
+            r"[^a-zA-Z0-9_]", "_",
+            (nd.get("name") or "").lower(),
+        )[:32]
+        if not new_id:
+            continue
+        taxonomy.append(TaxonomyNode(
+            id=str(new_id)[:64],
+            name=str(nd.get("name", new_id))[:60],
+            level=matched.level,
+            description=str(nd.get("description", f"由 {matched.name} 拆分而来"))[:200],
+            children=[],
+        ))
+
+    draft.taxonomy = taxonomy
+    log.info("split_done", source_id=source_id, new_count=len(new_nodes))
+    return draft

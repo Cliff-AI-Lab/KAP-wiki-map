@@ -39,7 +39,12 @@ from packages.architect.industry_recognizer import (
 )
 from packages.architect.taxonomy_builder import (
     apply_user_command,
+    merge_nodes,
     propose_taxonomy,
+    push_undo_snapshot,
+    reset_undo_for_test,
+    split_node,
+    undo,
 )
 
 __all__ = [
@@ -54,14 +59,19 @@ __all__ = [
     "detect_duplicates",
     "export_to_industry_template",
     "get_architect_agent",
+    "merge_nodes",
     "preview_classification",
     "preview_filename",
     "propose_facets_for_doc_type",
     "propose_facets_for_taxonomy",
     "propose_taxonomy",
+    "push_undo_snapshot",
     "recognize_industry",
+    "reset_undo_for_test",
+    "split_node",
     "to_json",
     "to_yaml",
+    "undo",
     "validate_filename",
     "write_to_file",
 ]
