@@ -91,16 +91,39 @@ class TestProcessMessage:
         assert result["stage"] == "identify"
 
     async def test_identify_with_samples_advances_stage(self) -> None:
-        """批 1 阶段 industry_recognizer 还没建 → 占位路径，stage 不进 propose。"""
+        """批 2 industry_recognizer 已接入 — 模拟高置信度返回，验证 draft + stage 推进。"""
+        from unittest.mock import patch
+        from packages.architect.industry_recognizer import IndustryRecognitionResult
+        from packages.common.types import IndustryCandidate
+
+        async def fake_recognize(samples, **kwargs):
+            return IndustryRecognitionResult(
+                industry_code="manufacturing",
+                industry_name="制造业",
+                confidence=0.85,
+                top_candidates=[IndustryCandidate(
+                    industry_code="manufacturing",
+                    industry_name="制造业",
+                    confidence=0.85,
+                )],
+                recognized_signals=["生产管理", "工艺", "质量"],
+                stage_used="stage1",
+            )
+
         agent = ArchitectAgent()
         s = agent.create_session("p1")
-        # 模拟 industry_recognizer 不存在 → 占位 draft 写入 + stage 仍 identify
-        result = await agent.process_message(
-            s.session_id, "请识别行业",
-            sample_texts=["设备点检", "工艺标准"],
-        )
+        with patch(
+            "packages.architect.industry_recognizer.recognize_industry",
+            side_effect=fake_recognize,
+        ):
+            result = await agent.process_message(
+                s.session_id, "请识别行业",
+                sample_texts=["设备点检", "工艺标准"],
+            )
         assert result["draft"] is not None
         assert result["draft"]["industry_code"] == "manufacturing"
+        # 高置信度 → stage 推进到 propose
+        assert result["stage"] == "propose"
 
     async def test_history_records_user_and_assistant(self) -> None:
         agent = ArchitectAgent()

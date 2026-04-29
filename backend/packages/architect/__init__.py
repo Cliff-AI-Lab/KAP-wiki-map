@@ -10,8 +10,14 @@
 """
 
 from packages.architect.agent import ArchitectAgent, get_architect_agent
+from packages.architect.industry_recognizer import (
+    IndustryRecognitionResult,
+    recognize_industry,
+)
 
 __all__ = [
     "ArchitectAgent",
+    "IndustryRecognitionResult",
     "get_architect_agent",
+    "recognize_industry",
 ]
