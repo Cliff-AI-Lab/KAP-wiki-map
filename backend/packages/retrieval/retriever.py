@@ -149,6 +149,11 @@ class BookwormRetriever:
                     domain_filter = route_result.selected_domains or None
 
         # ── Step 3: V8 分支激活 — Milvus 前缀匹配检索 ──
+        # M0-tech-debt 坑 8：召回阶段直接注入 access_level <= max_access_level 过滤
+        # 决策书 §8.1：高密向量被低密用户的查询命中后再过滤既低效又有泄露风险
+        from packages.common.roles import access_level_to_int
+        max_access_int = access_level_to_int(user_access_level, default=1)
+
         query_embedding = embed_query(query)
 
         vector_hits = await self.vector_store.search(
@@ -157,6 +162,7 @@ class BookwormRetriever:
             org_id=org_id,
             doc_id_filter=doc_id_filter,
             domain_filter=domain_filter if not doc_id_filter else None,
+            max_access_level=max_access_int,
         )
 
         # V8 fallback: 分支无结果 → 扩大到父分支
@@ -172,6 +178,7 @@ class BookwormRetriever:
                     top_k=effective_top_k * candidate_multiplier,
                     org_id=org_id,
                     domain_filter=parent_filters,
+                    max_access_level=max_access_int,
                 )
 
         # 最终 fallback: 全量检索
@@ -182,6 +189,7 @@ class BookwormRetriever:
                     query_embedding=query_embedding,
                     top_k=effective_top_k * candidate_multiplier,
                     org_id=org_id,
+                    max_access_level=max_access_int,
                 )
 
         if not vector_hits:
