@@ -10,14 +10,30 @@
 """
 
 from packages.architect.agent import ArchitectAgent, get_architect_agent
+from packages.architect.exporter import (
+    export_to_industry_template,
+    to_json,
+    to_yaml,
+    write_to_file,
+)
 from packages.architect.industry_recognizer import (
     IndustryRecognitionResult,
     recognize_industry,
+)
+from packages.architect.taxonomy_builder import (
+    apply_user_command,
+    propose_taxonomy,
 )
 
 __all__ = [
     "ArchitectAgent",
     "IndustryRecognitionResult",
+    "apply_user_command",
+    "export_to_industry_template",
     "get_architect_agent",
+    "propose_taxonomy",
     "recognize_industry",
+    "to_json",
+    "to_yaml",
+    "write_to_file",
 ]
