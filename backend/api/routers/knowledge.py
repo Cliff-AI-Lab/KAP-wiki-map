@@ -518,6 +518,7 @@ async def resolve_review(
 
 @router.post("/ingest-demo")
 async def ingest_demo_data(
+    request: Request,
     project_id: str = Query(default="default", description="项目ID"),
     force: bool = Query(default=False, description="强制重新灌入（清除旧数据）"),
     industry: str = Query(default="auto", description="行业类型: auto(自动检测)/energy/default"),
@@ -676,6 +677,15 @@ async def ingest_demo_data(
         else:
             doc_status = "DISCARDED"
 
+        # M1 ISS DataScope 激活：从 request user context 拉 dept_id/created_by
+        # 系统导入（demo / mock 连接器）时 user 是 anonymous，dept_id=None / created_by=""
+        # 让 retriever DataScope 过滤端透明放行（M0 兼容）；真实用户登录时填实
+        user = getattr(request.state, "user", None)
+        ingest_dept_id = getattr(user, "dept_id", None) if user else None
+        ingest_created_by = getattr(user, "user_id", "") if user else ""
+        if ingest_created_by == "anonymous":
+            ingest_created_by = ""
+
         # 所有文档都写入元数据（不再跳过 ARCHIVE/DISCARD）
         await meta.upsert_document({
             "id": doc.doc_id,
@@ -694,6 +704,8 @@ async def ingest_demo_data(
             "updated_at": None,
             "access_level": doc.metadata.get("access_level", "INTERNAL"),
             "department_id": doc.metadata.get("department_id", ""),
+            "dept_id": ingest_dept_id,             # M1 ISS DataScope int
+            "created_by": ingest_created_by,        # M1 ISS DataScope SELF
             "judge_reasoning": r.judge_result.reasoning.model_dump() if r.judge_result else None,
         })
 
@@ -860,6 +872,7 @@ async def ingest_demo_data(
 
 @router.post("/ingest")
 async def ingest_files(
+    request: Request,
     files: list[UploadFile] = File(..., description="上传的文件列表"),
     project_id: str = Form(default="default", description="项目ID"),
 ) -> dict:
@@ -951,6 +964,11 @@ async def ingest_files(
             "category_path": cat, "org_id": doc.org_id,
             "created_at": None, "updated_at": None,
             "access_level": "INTERNAL", "department_id": "",
+            # M1 ISS DataScope 激活：上传文件时关联当前登录用户
+            "dept_id": getattr(getattr(request.state, "user", None), "dept_id", None),
+            "created_by": (
+                getattr(getattr(request.state, "user", None), "user_id", "") or ""
+            ).replace("anonymous", ""),
             "judge_reasoning": r.judge_result.reasoning.model_dump() if r.judge_result else None,
         })
 

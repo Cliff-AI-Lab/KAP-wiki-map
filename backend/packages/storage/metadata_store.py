@@ -66,6 +66,8 @@ class MetadataStore:
                     keywords        TEXT,
                     judge_reasoning JSONB,
                     department_id   VARCHAR(64),
+                    dept_id         INT,
+                    created_by      VARCHAR(64),
                     access_level    VARCHAR(16) DEFAULT 'INTERNAL',
                     category_path   VARCHAR(256),
                     org_id          VARCHAR(64) DEFAULT 'default',
@@ -74,6 +76,9 @@ class MetadataStore:
                     ingested_at     TIMESTAMPTZ DEFAULT NOW()
                 )
             """)
+            # M1 ISS DataScope 激活 — 给已存在的旧 documents 表补字段（idempotent）
+            await cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS dept_id INT")
+            await cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS created_by VARCHAR(64)")
             await cur.execute("""
                 CREATE TABLE IF NOT EXISTS manual_review_queue (
                     id              SERIAL PRIMARY KEY,
@@ -96,6 +101,8 @@ class MetadataStore:
         # 确保可选字段有默认值
         doc_record.setdefault("access_level", "INTERNAL")
         doc_record.setdefault("department_id", "")
+        doc_record.setdefault("dept_id", None)        # M1 ISS DataScope int 部门
+        doc_record.setdefault("created_by", "")        # M1 ISS DataScope SELF
         doc_record.setdefault("judge_reasoning", None)
 
         if self._use_memory:
@@ -115,11 +122,12 @@ class MetadataStore:
                 INSERT INTO documents (id, title, source_system, doc_type, version_id,
                     status, decision, kpi_retain, summary, keywords, category_path,
                     org_id, created_at, updated_at, access_level, department_id,
-                    judge_reasoning)
+                    dept_id, created_by, judge_reasoning)
                 VALUES (%(id)s, %(title)s, %(source_system)s, %(doc_type)s, %(version_id)s,
                     %(status)s, %(decision)s, %(kpi_retain)s, %(summary)s, %(keywords)s,
                     %(category_path)s, %(org_id)s, %(created_at)s, %(updated_at)s,
-                    %(access_level)s, %(department_id)s, %(judge_reasoning)s::jsonb)
+                    %(access_level)s, %(department_id)s, %(dept_id)s, %(created_by)s,
+                    %(judge_reasoning)s::jsonb)
                 ON CONFLICT (id) DO UPDATE SET
                     status = EXCLUDED.status,
                     decision = EXCLUDED.decision,
@@ -128,6 +136,8 @@ class MetadataStore:
                     keywords = EXCLUDED.keywords,
                     access_level = EXCLUDED.access_level,
                     department_id = EXCLUDED.department_id,
+                    dept_id = EXCLUDED.dept_id,
+                    created_by = EXCLUDED.created_by,
                     judge_reasoning = EXCLUDED.judge_reasoning
                 """,
                 pg_record,
