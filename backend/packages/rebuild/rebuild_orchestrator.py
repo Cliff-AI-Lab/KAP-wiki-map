@@ -25,6 +25,7 @@ from packages.common import get_logger
 from packages.common.types import RebuildJob, RebuildStatus
 from packages.rebuild.incremental_hash import (
     ChunkHashCache,
+    ChunkHashStore,
     compute_chunk_hash,
     should_reextract,
 )
@@ -107,7 +108,7 @@ async def arun_rebuild(
     chunks: list[dict],
     industry_code: str,
     extractor=None,                   # 注入 W4 extract_entities_and_relations，便于测试 mock
-    hash_cache: ChunkHashCache | None = None,
+    hash_cache: ChunkHashStore | None = None,
 ) -> RebuildJob:
     """异步重抽主循环（决策书 §5.3）。
 
@@ -205,6 +206,18 @@ async def arun_rebuild(
         return job
 
     job.progress = 1.0  # 完成时强制满进度（处理空 chunks 边界）
+
+    # M5 #3 · PG 持久化模式时，flush 把当批 hash 落盘
+    flush = getattr(cache, "flush", None)
+    if flush is not None and callable(flush):
+        try:
+            written = await flush()
+            log.info("rebuild_hash_cache_flushed",
+                     job_id=job.job_id, count=written)
+        except Exception as e:
+            log.warning("rebuild_hash_cache_flush_failed",
+                        job_id=job.job_id, error=str(e))
+
     update_status(job.job_id, "completed")
     log.info(
         "rebuild_done",

@@ -26,7 +26,10 @@ M5 后续：
 
 from packages.rebuild.incremental_hash import (
     ChunkHashCache,
+    ChunkHashStore,
+    PgChunkHashCache,
     compute_chunk_hash,
+    get_chunk_hash_cache,
     should_reextract,
 )
 from packages.rebuild.metrics_collector import collect_metrics, compute_drift
@@ -62,6 +65,8 @@ from packages.rebuild.switch_orchestrator import (
 __all__ = [
     "OBSERVATION_DAYS",
     "ChunkHashCache",
+    "ChunkHashStore",
+    "PgChunkHashCache",
     "PromoteRefused",
     "ShadowGraphStore",
     "arun_rebuild",
@@ -69,6 +74,7 @@ __all__ = [
     "compare_versions",
     "compute_chunk_hash",
     "compute_drift",
+    "get_chunk_hash_cache",
     "get_current_observation",
     "get_job",
     "get_observation",
