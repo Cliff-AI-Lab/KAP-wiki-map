@@ -228,3 +228,72 @@ _INDUSTRY_NAME_MAP = {
 
 def _industry_name(code: str) -> str:
     return _INDUSTRY_NAME_MAP.get(code, code)
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  监测条件 2/3/4 stub（M4 批 5；M5 完整 LLM 实现）
+# ════════════════════════════════════════════════════════════════════════
+
+
+async def propose_relation_solidification(
+    usage_records: list[dict],
+    *,
+    project_id: str,
+) -> None:
+    """监测条件 2：自定义关系反复出现 → 提议固化进本体（决策书 §5.3）。
+
+    M4 lite 占位：仅记录日志。M5 完整实现需要：
+    - 收集 SME 在审核台手工标注的 "自定义关系" 使用记录
+    - 频次超阈值 → LLM 归纳新关系类型
+    - 提议入审核台
+    """
+    log.warning(
+        "evolution_condition_2_stub",
+        project_id=project_id, records=len(usage_records),
+        note="自定义关系固化 stub，M5 完整实现",
+    )
+    return None
+
+
+async def propose_relation_split_for_drift(
+    samples: list[dict],
+    *,
+    project_id: str,
+    relation_type_id: str,
+) -> None:
+    """监测条件 3：现有关系类型在不同语境下语义漂移 → 提议拆分（决策书 §5.3）。
+
+    M4 lite 占位：仅记录日志。M5 完整实现需要：
+    - 采集某个 relation_type_id 在不同 chunks 中的实际语义
+    - LLM 聚类判断是否需要拆分（如 'governs' 的"标准约束"和"行政规范"两种语义）
+    - 提议拆分为多个细化关系
+    """
+    log.warning(
+        "evolution_condition_3_stub",
+        project_id=project_id, relation=relation_type_id,
+        sample_count=len(samples),
+        note="语义漂移拆分 stub，M5 完整实现",
+    )
+    return None
+
+
+async def propose_standard_upgrade(
+    industry_code: str,
+    new_standards: list[str],
+    *,
+    project_id: str,
+) -> None:
+    """监测条件 4：行业标准升版（GB / IEC 新版）→ 提议本体扩展（决策书 §5.3）。
+
+    M4 lite 占位：仅记录日志。M5 完整实现需要：
+    - 监测客户上传的最新文档中标准引用的版本
+    - 与 L1 standard 实体类型的 examples 比对
+    - LLM 提议本体扩展（新增 standard 实例 / 关联 governs）
+    """
+    log.warning(
+        "evolution_condition_4_stub",
+        industry=industry_code, project_id=project_id,
+        standards=new_standards,
+        note="行业标准升版 stub，M5 完整实现",
+    )
+    return None
