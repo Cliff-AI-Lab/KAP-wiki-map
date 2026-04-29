@@ -22,16 +22,38 @@ from packages.observability.pg_decision_log import (
     initialize_pg_decision_log,
     shutdown_pg_decision_log,
 )
+from packages.observability.pg_query_log import (
+    initialize_pg_query_log,
+    shutdown_pg_query_log,
+)
+from packages.observability.query_log import (
+    QueryEvent,
+    aggregate_queries,
+    arecord_query,
+    list_queries,
+    record_query,
+    reset_queries_for_test,
+    set_query_pg_sink,
+)
 
 __all__ = [
     "DecisionEvent",
     "DecisionType",
+    "QueryEvent",
     "aggregate_decisions",
+    "aggregate_queries",
     "arecord_decision",
+    "arecord_query",
     "initialize_pg_decision_log",
+    "initialize_pg_query_log",
     "list_decisions",
+    "list_queries",
     "record_decision",
+    "record_query",
     "reset_decisions_for_test",
+    "reset_queries_for_test",
     "set_pg_sink",
+    "set_query_pg_sink",
     "shutdown_pg_decision_log",
+    "shutdown_pg_query_log",
 ]

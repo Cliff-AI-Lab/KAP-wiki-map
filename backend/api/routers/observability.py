@@ -17,8 +17,11 @@ from fastapi import APIRouter, Query
 from packages.common import get_logger
 from packages.observability import (
     DecisionEvent,
+    QueryEvent,
     aggregate_decisions,
+    aggregate_queries,
     list_decisions,
+    list_queries,
 )
 
 log = get_logger("api.observability")
@@ -48,5 +51,35 @@ async def aggregate_decision_events(
     until: datetime | None = Query(default=None),
 ) -> dict[str, Any]:
     return aggregate_decisions(
+        project_id=project_id, since=since, until=until,
+    )
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M7 #2 · 查询召回埋点
+# ════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/queries", response_model=list[QueryEvent])
+async def list_query_events(
+    project_id: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    since: datetime | None = Query(default=None),
+    until: datetime | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=1000),
+) -> list[QueryEvent]:
+    return list_queries(
+        project_id=project_id, user_id=user_id,
+        since=since, until=until, limit=limit,
+    )
+
+
+@router.get("/queries/aggregate")
+async def aggregate_query_events(
+    project_id: str | None = Query(default=None),
+    since: datetime | None = Query(default=None),
+    until: datetime | None = Query(default=None),
+) -> dict[str, Any]:
+    return aggregate_queries(
         project_id=project_id, since=since, until=until,
     )

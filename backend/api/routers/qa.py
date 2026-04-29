@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Request
 from api.deps import get_qa_engine
 from api.middleware.auth import get_current_user
 from api.schemas.qa import AskRequest, AskResponse, SourceItem
+from packages.observability import arecord_query
 
 router = APIRouter(prefix="/qa", tags=["问答"])
 log = logging.getLogger("api.qa")
@@ -43,6 +44,17 @@ async def ask_question(req: AskRequest, request: Request) -> AskResponse:
             user_access_level=user.access_level,   # 用户权限级别，用于文档访问控制
             user_department=user.department_id,     # 用户所属部门，用于部门级数据隔离
         )
+        # M7 #2 · 召回埋点（不阻断主流程）
+        try:
+            await arecord_query(
+                project_id=req.project_id or "",
+                user_id=getattr(user, "user_id", "") or "",
+                query_text=req.question,
+                source_count=len(result.sources),
+                latency_ms=int(result.latency_ms or 0),
+            )
+        except Exception:
+            log.exception("query_log_record_failed")
         return AskResponse(
             answer=result.answer,
             sources=[
