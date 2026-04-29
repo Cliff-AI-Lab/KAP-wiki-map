@@ -26,6 +26,13 @@ from packages.rebuild.incremental_hash import (
     compute_chunk_hash,
     should_reextract,
 )
+from packages.rebuild.rebuild_orchestrator import (
+    arun_rebuild,
+    get_job,
+    list_jobs,
+    reset_jobs_for_test,
+    start_rebuild,
+)
 from packages.rebuild.shadow_graph import (
     ShadowGraphStore,
     get_shadow_store,
@@ -35,8 +42,13 @@ from packages.rebuild.shadow_graph import (
 __all__ = [
     "ChunkHashCache",
     "ShadowGraphStore",
+    "arun_rebuild",
     "compute_chunk_hash",
+    "get_job",
     "get_shadow_store",
+    "list_jobs",
+    "reset_jobs_for_test",
     "reset_shadow_store_for_test",
     "should_reextract",
+    "start_rebuild",
 ]
