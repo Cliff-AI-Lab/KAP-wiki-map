@@ -4,10 +4,18 @@
  * 对应后端 api/routers/governance.py 的 4 个端点。
  */
 
-export type GovernanceAgent = 'curator' | 'auditor' | 'deduper' | 'standardizer' | 'gardener';
-export type GovernanceKind = 'draft_pending' | 'unverified' | 'conflict' | 'standardize_suggest' | 'archive_suggest';
-export type GovernanceStatus = 'pending' | 'approved' | 'rejected' | 'edited';
+export type GovernanceAgent =
+  | 'curator' | 'auditor' | 'deduper' | 'standardizer' | 'gardener'
+  | 'distillation';  // M1 W4 写入侧蒸馏管线产出
+export type GovernanceKind =
+  | 'draft_pending' | 'unverified' | 'conflict' | 'standardize_suggest' | 'archive_suggest'
+  | 'low_confidence_extract';  // M1 W4 低置信度抽取
+export type GovernanceStatus = 'pending' | 'reviewing' | 'approved' | 'rejected' | 'edited' | 'escalated';
 export type GovernanceDecision = 'approve' | 'reject' | 'edit';
+
+// M1 4×6 矩阵审核台（决策书 §5.2 D6）
+export type Workstation = 'W1' | 'W2' | 'W3' | 'W4' | 'W5' | 'W6';
+export type ReviewerRole = 'DG' | 'SME' | 'SEC' | 'AIOps';
 
 export interface GovernanceQueueItem {
   id: string;
@@ -22,6 +30,28 @@ export interface GovernanceQueueItem {
   created_at: string;
   resolved_at: string | null;
   resolver: string | null;
+  // M1 矩阵字段
+  workstation: Workstation | null;
+  assigned_role: ReviewerRole | null;
+  claimed_by: string | null;
+  claimed_at: string | null;
+  escalated_to: ReviewerRole | null;
+  escalation_reason: string;
+  sla_due_at: string | null;
+  confidence: number | null;
+}
+
+// M1 矩阵看板响应
+export interface MatrixCell {
+  workstation: Workstation;
+  assigned_role: ReviewerRole;
+  count: number;
+}
+export interface MatrixResponse {
+  project_id: string;
+  cells: MatrixCell[];
+  total: number;
+  uncategorized: number;
 }
 
 export interface GovernanceHealth {
@@ -56,11 +86,40 @@ export function fetchGovernanceQueue(
   projectId: string,
   status?: string,
   agent?: string,
+  workstation?: Workstation,
+  assignedRole?: ReviewerRole,
 ): Promise<GovernanceQueueItem[]> {
   const qs = new URLSearchParams({ project_id: projectId });
   if (status) qs.set('status', status);
   if (agent) qs.set('agent', agent);
+  if (workstation) qs.set('workstation', workstation);
+  if (assignedRole) qs.set('assigned_role', assignedRole);
   return req(`/api/v1/governance/queue?${qs.toString()}`);
+}
+
+// M1 矩阵 API
+export function fetchGovernanceMatrix(projectId: string): Promise<MatrixResponse> {
+  return req(`/api/v1/governance/matrix?project_id=${encodeURIComponent(projectId)}`);
+}
+
+export function claimGovernanceItem(
+  itemId: string,
+  claimer: string,
+): Promise<GovernanceQueueItem> {
+  return req(`/api/v1/governance/queue/${encodeURIComponent(itemId)}/claim`, {
+    method: 'POST',
+    body: JSON.stringify({ claimer }),
+  });
+}
+
+export function escalateGovernanceItem(
+  itemId: string,
+  reason: string,
+): Promise<GovernanceQueueItem> {
+  return req(`/api/v1/governance/queue/${encodeURIComponent(itemId)}/escalate`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
 }
 
 export function fetchGovernanceHealth(projectId: string): Promise<GovernanceHealth> {

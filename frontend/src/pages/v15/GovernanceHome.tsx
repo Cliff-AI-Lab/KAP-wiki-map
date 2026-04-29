@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom';
 import {
   Check, X, Edit3, Download, Loader2, Play,
   FolderPlus, Upload, Filter, Network, BookOpen, GitBranch, ArrowRight, Inbox,
+  LayoutGrid,
 } from 'lucide-react';
 
 import { useActiveProject } from '@/hooks/useActiveProject';
@@ -346,6 +347,12 @@ export default function GovernanceHome() {
           {t('gov.subtitle')}
         </span>
         <div className="ml-auto flex items-center gap-2">
+          <Link
+            to="/v15/manage/matrix"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-btn border border-accent/40 text-xs text-accent hover:bg-accent/10 transition"
+          >
+            <LayoutGrid size={12} /> 矩阵审核台
+          </Link>
           <button
             type="button"
             onClick={handleSeed}

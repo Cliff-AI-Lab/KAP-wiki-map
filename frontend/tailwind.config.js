@@ -91,6 +91,17 @@ export default {
       transitionTimingFunction: {
         linear: 'cubic-bezier(0.21, 0.68, 0.42, 0.98)',
       },
+
+      /* M1 矩阵审核台：柔光脉冲（待办格子动态发光，引导关注） */
+      keyframes: {
+        'pulse-soft': {
+          '0%, 100%': { opacity: '1', filter: 'brightness(1)' },
+          '50%': { opacity: '0.85', filter: 'brightness(1.15)' },
+        },
+      },
+      animation: {
+        'pulse-soft': 'pulse-soft 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      },
     },
   },
   plugins: [],

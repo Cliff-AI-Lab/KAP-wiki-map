@@ -14,6 +14,7 @@ const ProjectListPage = lazy(() => import('@/pages/ProjectListPage'));
 // V15 双模式页
 const ReaderHome = lazy(() => import('@/pages/v15/ReaderHome'));
 const GovernanceHome = lazy(() => import('@/pages/v15/GovernanceHome'));
+const GovernanceMatrix = lazy(() => import('@/pages/v15/GovernanceMatrix'));
 const WikiReader = lazy(() => import('@/pages/v15/WikiReader'));
 const GraphView = lazy(() => import('@/pages/v15/GraphView'));
 const CodeGraph = lazy(() => import('@/pages/v15/CodeGraph'));
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
 
       // 治理模式
       { path: 'manage',        element: <L><GovernanceHome /></L> },
+      { path: 'manage/matrix', element: <L><GovernanceMatrix /></L> },  // M1 4×6 矩阵审核台
       {
         path: 'manage/import',
         element: <L><ImportLayout /></L>,
