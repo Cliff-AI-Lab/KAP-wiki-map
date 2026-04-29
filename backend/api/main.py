@@ -64,10 +64,19 @@ async def lifespan(app: FastAPI):
     global _STARTED_AT
     _check_dependencies()
     await init_stores()
+
+    # M7 #1 · DecisionLog PG 持久化（环境变量 KAP_DECISION_LOG_PG=1 启用）
+    import os
+    if os.environ.get("KAP_DECISION_LOG_PG") == "1":
+        from packages.observability import initialize_pg_decision_log
+        await initialize_pg_decision_log(app_settings.postgres_dsn)
+
     _STARTED_AT = time.time()
     log.info("app_started", version="v1.0.0-m0")
     yield
     # 关闭阶段：释放数据库连接
+    from packages.observability import shutdown_pg_decision_log
+    await shutdown_pg_decision_log()
     await shutdown_stores()
     log.info("app_shutdown")
 

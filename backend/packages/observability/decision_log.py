@@ -3,21 +3,23 @@
 记录关键决策事件（本体提议批 / 驳，灰度切换，回滚等），按时间窗口 / 项目
 / actor 聚合计数。给 SME / 运营看演化健康趋势。
 
-不做（M7 / 留 portal）：
-- 召回率 / 命中率（需要 portal 查询埋点）
-- 准确率（需要标注 ground truth）
-- ML 评分
+存储模式（M7 #1 加 PG 持久化）：
+- 内存 list 永远是读路径（list / aggregate 从 _events 读）
+- PG sink 是 write-through 的可选副本（sink 异常不影响主流程）
+- 启动 ``initialize_pg_decision_log`` 后水化最近 N 条事件
 
 设计原则（feedback memory · 轻量化）：
-- 内存 list，启动 reset；M7 PG 持久化
 - 函数式 API
 - 失败不抛异常（log 即可）
+- record_decision (sync) → fire-and-forget PG write
+- arecord_decision (async) → 等待 PG 写入（更强持久性保证）
 """
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
-from typing import Literal
+from typing import Awaitable, Callable, Literal
 
 from pydantic import BaseModel, Field
 
@@ -46,12 +48,43 @@ class DecisionEvent(BaseModel):
     occurred_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
 
 
-# 内存存储（M6 lite，M7 接 PG）
+# 内存存储（M6 lite 模式 + M7 PG 持久化的读路径）
 _events: list[DecisionEvent] = []
+
+# PG sink（async；通过 ``set_pg_sink`` 注入）
+_pg_sink: Callable[[DecisionEvent], Awaitable[None]] | None = None
 
 
 def reset_decisions_for_test() -> None:
+    """清空内存 + 摘除 PG sink（仅测试用）。"""
+    global _pg_sink
     _events.clear()
+    _pg_sink = None
+
+
+def set_pg_sink(
+    sink: Callable[[DecisionEvent], Awaitable[None]] | None,
+) -> None:
+    """注入 PG 写入 sink（``initialize_pg_decision_log`` 内部用）。"""
+    global _pg_sink
+    _pg_sink = sink
+
+
+def _build_event(
+    *, project_id: str, decision_type: DecisionType,
+    actor: str, target_id: str, note: str,
+) -> DecisionEvent:
+    event = DecisionEvent(
+        project_id=project_id, decision_type=decision_type,
+        actor=actor, target_id=target_id, note=note,
+    )
+    _events.append(event)
+    log.info(
+        "decision_recorded",
+        project_id=project_id, type=decision_type,
+        actor=actor or "system", target=target_id,
+    )
+    return event
 
 
 def record_decision(
@@ -62,18 +95,42 @@ def record_decision(
     target_id: str = "",
     note: str = "",
 ) -> DecisionEvent:
-    """记录一条决策事件（任何调用方自愿接入）。"""
-    event = DecisionEvent(
-        project_id=project_id,
-        decision_type=decision_type,
+    """记录一条决策事件（同步 API · fire-and-forget PG 写入）。
+
+    PG sink 已配置时：用 ``asyncio.create_task`` 异步落盘。
+    无 running loop / sink 未配置 → 仅写内存（M6 lite 行为）。
+    """
+    event = _build_event(
+        project_id=project_id, decision_type=decision_type,
         actor=actor, target_id=target_id, note=note,
     )
-    _events.append(event)
-    log.info(
-        "decision_recorded",
-        project_id=project_id, type=decision_type,
-        actor=actor or "system", target=target_id,
+    if _pg_sink is not None:
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(_pg_sink(event))
+        except RuntimeError:
+            pass
+    return event
+
+
+async def arecord_decision(
+    *,
+    project_id: str,
+    decision_type: DecisionType,
+    actor: str = "",
+    target_id: str = "",
+    note: str = "",
+) -> DecisionEvent:
+    """异步 API · 同样追加内存 + 等待 PG 写入（强持久性保证）。"""
+    event = _build_event(
+        project_id=project_id, decision_type=decision_type,
+        actor=actor, target_id=target_id, note=note,
     )
+    if _pg_sink is not None:
+        try:
+            await _pg_sink(event)
+        except Exception as e:
+            log.warning("decision_log_pg_write_failed", error=str(e))
     return event
 
 

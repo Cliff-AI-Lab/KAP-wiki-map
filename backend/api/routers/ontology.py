@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 from packages.common import get_logger
 from packages.common.auth import UserContext
 from packages.common.roles import ROLE_SME, RequireRole
-from packages.observability import record_decision
+from packages.observability import arecord_decision
 from packages.common.types import (
     GovernanceQueueItem,
     OntologyDiff,
@@ -260,7 +260,7 @@ async def approve_proposal(
         proposal_id=proposal_id, new_version=next_v.version,
         user=getattr(user, "user_id", "?"),
     )
-    record_decision(
+    await arecord_decision(
         project_id=proposal.project_id,
         decision_type="approve_proposal",
         actor=getattr(user, "user_id", ""),
@@ -299,7 +299,7 @@ async def reject_proposal(
         "ontology_proposal_rejected",
         proposal_id=proposal_id, user=getattr(user, "user_id", "?"),
     )
-    record_decision(
+    await arecord_decision(
         project_id=proposal.project_id,
         decision_type="reject_proposal",
         actor=getattr(user, "user_id", ""),

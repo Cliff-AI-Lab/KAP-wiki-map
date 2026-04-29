@@ -12,16 +12,26 @@ from packages.observability.decision_log import (
     DecisionEvent,
     DecisionType,
     aggregate_decisions,
+    arecord_decision,
     list_decisions,
     record_decision,
     reset_decisions_for_test,
+    set_pg_sink,
+)
+from packages.observability.pg_decision_log import (
+    initialize_pg_decision_log,
+    shutdown_pg_decision_log,
 )
 
 __all__ = [
     "DecisionEvent",
     "DecisionType",
     "aggregate_decisions",
+    "arecord_decision",
+    "initialize_pg_decision_log",
     "list_decisions",
     "record_decision",
     "reset_decisions_for_test",
+    "set_pg_sink",
+    "shutdown_pg_decision_log",
 ]

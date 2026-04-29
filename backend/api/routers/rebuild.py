@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 
 from packages.common import get_logger
 from packages.common.roles import ROLE_SME, RequireRole
-from packages.observability import record_decision
+from packages.observability import arecord_decision
 from packages.common.types import (
     PromotionObservation,
     RebuildDiffReport,
@@ -163,7 +163,7 @@ async def promote(
     log.info("rebuild_promoted",
              project_id=body.project_id, target=body.target_version,
              forced=body.force, user=getattr(user, "user_id", "?"))
-    record_decision(
+    await arecord_decision(
         project_id=body.project_id,
         decision_type="promote",
         actor=getattr(user, "user_id", ""),
@@ -189,7 +189,7 @@ async def rollback(
     log.info("rebuild_rolled_back",
              project_id=body.project_id, version=rolled,
              user=getattr(user, "user_id", "?"))
-    record_decision(
+    await arecord_decision(
         project_id=body.project_id,
         decision_type="rollback",
         actor=getattr(user, "user_id", ""),
