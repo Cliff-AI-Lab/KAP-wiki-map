@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
@@ -218,3 +219,30 @@ async def tick_observation_endpoint(
              project_id=body.project_id, status=obs.status,
              alerts=len(obs.alerts), user=getattr(user, "user_id", "?"))
     return obs
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M6 #1 · as_of 时光机查询（决策书 §5.3）
+# ════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/as-of")
+async def query_as_of(
+    project_id: str = Query(...),
+    version: str = Query(...),
+    before: datetime = Query(...,
+        description="ISO8601 时间点，返回该时刻之前已存在的实体/关系"),
+) -> dict[str, Any]:
+    """返回某 (project, version) 在指定时间点的图谱快照。
+
+    用途：合规审计、`这个事实是什么时候记录的`、回放 promote 之前的状态。
+    """
+    from packages.rebuild import get_shadow_store
+    s = get_shadow_store()
+    return {
+        "project_id": project_id,
+        "version": version,
+        "as_of": before.isoformat(),
+        "entities": s.entities_as_of(project_id, version, before),
+        "relations": s.relations_as_of(project_id, version, before),
+    }

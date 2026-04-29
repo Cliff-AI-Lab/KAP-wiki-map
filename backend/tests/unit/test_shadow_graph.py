@@ -1,6 +1,11 @@
-"""M4 批 1 · ShadowGraphStore 单测（决策书 §5.3 影子库）。"""
+"""M4 批 1 · ShadowGraphStore 单测（决策书 §5.3 影子库）。
+
+M6 #1 扩展：as_of 时光机查询测试。
+"""
 
 from __future__ import annotations
+
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -162,3 +167,79 @@ class TestSingleton:
         reset_shadow_store_for_test()
         b = get_shadow_store()
         assert a is not b
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M6 #1 · as_of 时光机查询
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestAsOfQuery:
+    def test_entity_has_created_at(self) -> None:
+        s = ShadowGraphStore()
+        s.add_entity("p1", "v1", entity_name="E1",
+                     type_id="equipment", doc_id="d")
+        info = s.list_entities("p1", "v1")[0]
+        assert isinstance(info["created_at"], datetime)
+
+    def test_relation_has_created_at(self) -> None:
+        s = ShadowGraphStore()
+        s.add_relation("p1", "v1", source_name="A", target_name="B",
+                       relation_type_id="governs", doc_id="d")
+        edge = s.list_relations("p1", "v1")[0]
+        assert isinstance(edge["created_at"], datetime)
+
+    def test_entities_as_of_filters_by_time(self) -> None:
+        s = ShadowGraphStore()
+        s.add_entity("p1", "v1", entity_name="OLD",
+                     type_id="equipment", doc_id="d")
+        # 设置可控时间戳模拟历史
+        s._nodes[("p1", "v1")]["OLD"]["created_at"] = (
+            datetime.now() - timedelta(hours=2)
+        )
+        s.add_entity("p1", "v1", entity_name="NEW",
+                     type_id="equipment", doc_id="d")
+
+        cutoff = datetime.now() - timedelta(hours=1)
+        snapshot = s.entities_as_of("p1", "v1", cutoff)
+        names = {e["name"] for e in snapshot}
+        assert "OLD" in names
+        assert "NEW" not in names
+
+    def test_relations_as_of_filters_by_time(self) -> None:
+        s = ShadowGraphStore()
+        s.add_relation("p1", "v1", source_name="A", target_name="B",
+                       relation_type_id="governs", doc_id="d")
+        s._edges[("p1", "v1")][0]["created_at"] = (
+            datetime.now() - timedelta(hours=2)
+        )
+        s.add_relation("p1", "v1", source_name="C", target_name="D",
+                       relation_type_id="governs", doc_id="d")
+        cutoff = datetime.now() - timedelta(hours=1)
+        snapshot = s.relations_as_of("p1", "v1", cutoff)
+        sources = {e["source"] for e in snapshot}
+        assert "A" in sources
+        assert "C" not in sources
+
+    def test_as_of_future_returns_all(self) -> None:
+        s = ShadowGraphStore()
+        s.add_entity("p1", "v1", entity_name="E1",
+                     type_id="equipment", doc_id="d")
+        future = datetime.now() + timedelta(hours=1)
+        assert len(s.entities_as_of("p1", "v1", future)) == 1
+
+    def test_as_of_past_returns_empty(self) -> None:
+        s = ShadowGraphStore()
+        s.add_entity("p1", "v1", entity_name="E1",
+                     type_id="equipment", doc_id="d")
+        past = datetime.now() - timedelta(hours=1)
+        assert s.entities_as_of("p1", "v1", past) == []
+
+    def test_as_of_handles_missing_created_at(self) -> None:
+        """旧数据没 created_at 字段时，按"无时间戳=任何时刻都可见"处理。"""
+        s = ShadowGraphStore()
+        s._nodes[("p1", "v1")] = {
+            "LEGACY": {"type_id": "equipment", "doc_ids": ["d"]},
+        }
+        past = datetime.now() - timedelta(days=10)
+        assert len(s.entities_as_of("p1", "v1", past)) == 1

@@ -16,6 +16,8 @@ M5：决策书 §5.3 提到"独立 Neo4j 实例"，更安全但运维更重。M4
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from packages.common import get_logger
 
 log = get_logger("rebuild.shadow_graph")
@@ -88,6 +90,7 @@ class ShadowGraphStore:
                 "type_id": type_id,
                 "doc_ids": [doc_id],
                 "properties": properties or {},
+                "created_at": datetime.now(tz=None),  # M6 #1 时光机锚点
             }
 
     def add_relation(
@@ -115,6 +118,7 @@ class ShadowGraphStore:
             "relation_type_id": relation_type_id,
             "doc_ids": {doc_id},
             "evidence": evidence,
+            "created_at": datetime.now(tz=None),  # M6 #1 时光机锚点
         })
 
     # ── 查询 ──
@@ -141,6 +145,32 @@ class ShadowGraphStore:
             t = info.get("type_id", "")
             if t:
                 out[t] = out.get(t, 0) + 1
+        return out
+
+    # ── 时光机查询（M6 #1 · 决策书 §5.3 as_of）──
+
+    def entities_as_of(
+        self, project_id: str, version: str, before: datetime,
+    ) -> list[dict]:
+        """返回创建时间 ≤ before 的实体快照。"""
+        bucket = self._nodes.get((project_id, version), {})
+        out: list[dict] = []
+        for name, info in bucket.items():
+            ts = info.get("created_at")
+            if ts is None or ts <= before:
+                out.append({"name": name, **info})
+        return out
+
+    def relations_as_of(
+        self, project_id: str, version: str, before: datetime,
+    ) -> list[dict]:
+        """返回创建时间 ≤ before 的关系快照。"""
+        bucket = self._edges.get((project_id, version), [])
+        out: list[dict] = []
+        for edge in bucket:
+            ts = edge.get("created_at")
+            if ts is None or ts <= before:
+                out.append(dict(edge))
         return out
 
     # ── 切换 / 回滚 ──

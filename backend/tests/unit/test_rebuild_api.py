@@ -306,3 +306,36 @@ class TestObservationEndpoints:
             headers={"X-Test-Roles": "SME"},
         )
         assert r.status_code == 404
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M6 #1 · as_of 时光机端点
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestAsOfEndpoint:
+    def test_as_of_returns_snapshot(self, client) -> None:
+        from datetime import datetime, timedelta
+        from packages.rebuild import get_shadow_store
+        s = get_shadow_store()
+        s.add_entity("p1", "v1", entity_name="OLD",
+                     type_id="equipment", doc_id="d")
+        s._nodes[("p1", "v1")]["OLD"]["created_at"] = (
+            datetime.now() - timedelta(hours=2)
+        )
+        s.add_entity("p1", "v1", entity_name="NEW",
+                     type_id="equipment", doc_id="d")
+
+        cutoff = (datetime.now() - timedelta(hours=1)).isoformat()
+        r = client.get(
+            f"/api/v1/rebuild/as-of?project_id=p1&version=v1&before={cutoff}"
+        )
+        assert r.status_code == 200
+        body = r.json()
+        names = {e["name"] for e in body["entities"]}
+        assert "OLD" in names
+        assert "NEW" not in names
+
+    def test_as_of_missing_param_returns_422(self, client) -> None:
+        r = client.get("/api/v1/rebuild/as-of?project_id=p1&version=v1")
+        assert r.status_code == 422
