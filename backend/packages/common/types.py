@@ -307,10 +307,12 @@ from typing import Literal
 GovernanceAgent = Literal[
     "curator", "auditor", "deduper", "standardizer", "gardener",
     "distillation",  # M1 W4 写入侧：蒸馏管线低置信度产出
+    "ontology_evolution",  # M3 #1：本体演化提议器
 ]
 GovernanceKind = Literal[
     "draft_pending", "unverified", "conflict", "standardize_suggest", "archive_suggest",
     "low_confidence_extract",  # M1 W4：实体抽取低置信度待 SME 审核（决策书 §5.2 W4 必审）
+    "ontology_proposal",        # M3 #1：本体演化提议（决策书 §5.3 D8）
 ]
 # M1 矩阵审核台扩展：reviewing（已认领）/ escalated（D12 SLA 升级）
 GovernanceStatus = Literal["pending", "reviewing", "approved", "rejected", "edited", "escalated"]
@@ -391,6 +393,84 @@ class ArchitectSession(BaseModel):
     history: list[dict] = Field(default_factory=list)  # [{role, content, timestamp}]
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
+
+
+# M3 #1 双层本体（决策书 §5.3 D8/D9）
+
+OntologyLayer = Literal["L1", "L2"]  # L1 平台预置（行业稳定）/ L2 客户私有可演化
+
+
+class OntologyEntityType(BaseModel):
+    """实体类型定义（如 "产品" / "工艺" / "缺陷"）。
+
+    决策书 §5.3：L1 行业基础本体（制造业概念 / 能源 IEC CIM）+
+    L2 客户专有的产品树/装置编码（LLM 提议 SME 审批）。
+    """
+    type_id: str                          # 英文 stable id (product / process / defect)
+    type_name: str                        # 中文显示
+    description: str = ""
+    layer: OntologyLayer = "L2"
+    parent_type_id: str = ""              # 类型继承（如 electric_equipment → equipment）
+    required_properties: list[str] = Field(default_factory=list)
+    examples: list[str] = Field(default_factory=list)  # 典型实例（NER 关键词命中）
+
+
+class OntologyRelationType(BaseModel):
+    """关系类型定义（含定义域 + 值域约束）。"""
+    type_id: str
+    type_name: str
+    description: str = ""
+    layer: OntologyLayer = "L2"
+    source_types: list[str] = Field(default_factory=list)  # 允许的源实体类型 ids
+    target_types: list[str] = Field(default_factory=list)  # 允许的目标实体类型 ids
+    examples: list[str] = Field(default_factory=list)
+
+
+class OntologyVersion(BaseModel):
+    """本体版本快照（决策书 §5.3 ont-v2.3.0 模式）。"""
+    version: str                          # ont-v1.0.0 / ont-v1.1.0
+    layer: OntologyLayer
+    industry_code: str = ""               # L1 必填（manufacturing/energy）；L2 用 project_id 关联
+    project_id: str = ""                  # L2 必填；L1 = "" 全局
+    entity_types: list[OntologyEntityType] = Field(default_factory=list)
+    relation_types: list[OntologyRelationType] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
+    created_by: str = ""                  # SME user_id（L1 = "system"）
+    notes: str = ""
+
+    def entity_type_ids(self) -> set[str]:
+        return {e.type_id for e in self.entity_types}
+
+    def relation_type_ids(self) -> set[str]:
+        return {r.type_id for r in self.relation_types}
+
+
+class OntologyDiff(BaseModel):
+    """两版本之间的差异（用于演化审计 + 灰度切换 M4 用）。"""
+    from_version: str
+    to_version: str
+    added_entity_types: list[str] = Field(default_factory=list)
+    removed_entity_types: list[str] = Field(default_factory=list)
+    modified_entity_types: list[str] = Field(default_factory=list)
+    added_relation_types: list[str] = Field(default_factory=list)
+    removed_relation_types: list[str] = Field(default_factory=list)
+    modified_relation_types: list[str] = Field(default_factory=list)
+
+
+class OntologyEvolutionProposal(BaseModel):
+    """本体演化提议（决策书 §5.3 LLM 提议 + SME 审批）。"""
+    proposal_id: str
+    project_id: str
+    layer: OntologyLayer = "L2"           # 通常 L2（L1 由平台维护）
+    proposed_entity_type: OntologyEntityType | None = None
+    proposed_relation_type: OntologyRelationType | None = None
+    evidence_count: int = 0               # 触发条件证据数（如未匹配实体数量）
+    sample_entities: list[str] = Field(default_factory=list)
+    reasoning: str = ""                   # LLM 给的理由
+    status: Literal["pending", "approved", "rejected"] = "pending"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
+    resolver: str = ""
+    resolved_at: datetime | None = None
 
 
 class GovernanceQueueItem(BaseModel):
