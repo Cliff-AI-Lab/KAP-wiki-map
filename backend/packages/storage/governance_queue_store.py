@@ -1,6 +1,8 @@
-"""治理工单存储 — V15 Phase C.
+"""治理工单存储 — V15 Phase C + M1 4×6 矩阵审核台扩展。
 
-四 Agent (Curator/Auditor/Deduper/Gardener) 产出工单 → 此 Store 聚合待人工决策。
+V15: 四 Agent (Curator/Auditor/Deduper/Gardener) 产出工单 → 此 Store 聚合。
+M1: 加 4×6 矩阵 (claim/escalate/list_matrix/find_overdue) 支撑决策书 §5.2 D6 + D12。
+
 PoC 仅 memory 模式；后续可照 wiki_store 样式加 PG 表。
 """
 
@@ -14,6 +16,7 @@ from packages.common.types import (
     GovernanceAgent,
     GovernanceDecision,
     GovernanceQueueItem,
+    ReviewerRole,
 )
 
 log = get_logger("storage.governance_queue")
@@ -33,12 +36,17 @@ class GovernanceQueueStore:
         project_id: str,
         status: str | None = None,
         agent: str | None = None,
+        workstation: str | None = None,
+        assigned_role: str | None = None,
     ) -> list[GovernanceQueueItem]:
+        """列出工单。M1 加 workstation / assigned_role 过滤参数（决策书 §5.2 矩阵看板）。"""
         out = [
             it for it in self._items.values()
             if it.project_id == project_id
             and (status is None or it.status == status)
             and (agent is None or it.agent == agent)
+            and (workstation is None or it.workstation == workstation)
+            and (assigned_role is None or it.assigned_role == assigned_role)
         ]
         out.sort(key=lambda x: (-x.priority, x.created_at))
         return out
@@ -63,6 +71,97 @@ class GovernanceQueueStore:
         item.resolved_at = datetime.now(timezone.utc)
         item.resolver = resolver
         return item
+
+    # ════════════════════════════════════════════════════════════════════
+    #  M1 4×6 矩阵审核台扩展（决策书 §5.2 D6 + §5.5 D12）
+    # ════════════════════════════════════════════════════════════════════
+
+    async def claim(
+        self, item_id: str, claimer: str
+    ) -> GovernanceQueueItem | None:
+        """角色认领工单：状态 pending → reviewing。
+
+        重复认领（reviewing 状态再 claim）允许：覆盖 claimer + claimed_at（交接场景）。
+        已 approved/rejected/edited/escalated 工单不能 claim。
+        """
+        item = self._items.get(item_id)
+        if not item:
+            return None
+        if item.status not in ("pending", "reviewing"):
+            return None
+        item.status = "reviewing"
+        item.claimed_by = claimer
+        item.claimed_at = datetime.now(timezone.utc)
+        return item
+
+    async def escalate(
+        self, item_id: str, reason: str, target_role: ReviewerRole
+    ) -> GovernanceQueueItem | None:
+        """SLA 超时升级：把 assigned_role 提升到 target_role，状态 → escalated。
+
+        Args:
+            item_id: 工单 ID
+            reason: 升级原因（D12 必填，回流训练 + 审计）
+            target_role: 升级目标角色（由 packages.governance.matrix.next_role_in_chain 决定）
+
+        - DG 顶级再升级时，target_role 仍为 DG，但 reason 拼接"积压告警"
+        - reset claimed_by/claimed_at（升级后由新角色重新认领）
+        - reset sla_due_at 留给上层决定（store 不假设 SLA 时长）
+        """
+        item = self._items.get(item_id)
+        if not item:
+            return None
+        item.status = "escalated"
+        item.escalated_to = target_role
+        item.assigned_role = target_role
+        item.escalation_reason = (
+            (item.escalation_reason + " | " if item.escalation_reason else "") + reason
+        )
+        item.claimed_by = None
+        item.claimed_at = None
+        item.sla_due_at = None
+        return item
+
+    async def list_matrix(
+        self, project_id: str
+    ) -> dict[tuple[str, str], int]:
+        """4×6 矩阵看板：返回 (workstation, assigned_role) → 待办计数。
+
+        计入 pending + reviewing + escalated（escalated 仍占着新主审角色的格子）；
+        approved/rejected/edited 不计。
+
+        无 workstation 或无 assigned_role 的工单（V15 既有 demo）落入
+        ``("uncategorized", "uncategorized")`` 桶。
+        """
+        counts: dict[tuple[str, str], int] = {}
+        for it in self._items.values():
+            if it.project_id != project_id:
+                continue
+            if it.status not in ("pending", "reviewing", "escalated"):
+                continue
+            ws = it.workstation or "uncategorized"
+            role = it.assigned_role or "uncategorized"
+            counts[(ws, role)] = counts.get((ws, role), 0) + 1
+        return counts
+
+    async def find_overdue(
+        self, now: datetime | None = None
+    ) -> list[GovernanceQueueItem]:
+        """找 sla_due_at < now 的 pending/reviewing 工单（escalated 已经升过不再扫）。
+
+        Args:
+            now: 比较时刻；默认当前 UTC 时间（测试用）
+        """
+        cutoff = now or datetime.now(timezone.utc)
+        out = []
+        for it in self._items.values():
+            if it.status not in ("pending", "reviewing"):
+                continue
+            if it.sla_due_at is None:
+                continue
+            if it.sla_due_at < cutoff:
+                out.append(it)
+        return out
 
     async def seed_demo(self, project_id: str) -> int:
         """种入 25 条 demo 工单。"""
