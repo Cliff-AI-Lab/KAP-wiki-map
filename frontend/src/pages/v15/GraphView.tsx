@@ -13,9 +13,12 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
-import { RefreshCw, Loader2, Search, Tag, FileText, X, Layers } from 'lucide-react';
+import { RefreshCw, Loader2, Search, Tag, FileText, X, Layers, Palette } from 'lucide-react';
 
 import { useActiveProject } from '@/hooks/useActiveProject';
+
+// M2 #3 obsidian 风格染色维度（feedback memory · 节点按维度染色）
+type ColorMode = 'community' | 'type' | 'centrality';
 
 interface GraphNode {
   id: string;
@@ -56,6 +59,28 @@ const COMMUNITY_PALETTE = [
 ];
 const colorForCommunity = (c: number) => COMMUNITY_PALETTE[c % COMMUNITY_PALETTE.length] ?? '#88c0d0';
 
+// M2 #3 类型染色（中文 type → obsidian 风调色板）
+const TYPE_PALETTE: Record<string, string> = {
+  人物: '#88c0d0',     // sky
+  部门: '#a3be8c',     // green
+  项目: '#ebcb8b',     // amber
+  制度: '#d08770',     // orange
+  产品: '#b48ead',     // purple
+  流程: '#81a1c1',     // indigo
+  设备: '#bf616a',     // rose
+  标准: '#8fbcbb',     // teal
+};
+const colorForType = (t: string) => TYPE_PALETTE[t] ?? '#a0a0b0';
+
+// M2 #3 中心性染色（绿→黄→红渐变）
+function colorForCentrality(c: number, max: number): string {
+  if (max <= 0) return '#88c0d0';
+  const t = Math.min(1, c / max);
+  if (t < 0.33) return '#a3be8c';      // 低 → 绿
+  if (t < 0.66) return '#ebcb8b';      // 中 → 黄
+  return '#d08770';                     // 高 → 橙红
+}
+
 export default function GraphView() {
   const { projectId, loading: projectsLoading } = useActiveProject();
   const [data, setData] = useState<GraphViewData | null>(null);
@@ -64,7 +89,22 @@ export default function GraphView() {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [selectedCommunity, setSelectedCommunity] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  // M2 #3 obsidian 风格：染色维度可切（社区/类型/中心性）
+  const [colorMode, setColorMode] = useState<ColorMode>('community');
   const fgRef = useRef<unknown>(null);
+
+  // 节点最终着色函数（按 colorMode 路由）
+  const colorForNode = useCallback(
+    (n: GraphNode): string => {
+      if (colorMode === 'type') return colorForType(n.type);
+      if (colorMode === 'centrality') {
+        const max = data?.stats.max_centrality ?? 1;
+        return colorForCentrality(n.centrality, max);
+      }
+      return colorForCommunity(n.community);
+    },
+    [colorMode, data],
+  );
 
   const load = useCallback(async () => {
     if (!projectId) return;
@@ -251,6 +291,31 @@ export default function GraphView() {
               <span>提示: 点击社区 chip 或图中节点聚焦</span>
             )}
           </div>
+
+          {/* M2 #3 obsidian 风格：染色维度切换 */}
+          <div className="flex items-center gap-1 ml-auto">
+            <Palette size={11} className="text-th-text-muted mr-1" />
+            {(['community', 'type', 'centrality'] as ColorMode[]).map((m) => {
+              const labels: Record<ColorMode, string> = {
+                community: '社区', type: '类型', centrality: '中心性',
+              };
+              const active = colorMode === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setColorMode(m)}
+                  className={`px-2 py-1 rounded-pill text-[11px] v15-mono transition border ${
+                    active
+                      ? 'border-accent bg-accent/15 text-th-text-primary'
+                      : 'border-th-border text-th-text-muted hover:border-th-border-hover hover:text-th-text-secondary'
+                  }`}
+                >
+                  {labels[m]}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -336,11 +401,26 @@ export default function GraphView() {
                 const v = nodeVisibility(n);
                 const isSel = selectedNode?.id === n.id;
                 const r = (n.size ?? 6) / Math.sqrt(globalScale);
+                const nodeColor = colorForNode(n);
                 ctx.globalAlpha = v.alpha;
+
+                // M2 #3 obsidian 风柔光外发光：选中 / 聚焦节点 shadow blur
+                if (isSel) {
+                  ctx.shadowColor = nodeColor;
+                  ctx.shadowBlur = 22 / Math.sqrt(globalScale);
+                } else if (v.focused) {
+                  ctx.shadowColor = nodeColor;
+                  ctx.shadowBlur = 10 / Math.sqrt(globalScale);
+                } else {
+                  ctx.shadowBlur = 0;
+                }
+
                 ctx.beginPath();
                 ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, 2 * Math.PI);
-                ctx.fillStyle = colorForCommunity(n.community);
+                ctx.fillStyle = nodeColor;
                 ctx.fill();
+                ctx.shadowBlur = 0;  // reset，避免污染后续 stroke
+
                 if (isSel) {
                   // 选中节点描白边
                   ctx.strokeStyle = '#eceff4';
@@ -454,7 +534,7 @@ export default function GraphView() {
                 <div>
                   <div className="text-[10px] uppercase text-th-text-muted">社区</div>
                   <div className="inline-flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colorForCommunity(selectedNode.community) }} />
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colorForNode(selectedNode) }} />
                     <span className="text-th-text-primary text-xs v15-mono">{selectedNode.community}</span>
                   </div>
                 </div>
@@ -544,7 +624,7 @@ export default function GraphView() {
           推理关系 (Inferer Agent)
         </span>
         <span>● 节点大小 = 度中心性</span>
-        <span>颜色 = 社区 (Louvain)</span>
+        <span>颜色 = {colorMode === 'community' ? '社区 (Louvain)' : colorMode === 'type' ? '实体类型' : '中心性梯度'}</span>
       </div>
     </div>
   );
