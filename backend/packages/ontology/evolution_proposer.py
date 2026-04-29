@@ -1,22 +1,16 @@
 """LLM 演化提议器（决策书 §5.3 LLM 提议 + SME 审批）。
 
-监测条件 1（M3 lite 仅做最简）：
-  **同类未匹配实体累计超阈值 → 提议新实体类型**
+4 种监测条件（M3 #1 + M5 #1 完整版）：
 
-实现：
-1. ``monitor_unmatched_entities``：扫 graph_store 找未挂 entity_type 或 type 不在
-   L1+L2 注册集合的实体，按数量阈值触发
-2. ``propose_new_entity_type``：调 LLM 归纳新类型 → 返回 OntologyEvolutionProposal
-3. LLM 失败 / 置信度低（< 0.3）→ 返回 None 不入审核台
-
-监测条件 2/3/4（M4 后续）：
-- 自定义关系反复出现 → 提议固化进本体
-- 关系语义漂移 → 提议拆分
-- 行业标准升版 → 提议本体扩展
+1. **同类未匹配实体累计超阈值** → 提议新实体类型（M3 #1）
+2. **SME 自定义关系反复出现** → 提议固化进本体（M5 #1）
+3. **关系类型在不同语境语义漂移** → 提议拆分（M5 #1）
+4. **行业标准升版** → 提议本体扩展（M5 #1）
 
 设计原则（feedback memory · AI native + 轻量化）：
 - 函数式实现，单文件
-- LLM 失败静默降级（不阻断扫描循环）
+- LLM 失败静默降级（返回 None，不阻断扫描循环）
+- 置信度 < 0.3 视为不可用，让 SME 知道需细分
 """
 
 from __future__ import annotations
@@ -28,6 +22,7 @@ from packages.common import get_logger
 from packages.common.types import (
     OntologyEntityType,
     OntologyEvolutionProposal,
+    OntologyRelationType,
     OntologyVersion,
 )
 from packages.distillation.llm_client import acall_llm_json
@@ -35,6 +30,12 @@ from packages.ontology.base import get_current_l1, get_current_l2
 from packages.ontology.prompts import (
     ENTITY_TYPE_PROPOSE_SYSTEM,
     ENTITY_TYPE_PROPOSE_USER,
+    RELATION_SOLIDIFY_SYSTEM,
+    RELATION_SOLIDIFY_USER,
+    RELATION_SPLIT_SYSTEM,
+    RELATION_SPLIT_USER,
+    STANDARD_UPGRADE_SYSTEM,
+    STANDARD_UPGRADE_USER,
 )
 
 log = get_logger("ontology.evolution_proposer")
@@ -230,29 +231,158 @@ def _industry_name(code: str) -> str:
     return _INDUSTRY_NAME_MAP.get(code, code)
 
 
+def _format_existing_relations(industry_code: str, project_id: str) -> str:
+    """组装现有 L1 + L2 已注册关系类型的 prompt 段落（监测条件 2/3 用）。"""
+    lines: list[str] = []
+    l1 = get_current_l1(industry_code) if industry_code else None
+    if l1 and l1.relation_types:
+        lines.append(f"### L1 ({industry_code} 行业基础)")
+        for rt in l1.relation_types:
+            lines.append(f"- {rt.type_id} ({rt.type_name})")
+    l2 = get_current_l2(project_id) if project_id else None
+    if l2 and l2.relation_types:
+        lines.append(f"### L2 ({project_id} 客户私有)")
+        for rt in l2.relation_types:
+            lines.append(f"- {rt.type_id} ({rt.type_name})")
+    return "\n".join(lines) if lines else "（无）"
+
+
+def _lookup_relation_name(
+    industry_code: str, project_id: str, relation_type_id: str
+) -> str:
+    """L1 + L2 查指定 relation_type_id 的中文名（找不到返回空串）。"""
+    for v in (
+        get_current_l2(project_id) if project_id else None,
+        get_current_l1(industry_code) if industry_code else None,
+    ):
+        if not v:
+            continue
+        for rt in v.relation_types:
+            if rt.type_id == relation_type_id:
+                return rt.type_name
+    return ""
+
+
 # ════════════════════════════════════════════════════════════════════════
-#  监测条件 2/3/4 stub（M4 批 5；M5 完整 LLM 实现）
+#  监测条件 2/3/4 完整 LLM 实现（M5 #1）
 # ════════════════════════════════════════════════════════════════════════
+
+_RELATION_SOLIDIFY_THRESHOLD = 20
+_RELATION_SPLIT_THRESHOLD = 30
 
 
 async def propose_relation_solidification(
     usage_records: list[dict],
     *,
     project_id: str,
-) -> None:
+    industry_code: str = "",
+    threshold: int = _RELATION_SOLIDIFY_THRESHOLD,
+) -> OntologyEvolutionProposal | None:
     """监测条件 2：自定义关系反复出现 → 提议固化进本体（决策书 §5.3）。
 
-    M4 lite 占位：仅记录日志。M5 完整实现需要：
-    - 收集 SME 在审核台手工标注的 "自定义关系" 使用记录
-    - 频次超阈值 → LLM 归纳新关系类型
-    - 提议入审核台
+    usage_records 字段约定（来自 SME 在审核台手工标注的"自定义关系"记录）：
+    - relation: 关系名（必填）
+    - source / target: 源 / 目标实体名（可选）
+    - note: 上下文备注（可选）
+
+    Returns:
+        Proposal（包含 proposed_relation_type）或 None（数量未达阈值 / LLM 失败 / 置信度过低）
     """
-    log.warning(
-        "evolution_condition_2_stub",
-        project_id=project_id, records=len(usage_records),
-        note="自定义关系固化 stub，M5 完整实现",
+    if len(usage_records) < threshold:
+        log.info(
+            "evolution_relation_below_threshold",
+            count=len(usage_records), threshold=threshold,
+        )
+        return None
+
+    sample_lines: list[str] = []
+    for rec in usage_records[:25]:
+        rel = str(rec.get("relation", "")).strip()
+        src = str(rec.get("source", "")).strip()
+        tgt = str(rec.get("target", "")).strip()
+        note = str(rec.get("note", "")).strip()
+        line = f"- {rel}"
+        if src or tgt:
+            line += f": {src} → {tgt}"
+        if note:
+            line += f"  ({note})"
+        sample_lines.append(line)
+
+    user_prompt = RELATION_SOLIDIFY_USER.format(
+        existing_relations=_format_existing_relations(industry_code, project_id),
+        existing_entities=_format_existing_types(industry_code, project_id),
+        evidence_count=len(usage_records),
+        usage_samples="\n".join(sample_lines),
     )
-    return None
+
+    try:
+        data = await acall_llm_json(RELATION_SOLIDIFY_SYSTEM, user_prompt)
+    except Exception as e:
+        log.warning("evolution_relation_llm_failed", error=str(e))
+        return None
+
+    type_id = (data.get("type_id") or "").strip()
+    type_name = (data.get("type_name") or "").strip()
+    if not type_id or not type_name:
+        log.warning("evolution_relation_llm_missing_fields", data=str(data)[:120])
+        return None
+
+    try:
+        confidence = float(data.get("confidence", 0.5))
+    except (TypeError, ValueError):
+        confidence = 0.5
+    confidence = max(0.0, min(1.0, confidence))
+    if confidence < _MIN_LLM_CONFIDENCE:
+        log.info(
+            "evolution_relation_low_confidence",
+            confidence=confidence, threshold=_MIN_LLM_CONFIDENCE,
+        )
+        return None
+
+    examples = data.get("examples") or []
+    if isinstance(examples, list):
+        examples = [
+            str(e)[:80] for e in examples[:8]
+            if isinstance(e, (str, int, float))
+        ]
+    else:
+        examples = []
+
+    source_types = data.get("source_types") or []
+    target_types = data.get("target_types") or []
+    if not isinstance(source_types, list):
+        source_types = []
+    if not isinstance(target_types, list):
+        target_types = []
+    source_types = [str(t)[:40] for t in source_types[:8]]
+    target_types = [str(t)[:40] for t in target_types[:8]]
+
+    proposed = OntologyRelationType(
+        type_id=type_id,
+        type_name=type_name,
+        description=str(data.get("description", ""))[:200],
+        layer="L2",
+        source_types=source_types,
+        target_types=target_types,
+        examples=examples,
+    )
+
+    sample_names = [
+        str(rec.get("relation", "")).strip()
+        for rec in usage_records[:10]
+        if rec.get("relation")
+    ]
+
+    return OntologyEvolutionProposal(
+        proposal_id=f"onto_{uuid.uuid4().hex[:10]}",
+        project_id=project_id,
+        layer="L2",
+        proposed_relation_type=proposed,
+        evidence_count=len(usage_records),
+        sample_entities=sample_names,
+        reasoning=str(data.get("reasoning", ""))[:200],
+        status="pending",
+    )
 
 
 async def propose_relation_split_for_drift(
@@ -260,21 +390,125 @@ async def propose_relation_split_for_drift(
     *,
     project_id: str,
     relation_type_id: str,
-) -> None:
+    industry_code: str = "",
+    threshold: int = _RELATION_SPLIT_THRESHOLD,
+) -> list[OntologyEvolutionProposal] | None:
     """监测条件 3：现有关系类型在不同语境下语义漂移 → 提议拆分（决策书 §5.3）。
 
-    M4 lite 占位：仅记录日志。M5 完整实现需要：
-    - 采集某个 relation_type_id 在不同 chunks 中的实际语义
-    - LLM 聚类判断是否需要拆分（如 'governs' 的"标准约束"和"行政规范"两种语义）
-    - 提议拆分为多个细化关系
+    samples 字段约定：
+    - source / target: 实际使用中的实体对（可选）
+    - context: 上下文短语（可选，帮 LLM 聚类）
+
+    Returns:
+        list[Proposal]（每个对应一个拆分目标关系）或 None（不需拆分 / LLM 失败 / 置信度过低）
     """
-    log.warning(
-        "evolution_condition_3_stub",
-        project_id=project_id, relation=relation_type_id,
+    if len(samples) < threshold:
+        log.info(
+            "evolution_split_below_threshold",
+            count=len(samples), threshold=threshold,
+        )
+        return None
+    if not relation_type_id:
+        return None
+
+    sample_lines: list[str] = []
+    for rec in samples[:30]:
+        src = str(rec.get("source", "")).strip()
+        tgt = str(rec.get("target", "")).strip()
+        ctx = str(rec.get("context", "")).strip()
+        line = f"- {src} → {tgt}" if (src or tgt) else "-"
+        if ctx:
+            line += f"  ::  {ctx}"
+        sample_lines.append(line)
+
+    relation_name = _lookup_relation_name(industry_code, project_id, relation_type_id)
+    user_prompt = RELATION_SPLIT_USER.format(
+        relation_type_id=relation_type_id,
+        relation_name=relation_name or relation_type_id,
+        existing_relations=_format_existing_relations(industry_code, project_id),
         sample_count=len(samples),
-        note="语义漂移拆分 stub，M5 完整实现",
+        samples="\n".join(sample_lines),
     )
-    return None
+
+    try:
+        data = await acall_llm_json(RELATION_SPLIT_SYSTEM, user_prompt)
+    except Exception as e:
+        log.warning("evolution_split_llm_failed", error=str(e))
+        return None
+
+    if not data.get("should_split"):
+        log.info(
+            "evolution_split_not_needed",
+            relation=relation_type_id,
+            reasoning=str(data.get("reasoning", ""))[:80],
+        )
+        return None
+
+    try:
+        confidence = float(data.get("confidence", 0.5))
+    except (TypeError, ValueError):
+        confidence = 0.5
+    confidence = max(0.0, min(1.0, confidence))
+    if confidence < _MIN_LLM_CONFIDENCE:
+        log.info(
+            "evolution_split_low_confidence",
+            confidence=confidence, threshold=_MIN_LLM_CONFIDENCE,
+        )
+        return None
+
+    split_into = data.get("split_into") or []
+    if not isinstance(split_into, list) or len(split_into) < 2:
+        log.warning("evolution_split_invalid_split_into", data=str(data)[:200])
+        return None
+
+    base_reasoning = str(data.get("reasoning", ""))[:160]
+    proposals: list[OntologyEvolutionProposal] = []
+    for item in split_into:
+        if not isinstance(item, dict):
+            continue
+        new_id = (item.get("type_id") or "").strip()
+        new_name = (item.get("type_name") or "").strip()
+        if not new_id or not new_name:
+            continue
+
+        item_examples = item.get("examples") or []
+        if isinstance(item_examples, list):
+            item_examples = [
+                str(e)[:80] for e in item_examples[:8]
+                if isinstance(e, (str, int, float))
+            ]
+        else:
+            item_examples = []
+
+        src_types = item.get("source_types") or []
+        tgt_types = item.get("target_types") or []
+        if not isinstance(src_types, list):
+            src_types = []
+        if not isinstance(tgt_types, list):
+            tgt_types = []
+
+        proposed = OntologyRelationType(
+            type_id=new_id,
+            type_name=new_name,
+            description=str(item.get("description", ""))[:200],
+            layer="L2",
+            source_types=[str(t)[:40] for t in src_types[:8]],
+            target_types=[str(t)[:40] for t in tgt_types[:8]],
+            examples=item_examples,
+        )
+
+        proposals.append(OntologyEvolutionProposal(
+            proposal_id=f"onto_{uuid.uuid4().hex[:10]}",
+            project_id=project_id,
+            layer="L2",
+            proposed_relation_type=proposed,
+            evidence_count=len(samples),
+            sample_entities=[relation_type_id],
+            reasoning=f"拆分自 {relation_type_id}：{base_reasoning}",
+            status="pending",
+        ))
+
+    return proposals or None
 
 
 async def propose_standard_upgrade(
@@ -282,18 +516,117 @@ async def propose_standard_upgrade(
     new_standards: list[str],
     *,
     project_id: str,
-) -> None:
+) -> OntologyEvolutionProposal | None:
     """监测条件 4：行业标准升版（GB / IEC 新版）→ 提议本体扩展（决策书 §5.3）。
 
-    M4 lite 占位：仅记录日志。M5 完整实现需要：
-    - 监测客户上传的最新文档中标准引用的版本
-    - 与 L1 standard 实体类型的 examples 比对
-    - LLM 提议本体扩展（新增 standard 实例 / 关联 governs）
+    监测客户文档中引用的标准版本，对比 L1 ``standard`` 实体类型的 examples，
+    LLM 判断是否应升版（新版替代旧版，旧版标 [作废] 保留以便溯源）。
+
+    Returns:
+        Proposal（proposed_entity_type 含更新后的 examples 列表）或 None
     """
-    log.warning(
-        "evolution_condition_4_stub",
-        industry=industry_code, project_id=project_id,
-        standards=new_standards,
-        note="行业标准升版 stub，M5 完整实现",
+    if not new_standards:
+        return None
+
+    l1 = get_current_l1(industry_code) if industry_code else None
+    standard_type: OntologyEntityType | None = None
+    if l1:
+        for et in l1.entity_types:
+            if et.type_id == "standard":
+                standard_type = et
+                break
+
+    if standard_type is None:
+        log.warning(
+            "evolution_standard_no_type_in_l1",
+            industry=industry_code,
+            note="L1 未注册 standard 实体类型，跳过升版提议",
+        )
+        return None
+
+    current_examples_text = (
+        "\n".join(f"- {ex}" for ex in standard_type.examples)
+        if standard_type.examples else "（空）"
     )
-    return None
+    new_std_text = "\n".join(f"- {s}" for s in new_standards[:50])
+
+    user_prompt = STANDARD_UPGRADE_USER.format(
+        industry_code=industry_code,
+        industry_name=_industry_name(industry_code),
+        current_examples=current_examples_text,
+        standard_count=len(new_standards),
+        new_standards=new_std_text,
+    )
+
+    try:
+        data = await acall_llm_json(STANDARD_UPGRADE_SYSTEM, user_prompt)
+    except Exception as e:
+        log.warning("evolution_standard_llm_failed", error=str(e))
+        return None
+
+    if not data.get("should_upgrade"):
+        log.info(
+            "evolution_standard_not_needed",
+            industry=industry_code,
+            reasoning=str(data.get("reasoning", ""))[:80],
+        )
+        return None
+
+    try:
+        confidence = float(data.get("confidence", 0.5))
+    except (TypeError, ValueError):
+        confidence = 0.5
+    confidence = max(0.0, min(1.0, confidence))
+    if confidence < _MIN_LLM_CONFIDENCE:
+        log.info(
+            "evolution_standard_low_confidence",
+            confidence=confidence, threshold=_MIN_LLM_CONFIDENCE,
+        )
+        return None
+
+    new_examples = data.get("new_examples") or []
+    if not isinstance(new_examples, list):
+        new_examples = []
+    new_examples = [
+        str(e)[:80] for e in new_examples[:30]
+        if isinstance(e, (str, int, float))
+    ]
+    if not new_examples:
+        # LLM 没给 → 降级：合并旧 examples + 新标准
+        new_examples = list(standard_type.examples) + [
+            str(s)[:80] for s in new_standards
+        ]
+
+    upgrades = data.get("upgrades") or []
+    upgrade_summary_parts: list[str] = []
+    if isinstance(upgrades, list):
+        for u in upgrades[:5]:
+            if isinstance(u, dict):
+                old = str(u.get("old", "")).strip()
+                new = str(u.get("new", "")).strip()
+                if old or new:
+                    upgrade_summary_parts.append(f"{old} → {new}")
+
+    proposed = OntologyEntityType(
+        type_id=standard_type.type_id,
+        type_name=standard_type.type_name,
+        description=standard_type.description,
+        layer="L2",
+        parent_type_id=standard_type.type_id,  # L2 继承 L1 standard
+        examples=new_examples,
+    )
+
+    summary = "; ".join(upgrade_summary_parts)
+    base = str(data.get("reasoning", "")).strip()
+    reasoning = (f"{summary} | {base}" if summary else base)[:200]
+
+    return OntologyEvolutionProposal(
+        proposal_id=f"onto_{uuid.uuid4().hex[:10]}",
+        project_id=project_id,
+        layer="L2",
+        proposed_entity_type=proposed,
+        evidence_count=len(new_standards),
+        sample_entities=[str(s)[:80] for s in new_standards[:10]],
+        reasoning=reasoning,
+        status="pending",
+    )
