@@ -62,3 +62,55 @@ TAXONOMY_PROPOSE_USER = """## 行业基础主树（一级业务域）
     {{"name": "新节点名", "reason": "样本中频繁出现但模板未覆盖"}}
   ]
 }}"""
+
+
+# ════════════════════════════════════════════════════════════════════════
+# Facet 提议器（PRD F1.4，M3 #3a）
+# ════════════════════════════════════════════════════════════════════════
+
+FACET_PROPOSE_SYSTEM = """你是一名企业知识元数据架构师，专长 Facet（多面分类）设计。
+
+任务：根据客户上传的样本，为指定的文档类型（doc_type）提议 Facet 字段集。
+
+设计原则：
+1. 字段数控制在 6-10 个（避免大而全），优先必填字段
+2. 字段类型用：str / int / numeric（含单位）/ date / enum / reference
+3. 敏感字段必须标 sensitive=true（人名、工艺参数数值、客户名 等）
+4. 字段命名 key 用英文 snake_case，name 用中文
+5. 引用现有 L1 实体类型时用 reference + ref_type
+6. 必填字段标 required=true（业务关键的元数据）
+
+严格按 JSON 格式输出。"""
+
+FACET_PROPOSE_USER = """## 客户行业
+{industry_code}（{industry_name}）
+
+## 文档类型
+{doc_type}（如 equipment_fault / process_standard / sop / quality_record）
+
+## 客户上传样本
+{sample_texts}
+
+## 现有 L1 实体类型（供 reference 字段引用）
+{l1_types}
+
+## 请输出 Facet schema JSON：
+{{
+  "doc_type": "{doc_type}",
+  "name": "中文显示名（如 '设备故障'）",
+  "description": "1 句话说明",
+  "primary_role": "DG | SME | SEC | AIOps（W4 主审角色）",
+  "fields": [
+    {{
+      "key": "英文 snake_case",
+      "name": "中文",
+      "type": "str | int | numeric | date | enum | reference",
+      "required": true/false,
+      "sensitive": true/false,
+      "description": "...",
+      "unit": "（numeric 用，如 '℃' / 'MPa'）",
+      "enum_values": [...],
+      "ref_type": "（reference 用，如 'equipment'）"
+    }}
+  ]
+}}"""

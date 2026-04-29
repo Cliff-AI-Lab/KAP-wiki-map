@@ -382,6 +382,8 @@ class TaxonomyDraft(BaseModel):
     taxonomy: list = Field(default_factory=list)  # list[TaxonomyNode]，避免循环 import
     recognized_signals: list[str] = Field(default_factory=list)  # PRD F1.2.5 识别依据
     top_candidates: list[IndustryCandidate] = Field(default_factory=list)
+    # M3 #3a Facet 提议器（PRD F1.4）：doc_type → FacetSchema dict
+    facets: dict = Field(default_factory=dict)  # dict[str, FacetSchema]，导出时挂到 IndustryTemplate
 
 
 class ArchitectSession(BaseModel):

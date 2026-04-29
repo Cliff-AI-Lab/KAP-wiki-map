@@ -16,6 +16,10 @@ from packages.architect.exporter import (
     to_yaml,
     write_to_file,
 )
+from packages.architect.facet_advisor import (
+    propose_facets_for_doc_type,
+    propose_facets_for_taxonomy,
+)
 from packages.architect.industry_recognizer import (
     IndustryRecognitionResult,
     recognize_industry,
@@ -31,6 +35,8 @@ __all__ = [
     "apply_user_command",
     "export_to_industry_template",
     "get_architect_agent",
+    "propose_facets_for_doc_type",
+    "propose_facets_for_taxonomy",
     "propose_taxonomy",
     "recognize_industry",
     "to_json",

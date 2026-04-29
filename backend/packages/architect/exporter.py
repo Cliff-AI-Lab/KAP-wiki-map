@@ -77,6 +77,18 @@ def export_to_industry_template(
         else:
             log.warning("exporter_skip_invalid_node", item=str(n)[:60])
 
+    # M3 #3a：把 draft.facets（dict[str, FacetSchema]）挂到 IndustryTemplate.facets
+    facets_dict: dict = {}
+    for k, v in (draft.facets or {}).items():
+        if isinstance(v, dict):
+            from packages.templates.registry import FacetSchema as _FS
+            try:
+                facets_dict[k] = _FS.model_validate(v)
+            except Exception as e:
+                log.warning("exporter_skip_invalid_facet", doc_type=k, error=str(e))
+        else:
+            facets_dict[k] = v
+
     template = IndustryTemplate(
         code=final_code,
         name=draft.industry_name or final_code,
@@ -84,7 +96,7 @@ def export_to_industry_template(
         icon="Folder",
         description=f"由 KAP 块① 咨询智能体导出（基于 {base_code} 行业模板演化）",
         taxonomy=nodes,
-        facets={},  # 客户 Facet 提议留 M3
+        facets=facets_dict,
     )
 
     if register_globally:
