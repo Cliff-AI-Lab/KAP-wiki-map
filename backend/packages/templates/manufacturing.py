@@ -12,6 +12,7 @@
 本模板在项目创建时由 registry.py 自动注册，通过 get_template("manufacturing") 获取。
 """
 
+from packages.templates.facets_manufacturing import MANUFACTURING_FACETS
 from packages.templates.registry import IndustryTemplate, TaxonomyNode
 
 # _N 是 TaxonomyNode 的简写别名
@@ -23,6 +24,7 @@ MANUFACTURING_TEMPLATE = IndustryTemplate(
     name_en="Manufacturing",
     icon="Factory",
     description="离散制造与流程制造行业知识管理，涵盖生产质量、设备维护、仓储物流、研发创新和安全管理。",
+    facets=MANUFACTURING_FACETS,  # M1 #2: 4 套 Facet schema
     taxonomy=[
         _N(id="production", name="生产管理", level=2,
            description="生产计划执行、工艺控制和现场管理。",
