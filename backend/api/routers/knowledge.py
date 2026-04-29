@@ -529,7 +529,7 @@ async def ingest_demo_data(
     from packages.distillation.pipeline import arun_pipeline
     from packages.common.types import Decision, DocumentCard
     from packages.storage.chunker import chunk_document
-    from packages.storage.embedder import embed_texts
+    from packages.storage.embedder import aembed_texts
 
     meta = get_metadata_store()
     vec = get_vector_store()
@@ -747,7 +747,7 @@ async def ingest_demo_data(
                 c.domain_id = domain_id
 
             texts = [c.content for c in chunks]
-            embeddings = embed_texts(texts)
+            embeddings = await aembed_texts(texts)
             for chunk, emb in zip(chunks, embeddings):
                 chunk.embedding = emb
             await vec.insert_chunks(chunks)
@@ -856,7 +856,7 @@ async def ingest_files(
     from packages.distillation.pipeline import arun_pipeline
     from packages.common.types import Decision, DocumentCard, RawDocument, SourceSystem
     from packages.storage.chunker import chunk_document
-    from packages.storage.embedder import embed_texts
+    from packages.storage.embedder import aembed_texts
 
     meta = get_metadata_store()
     vec = get_vector_store()
@@ -958,7 +958,7 @@ async def ingest_files(
             domain_id=domain_id,
         )
         if chunks:
-            embeddings = embed_texts([c.content for c in chunks])
+            embeddings = await aembed_texts([c.content for c in chunks])
             for chunk, emb in zip(chunks, embeddings):
                 chunk.embedding = emb
             await vec.insert_chunks(chunks)
@@ -1198,7 +1198,7 @@ async def finalize_batch(
     """
     from packages.common.types import Decision, DocumentCard
     from packages.storage.chunker import chunk_document
-    from packages.storage.embedder import embed_texts
+    from packages.storage.embedder import aembed_texts
     from packages.distillation.auto_cataloger import get_auto_cataloger
 
     meta = get_metadata_store()
@@ -1275,7 +1275,7 @@ async def finalize_batch(
             org_id=project_id, domain_id=domain_id,
         )
         if chunks:
-            embeddings = embed_texts([c.content for c in chunks])
+            embeddings = await aembed_texts([c.content for c in chunks])
             for chunk, emb in zip(chunks, embeddings):
                 chunk.embedding = emb
             await vec.insert_chunks(chunks)

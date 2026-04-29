@@ -25,26 +25,33 @@ from packages.common.config import (
 
 
 class TestKapEnvValidation:
+    """注意：sandbox/prod 强制非 mock embedding（坑 6），所以这些 case 显式传 ruidong。"""
+
     def test_default_is_dev(self) -> None:
         s = Settings(_env_file=None)  # 不读 .env，避免外部干扰
         assert s.kap_env == KAP_ENV_DEV
 
     def test_explicit_sandbox(self) -> None:
-        s = Settings(_env_file=None, kap_env="sandbox")
+        s = Settings(_env_file=None, kap_env="sandbox", embedding_provider="ruidong")
         assert s.kap_env == KAP_ENV_SANDBOX
 
     def test_explicit_prod(self) -> None:
-        s = Settings(_env_file=None, kap_env="prod")
+        s = Settings(_env_file=None, kap_env="prod", embedding_provider="ruidong")
         assert s.kap_env == KAP_ENV_PROD
 
     def test_case_insensitive_normalize(self) -> None:
         """大写 / 混合大小写应被规范化为小写。"""
-        s = Settings(_env_file=None, kap_env="PROD")
+        s = Settings(_env_file=None, kap_env="PROD", embedding_provider="ruidong")
         assert s.kap_env == KAP_ENV_PROD
 
     def test_invalid_env_raises(self) -> None:
         with pytest.raises(ValueError, match="非法 kap_env"):
             Settings(_env_file=None, kap_env="staging")  # 不在枚举中
+
+    def test_sandbox_with_mock_embedding_raises(self) -> None:
+        """坑 6：sandbox/prod 强制非 mock embedding。"""
+        with pytest.raises(ValueError, match="禁止使用 mock embedding"):
+            Settings(_env_file=None, kap_env="sandbox", embedding_provider="mock")
 
 
 # ────────── 坑 D：verify_ssl 三环境强制 ──────────
@@ -58,11 +65,21 @@ class TestVerifySslPolicy:
 
     def test_sandbox_forces_true(self) -> None:
         """sandbox 环境无视用户输入，强制 verify_ssl=True。"""
-        s = Settings(_env_file=None, kap_env="sandbox", llm_verify_ssl=False)
+        s = Settings(
+            _env_file=None,
+            kap_env="sandbox",
+            llm_verify_ssl=False,
+            embedding_provider="ruidong",
+        )
         assert s.llm_verify_ssl is True
 
     def test_prod_forces_true(self) -> None:
-        s = Settings(_env_file=None, kap_env="prod", llm_verify_ssl=False)
+        s = Settings(
+            _env_file=None,
+            kap_env="prod",
+            llm_verify_ssl=False,
+            embedding_provider="ruidong",
+        )
         assert s.llm_verify_ssl is True
 
     def test_dev_default_true(self) -> None:
@@ -82,11 +99,21 @@ class TestAllowMockLlmPolicy:
 
     def test_sandbox_forces_false(self) -> None:
         """sandbox 环境无视用户输入，强制 allow_mock_llm=False。"""
-        s = Settings(_env_file=None, kap_env="sandbox", allow_mock_llm=True)
+        s = Settings(
+            _env_file=None,
+            kap_env="sandbox",
+            allow_mock_llm=True,
+            embedding_provider="ruidong",
+        )
         assert s.allow_mock_llm is False
 
     def test_prod_forces_false(self) -> None:
-        s = Settings(_env_file=None, kap_env="prod", allow_mock_llm=True)
+        s = Settings(
+            _env_file=None,
+            kap_env="prod",
+            allow_mock_llm=True,
+            embedding_provider="ruidong",
+        )
         assert s.allow_mock_llm is False
 
     def test_default_is_false(self) -> None:
@@ -106,6 +133,7 @@ class TestSandboxApiBaseOverride:
             kap_env="sandbox",
             sandbox_api_base="https://sandbox.iruidong.internal/v1",
             openai_base_url="https://api.openai.com/v1",
+            embedding_provider="ruidong",
         )
         assert s.openai_base_url == "https://sandbox.iruidong.internal/v1"
 

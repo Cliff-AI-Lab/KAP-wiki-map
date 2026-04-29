@@ -83,6 +83,17 @@ class Settings(BaseSettings):
         if env in (KAP_ENV_SANDBOX, KAP_ENV_PROD) and self.allow_mock_llm:
             object.__setattr__(self, "allow_mock_llm", False)
 
+        # 5. sandbox / prod 强制 allow_mock_embedding=False（坑 6）
+        #    mock embedding 是哈希伪向量，prod 启用会让块③ 召回完全失效
+        if env in (KAP_ENV_SANDBOX, KAP_ENV_PROD) and self.allow_mock_embedding:
+            object.__setattr__(self, "allow_mock_embedding", False)
+        # sandbox/prod 也强制 embedding_provider 不能是 mock
+        if env in (KAP_ENV_SANDBOX, KAP_ENV_PROD) and self.embedding_provider == "mock":
+            raise ValueError(
+                f"sandbox/prod 环境禁止使用 mock embedding provider（kap_env={env}）。"
+                f"请设置 EMBEDDING_PROVIDER=bge / ruidong / openai 之一。"
+            )
+
     # --- 飞书 ---
     feishu_app_id: str = ""
     feishu_app_secret: str = ""
@@ -120,10 +131,37 @@ class Settings(BaseSettings):
     minio_secret_key: str = "minioadmin"
     minio_bucket: str = "bookworm-archive"
 
-    # --- Embedding ---
-    embedding_provider: str = "openai"
-    embedding_model: str = "text-embedding-3-small"
-    embedding_dim: int = 1536
+    # --- Embedding（坑 6 改造）---
+    embedding_provider: str = Field(
+        default="mock",
+        description=(
+            "Embedding 提供方：mock / openai / ruidong / bge。"
+            "sandbox/prod 由 model_post_init 强制非 mock"
+        ),
+    )
+    embedding_model: str = Field(
+        default="text-embedding-3-small",
+        description=(
+            "embedding 模型名。bge 默认 BAAI/bge-large-zh-v1.5；"
+            "ruidong 默认 qwen3-embedding；openai 走 settings.embedding_model"
+        ),
+    )
+    embedding_dim: int = Field(
+        default=1536,
+        description="向量维度。bge-large-zh=1024，qwen3-embedding=1024，OpenAI=1536",
+    )
+    embedding_batch_size: int = Field(
+        default=64,
+        description="批量 embed 时的单批最大文本数（睿动 / OpenAI 上限通常 100）",
+    )
+    allow_mock_embedding: bool = Field(
+        default=False,
+        description=(
+            "是否允许 mock embedding（坑 6）。"
+            "False 时 mock provider/无 Key/异常都直接抛 EmbeddingError，"
+            "禁止伪向量污染 Milvus。dev 可设 True；sandbox/prod 强制 False"
+        ),
+    )
 
     # --- 切片策略 ---
     chunk_strategy: str = Field(default="fixed", description="切片策略: fixed, parent_child, semantic")
