@@ -266,6 +266,23 @@ class Settings(BaseSettings):
         description="W4 实体抽取低置信度工单的 SLA 截止分钟数；超时由 sla.sweep_overdue_tasks 升级",
     )
 
+    # M1 敏感实体识别 + 脱敏管线（决策书 §5.4 D10/D11）
+    sensitive_aes_key: str = Field(
+        default="",
+        description=(
+            "敏感映射 AES-256-GCM 密钥（32 字节 hex 或 base64）。空则映射存内存（dev 兼容）；"
+            "sandbox/prod 强制非空（决策书 §5.4 D11 加密 KV）。永远不入代码"
+        ),
+    )
+    sensitive_mapping_redis_url: str = Field(
+        default="",
+        description="敏感映射独立 Redis URL，与 KAP 自身 redis 解耦（私有化客户内网）",
+    )
+    sensitive_role_dict_path: str = Field(
+        default="",
+        description="角色字典 YAML 路径（默认空走内置字典；客户定制时指定）",
+    )
+
     # --- Agent 参数 ---
     librarian_preview_chars: int = Field(default=2000, description="Librarian 发送给 LLM 的内容预览长度")
     judge_content_chars: int = Field(default=3000, description="Judge 发送给 LLM 的内容摘录长度")
