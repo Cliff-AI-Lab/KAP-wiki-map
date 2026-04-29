@@ -64,21 +64,21 @@
 ## 当前阶段
 
 ```
-[M0 KAP-Lite]──→[M1 企业级v1]──→[M2 AI-native]──→[M3 高级治理]──→[M4 重抽影子库]──→[M5 演化机制完整版]──→[M6 演化收尾]──→ M7⬜
+[M0 KAP-Lite]──→[M1 企业级v1]──→[M2 AI-native]──→[M3 高级治理]──→[M4 重抽影子库]──→[M5 演化机制完整版]──→[M6 演化收尾]──→[M7 运营观察持久化]──→ M8⬜
 ```
 
 进程链（按时间正序，每份是独立快照）：
-[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → M7（待启动）
+[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → M8（待启动）
 
-**KAP 累计**：~87 commits / 测试 797/799 ✓ / 实际 ~59h vs Opus 估 ~415h，节省 ~86%。
+**KAP 累计**：~91 commits / 测试 823/825 ✓ / 实际 ~63h vs Opus 估 ~427h，节省 ~85%。
 
 **三块产品形态全部就位**：
 - 块①（M2 + M3 完整对话式建体系）
-- 块②（M0+M1+M3 6 工位 + 4×6 矩阵 + 脱敏 + W4 LLM 抽取 + M4 重抽 + M5 演化 + M6 运营观察）
-- 块③（M0+M2 三路召回 + obsidian 图谱）
-- M3+M4+M5+M6 双层本体演化 + 全量重抽影子库 + 4 监测条件完整 LLM + 7 天观察期 + as_of 时光机 + SME 决策聚合（[决策书 §5.3 D8/D9](docs/01-技术决策书.md) KAP IP 引擎运营观察就位）
+- 块②（M0+M1+M3 6 工位 + 4×6 矩阵 + 脱敏 + W4 LLM 抽取 + M4 重抽 + M5 演化 + M6/M7 运营观察）
+- 块③（M0+M2 三路召回 + obsidian 图谱 + M7 召回埋点）
+- M3+M4+M5+M6+M7 双层本体演化 + 全量重抽 + 4 监测条件 LLM + 7 天观察期 + as_of 时光机 + SME 决策聚合 + 三源运营仪表盘（[决策书 §5.3 D8/D9](docs/01-技术决策书.md) KAP IP 引擎跨重启不丢运营观察）
 
-**下一阶段 M7 待启动**：DecisionLog PG 持久化 / portal+Skywalking 召回率埋点 / 独立物理 Neo4j 实例 / 前端 4×6 矩阵 UI 收尾 / 监测条件 LLM 自学习。
+**下一阶段 M8 待启动**：portal "有用/无用" 用户反馈埋点 / 召回率 / 准确率（需 ground truth）/ 独立物理 Neo4j 实例 / 前端 4×6 矩阵 UI / 监测条件 LLM 自学习。
 
 ### Obsidian 图谱配色（已配置）
 
