@@ -10,6 +10,13 @@
 """
 
 from packages.architect.agent import ArchitectAgent, get_architect_agent
+from packages.architect.conflict_detector import (
+    DocSample,
+    PreviewReport,
+    classify_doc,
+    detect_duplicates,
+    preview_classification,
+)
 from packages.architect.exporter import (
     export_to_industry_template,
     to_json,
@@ -37,12 +44,17 @@ from packages.architect.taxonomy_builder import (
 
 __all__ = [
     "ArchitectAgent",
+    "DocSample",
     "IndustryRecognitionResult",
+    "PreviewReport",
     "apply_naming_changes",
     "apply_user_command",
+    "classify_doc",
     "default_naming_convention",
+    "detect_duplicates",
     "export_to_industry_template",
     "get_architect_agent",
+    "preview_classification",
     "preview_filename",
     "propose_facets_for_doc_type",
     "propose_facets_for_taxonomy",

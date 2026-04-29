@@ -114,3 +114,37 @@ FACET_PROPOSE_USER = """## 客户行业
     }}
   ]
 }}"""
+
+
+# ════════════════════════════════════════════════════════════════════════
+# 冲突预演归类（PRD F1.6，M3 #3d）
+# ════════════════════════════════════════════════════════════════════════
+
+CLASSIFY_TO_NODE_SYSTEM = """你是一名企业知识体系归类专家。
+
+任务：把给定文档归入主树中**最匹配的 1-2 个节点**，并给出置信度。
+
+判断原则：
+1. 优先选 1 个节点（confidence >= 0.7 时）
+2. 若文档跨域确实需要双归（confidence 都 >= 0.5），给 1 个 primary 1 个 secondary
+3. 都不匹配（任何节点 confidence < 0.4）→ unmatched=true（孤立文档）
+4. 不要选择树外节点
+
+严格按 JSON 格式输出。"""
+
+CLASSIFY_TO_NODE_USER = """## 主树节点列表
+{taxonomy_nodes}
+
+## 文档信息
+标题：{doc_title}
+摘要：{doc_summary}
+
+## 请输出 JSON：
+{{
+  "primary_node_id": "节点 id（confidence 最高），无匹配设 ''",
+  "primary_confidence": 0.0-1.0,
+  "secondary_node_id": "（可选）跨域双归时填",
+  "secondary_confidence": 0.0-1.0,
+  "unmatched": true/false,
+  "reasoning": "归类理由（一句话）"
+}}"""
