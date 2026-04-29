@@ -22,16 +22,23 @@ from pydantic import BaseModel, Field
 
 from packages.common import get_logger
 from packages.common.roles import ROLE_SME, RequireRole
-from packages.common.types import RebuildDiffReport, RebuildJob
+from packages.common.types import (
+    PromotionObservation,
+    RebuildDiffReport,
+    RebuildJob,
+)
 from packages.rebuild import (
     PromoteRefused,
     arun_rebuild,
     compare_versions,
+    get_current_observation,
     get_job,
     list_jobs,
+    list_observations,
     promote_shadow,
     rollback_promotion,
     start_rebuild,
+    tick_observation,
 )
 
 log = get_logger("api.rebuild")
@@ -173,3 +180,41 @@ async def rollback(
              project_id=body.project_id, version=rolled,
              user=getattr(user, "user_id", "?"))
     return {"project_id": body.project_id, "rolled_back_to": rolled}
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M5 #2 · 观察期 (decision book §5.3 7 天)
+# ════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/observations", response_model=list[PromotionObservation])
+async def list_promotion_observations(
+    project_id: str | None = Query(default=None),
+) -> list[PromotionObservation]:
+    """列出观察期记录（含 baseline / 历史快照 / 告警）。"""
+    return list_observations(project_id)
+
+
+@router.get("/observations/current", response_model=PromotionObservation)
+async def get_current_observation_endpoint(
+    project_id: str = Query(...),
+) -> PromotionObservation:
+    obs = get_current_observation(project_id)
+    if obs is None:
+        raise HTTPException(status_code=404, detail="该项目无活跃观察期")
+    return obs
+
+
+@router.post("/observations/tick", response_model=PromotionObservation)
+async def tick_observation_endpoint(
+    body: RollbackBody,
+    user=Depends(RequireRole(ROLE_SME)),
+) -> PromotionObservation:
+    """手动触发一次观察期采样 + 检查（M5 lite，M5 完整版接定时器）。"""
+    obs = tick_observation(body.project_id)
+    if obs is None:
+        raise HTTPException(status_code=404, detail="该项目无活跃观察期")
+    log.info("observation_ticked",
+             project_id=body.project_id, status=obs.status,
+             alerts=len(obs.alerts), user=getattr(user, "user_id", "?"))
+    return obs

@@ -14,6 +14,7 @@ from packages.common.auth import UserContext
 from packages.common.types import ExtractionResult
 from packages.rebuild import (
     reset_jobs_for_test,
+    reset_observations_for_test,
     reset_shadow_store_for_test,
 )
 
@@ -37,9 +38,11 @@ def _build_app() -> FastAPI:
 def _reset():
     reset_jobs_for_test()
     reset_shadow_store_for_test()
+    reset_observations_for_test()
     yield
     reset_jobs_for_test()
     reset_shadow_store_for_test()
+    reset_observations_for_test()
 
 
 @pytest.fixture
@@ -232,3 +235,74 @@ class TestRollbackEndpoint:
             headers={"X-Test-Roles": "SME"},
         )
         assert r.status_code == 400
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M5 #2 · 观察期端点
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestObservationEndpoints:
+    def test_list_observations_empty(self, client) -> None:
+        r = client.get("/api/v1/rebuild/observations")
+        assert r.status_code == 200
+        assert r.json() == []
+
+    def test_current_observation_404_when_none(self, client) -> None:
+        r = client.get(
+            "/api/v1/rebuild/observations/current?project_id=p_none"
+        )
+        assert r.status_code == 404
+
+    def test_observation_lifecycle_via_api(self, client) -> None:
+        from packages.rebuild import get_shadow_store
+        s = get_shadow_store()
+        s.begin_shadow("p1", "v2")
+        for i in range(10):
+            s.add_entity("p1", "v1", entity_name=f"E{i}",
+                         type_id="equipment", doc_id="d")
+            s.add_entity("p1", "v2", entity_name=f"E{i}",
+                         type_id="equipment", doc_id="d")
+
+        # promote → 自动启动观察期
+        r = client.post(
+            "/api/v1/rebuild/promote",
+            json={"project_id": "p1", "source_version": "v1",
+                  "target_version": "v2", "force": False},
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 200
+
+        r = client.get(
+            "/api/v1/rebuild/observations/current?project_id=p1"
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["status"] == "watching"
+        assert body["version"] == "v2"
+        assert body["baseline"]["entity_count"] == 10
+
+        # 手动 tick
+        r = client.post(
+            "/api/v1/rebuild/observations/tick",
+            json={"project_id": "p1"},
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 200
+        assert len(r.json()["snapshots"]) == 1
+
+    def test_tick_non_sme_blocked(self, client) -> None:
+        r = client.post(
+            "/api/v1/rebuild/observations/tick",
+            json={"project_id": "p1"},
+            headers={"X-Test-Roles": "READER"},
+        )
+        assert r.status_code == 403
+
+    def test_tick_404_when_no_observation(self, client) -> None:
+        r = client.post(
+            "/api/v1/rebuild/observations/tick",
+            json={"project_id": "p_none"},
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 404

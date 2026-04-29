@@ -560,6 +560,36 @@ class RebuildDiffReport(BaseModel):
     safety_reasons: list[str] = Field(default_factory=list)
 
 
+# M5 #2 观察期（决策书 §5.3 promote 后 7 天观察）
+
+
+ObservationStatus = Literal["watching", "alert", "expired", "rolled_back"]
+
+
+class PromotionMetrics(BaseModel):
+    """promote 后某时间点的图谱指标快照。"""
+    project_id: str
+    version: str
+    captured_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
+    entity_count: int = 0
+    relation_count: int = 0
+    entity_type_distribution: dict[str, int] = Field(default_factory=dict)
+    custom_relation_ratio: float = 0.0   # 关系中 type_id 不在已注册列表的比例
+
+
+class PromotionObservation(BaseModel):
+    """promote 后的 7 天观察期记录（决策书 §5.3）。"""
+    observation_id: str
+    project_id: str
+    version: str
+    promoted_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
+    expires_at: datetime              # promoted_at + 7 days
+    baseline: PromotionMetrics
+    snapshots: list[PromotionMetrics] = Field(default_factory=list)
+    status: ObservationStatus = "watching"
+    alerts: list[str] = Field(default_factory=list)
+
+
 class OntologyEvolutionProposal(BaseModel):
     """本体演化提议（决策书 §5.3 LLM 提议 + SME 审批）。"""
     proposal_id: str

@@ -20,6 +20,10 @@ from __future__ import annotations
 
 from packages.common import get_logger
 from packages.common.types import RebuildDiffReport
+from packages.rebuild.promotion_observer import (
+    mark_rolled_back,
+    start_observation,
+)
 from packages.rebuild.shadow_graph import ShadowGraphStore, get_shadow_store
 
 log = get_logger("rebuild.switch")
@@ -144,6 +148,14 @@ def promote_shadow(
         source=source_version, target=target_version,
         forced=force, safe=report.safe_to_promote,
     )
+
+    # M5 #2 · 启动 7 天观察期（baseline = 切换时刻快照）
+    try:
+        start_observation(project_id, target_version, shadow=s)
+    except Exception as e:
+        log.warning("promotion_observation_start_failed",
+                    project_id=project_id, error=str(e))
+
     return report
 
 
@@ -161,4 +173,10 @@ def rollback_promotion(
     rolled = s.rollback_to_previous(project_id)
     if rolled:
         log.info("promotion_rolled_back", project_id=project_id, version=rolled)
+        # M5 #2 · 标记观察期 rolled_back
+        try:
+            mark_rolled_back(project_id)
+        except Exception as e:
+            log.warning("promotion_observation_mark_failed",
+                        project_id=project_id, error=str(e))
     return rolled
