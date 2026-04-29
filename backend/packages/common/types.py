@@ -489,6 +489,38 @@ class OntologyDiff(BaseModel):
     modified_relation_types: list[str] = Field(default_factory=list)
 
 
+# M3 #4 W4 实体抽取（决策书 §5.2 W4 工位 SME 必审）
+
+class ExtractedEntity(BaseModel):
+    """W4 实体抽取产出。"""
+    entity_id: str                    # doc_id+name 哈希或自定义稳定 id
+    name: str                         # 实体名（如 "汽轮机1#"）
+    type_id: str                      # 关联 OntologyEntityType.type_id
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    is_sensitive: bool = False        # 决策书 §5.4 敏感实体标记
+    properties: dict = Field(default_factory=dict)
+    evidence: str = ""                # 原文佐证片段
+
+
+class ExtractedRelation(BaseModel):
+    """W4 关系抽取产出。"""
+    source_entity_id: str
+    target_entity_id: str
+    relation_type_id: str
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    evidence: str = ""
+
+
+class ExtractionResult(BaseModel):
+    """单文档完整抽取产出（W4 工位）。"""
+    doc_id: str
+    entities: list[ExtractedEntity] = Field(default_factory=list)
+    relations: list[ExtractedRelation] = Field(default_factory=list)
+    overall_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    sensitive_entity_count: int = 0
+    error: str = ""
+
+
 class OntologyEvolutionProposal(BaseModel):
     """本体演化提议（决策书 §5.3 LLM 提议 + SME 审批）。"""
     proposal_id: str
