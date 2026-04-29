@@ -38,17 +38,27 @@ from packages.rebuild.shadow_graph import (
     get_shadow_store,
     reset_shadow_store_for_test,
 )
+from packages.rebuild.switch_orchestrator import (
+    PromoteRefused,
+    compare_versions,
+    promote_shadow,
+    rollback_promotion,
+)
 
 __all__ = [
     "ChunkHashCache",
+    "PromoteRefused",
     "ShadowGraphStore",
     "arun_rebuild",
+    "compare_versions",
     "compute_chunk_hash",
     "get_job",
     "get_shadow_store",
     "list_jobs",
+    "promote_shadow",
     "reset_jobs_for_test",
     "reset_shadow_store_for_test",
+    "rollback_promotion",
     "should_reextract",
     "start_rebuild",
 ]
