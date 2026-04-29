@@ -64,21 +64,21 @@
 ## 当前阶段
 
 ```
-[M0 KAP-Lite]──→[M1 企业级v1]──→[M2 AI-native]──→[M3 高级治理]──→[M4 重抽影子库]──→ M5⬜
+[M0 KAP-Lite]──→[M1 企业级v1]──→[M2 AI-native]──→[M3 高级治理]──→[M4 重抽影子库]──→[M5 演化机制完整版]──→ M6⬜
 ```
 
 进程链（按时间正序，每份是独立快照）：
-[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → M5（待启动）
+[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → M6（待启动）
 
-**KAP 累计**：~80 commits / 测试 714/716 ✓ / 实际 ~51h vs Opus 估 ~390h，节省 ~87%。
+**KAP 累计**：~83 commits / 测试 765/767 ✓ / 实际 ~56h vs Opus 估 ~405h，节省 ~86%。
 
 **三块产品形态全部就位**：
 - 块①（M2 + M3 完整对话式建体系）
-- 块②（M0+M1+M3 6 工位 + 4×6 矩阵 + 脱敏 + W4 LLM 抽取 + M4 重抽）
+- 块②（M0+M1+M3 6 工位 + 4×6 矩阵 + 脱敏 + W4 LLM 抽取 + M4 重抽 + M5 演化收口）
 - 块③（M0+M2 三路召回 + obsidian 图谱）
-- M3+M4 双层本体演化 + 全量重抽影子库（[决策书 §5.3 D8/D9](docs/01-技术决策书.md) KAP IP 引擎闭环）
+- M3+M4+M5 双层本体演化 + 全量重抽影子库 + 4 监测条件完整 LLM + 7 天观察期（[决策书 §5.3 D8/D9](docs/01-技术决策书.md) KAP IP 引擎完整收口）
 
-**下一阶段 M5 待启动**：监测条件 2/3/4 完整 LLM / as_of 历史回溯 / 7 天自动观察 / 独立物理 Neo4j 实例。
+**下一阶段 M6 待启动**：as_of 历史回溯 / 复杂多维度指标对比 / 独立物理 Neo4j 实例 / ISS-Job Quartz 接入。
 
 ### Obsidian 图谱配色（已配置）
 
