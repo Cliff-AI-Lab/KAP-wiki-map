@@ -14,8 +14,16 @@
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
-async function request<T>(endpoint: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${endpoint}`);
+async function request<T>(
+  endpoint: string, init: RequestInit = {},
+): Promise<T> {
+  const headers: Record<string, string> = {
+    ...(init.headers as Record<string, string> | undefined),
+  };
+  if (init.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const res = await fetch(`${API_BASE}${endpoint}`, { ...init, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || `请求失败: ${res.status}`);
@@ -173,4 +181,73 @@ export function fetchConditionHealth(
 ): Promise<Record<string, ConditionHealth>> {
   const qs = buildQuery({ project_id: projectId });
   return request(`/api/v1/observability/condition-health${qs}`);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  M10 #1 + M11 #1 · ground truth 自动构造
+// ════════════════════════════════════════════════════════════════════════
+
+export interface GroundTruthCandidate {
+  candidate_id: string;
+  project_id: string;
+  query_text: string;
+  proposed_doc_ids: string[];
+  sample_size: number;
+  useful_rate: number;
+  reasoning: string;
+}
+
+export interface GroundTruthQuery {
+  gt_id: string;
+  project_id: string;
+  query_text: string;
+  expected_doc_ids: string[];
+  note: string;
+  created_at: string;
+}
+
+export function fetchGroundTruthCandidates(params: {
+  projectId?: string;
+  minUsefulRate?: number;
+  minSamples?: number;
+  maxResults?: number;
+}): Promise<GroundTruthCandidate[]> {
+  const qs = buildQuery({
+    project_id: params.projectId,
+    min_useful_rate: params.minUsefulRate?.toString(),
+    min_samples: params.minSamples?.toString(),
+    max_results: params.maxResults?.toString(),
+  });
+  return request(`/api/v1/observability/ground-truth/auto-construct${qs}`);
+}
+
+export function fetchGroundTruthList(
+  projectId?: string,
+): Promise<GroundTruthQuery[]> {
+  const qs = buildQuery({ project_id: projectId });
+  return request(`/api/v1/observability/ground-truth${qs}`);
+}
+
+export function addGroundTruth(body: {
+  project_id?: string;
+  query_text: string;
+  expected_doc_ids: string[];
+  note?: string;
+}): Promise<GroundTruthQuery> {
+  return request('/api/v1/observability/ground-truth', {
+    method: 'POST',
+    body: JSON.stringify({
+      project_id: body.project_id ?? '',
+      query_text: body.query_text,
+      expected_doc_ids: body.expected_doc_ids,
+      note: body.note ?? '',
+    }),
+  });
+}
+
+export function deleteGroundTruth(gtId: string): Promise<{ gt_id: string; removed: boolean }> {
+  return request(
+    `/api/v1/observability/ground-truth/${encodeURIComponent(gtId)}`,
+    { method: 'DELETE' },
+  );
 }
