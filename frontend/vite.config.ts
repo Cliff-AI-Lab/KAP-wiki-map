@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -31,5 +32,12 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  // M11 #2 · vitest 单测配置
+  test: {
+    environment: 'happy-dom',
+    globals: true,
+    setupFiles: './src/test/setup.ts',
+    css: false,
   },
 });
