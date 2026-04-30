@@ -442,6 +442,58 @@ class TestEvalAllEndpoint:
         )
         assert r.status_code == 403
 
+    def test_multi_k_endpoint(self, client, monkeypatch) -> None:
+        from packages.observability import add_ground_truth as _add
+        _add(project_id="p1", query_text="q",
+             expected_doc_ids=["a"])
+
+        from api import deps
+
+        class FakeSource:
+            def __init__(self, doc_id):
+                self.doc_id = doc_id
+
+        class FakeResult:
+            def __init__(self, doc_ids):
+                self.sources = [FakeSource(d) for d in doc_ids]
+
+        class FakeEngine:
+            async def ask(self, *, question, top_k, **kwargs):
+                return FakeResult(["a"] * top_k)
+
+        monkeypatch.setattr(deps, "get_qa_engine", lambda: FakeEngine())
+
+        r = client.post(
+            "/api/v1/observability/recall-eval/multi-k",
+            json={"project_id": "p1", "ks": [1, 5]},
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["ks"] == [1, 5]
+        # by_k 序列化为 dict[str, dict]（pydantic dict[int, ...] → str key）
+        for k_str in ["1", "5"]:
+            assert body["by_k"][k_str]["avg_recall"] == 1.0
+
+    def test_auto_construct_endpoint(self, client) -> None:
+        from packages.observability import (
+            record_query as _q,
+            record_query_feedback as _fb,
+        )
+        for _ in range(3):
+            e = _q(project_id="p1", query_text="高分查询", source_count=2)
+            _fb(query_id=e.query_id, useful=True)
+
+        r = client.get(
+            "/api/v1/observability/ground-truth/auto-construct"
+            "?project_id=p1&min_samples=3"
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert len(body) == 1
+        assert body[0]["query_text"] == "高分查询"
+        assert body[0]["useful_rate"] == 1.0
+
     def test_eval_all_runs_for_all_projects(self, client, monkeypatch) -> None:
         from packages.observability import add_ground_truth as _add
         _add(project_id="p1", query_text="q1", expected_doc_ids=["a"])

@@ -6,6 +6,7 @@ import pytest
 
 from packages.observability import (
     add_ground_truth,
+    auto_construct_ground_truth_candidates,
     check_recall_alerts_and_propagate,
     compute_recall_trend,
     eval_all_projects,
@@ -14,8 +15,12 @@ from packages.observability import (
     list_ground_truth,
     list_projects_with_ground_truth,
     list_reports,
+    record_query,
+    record_query_feedback,
     remove_ground_truth,
+    reset_queries_for_test,
     reset_recall_eval_for_test,
+    run_multi_k_recall_eval,
     run_recall_eval,
 )
 from packages.rebuild import (
@@ -31,10 +36,12 @@ def _reset():
     reset_recall_eval_for_test()
     reset_observations_for_test()
     reset_shadow_store_for_test()
+    reset_queries_for_test()
     yield
     reset_recall_eval_for_test()
     reset_observations_for_test()
     reset_shadow_store_for_test()
+    reset_queries_for_test()
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -368,3 +375,156 @@ class TestRecallTrend:
         assert trend["samples"] == 3
         assert trend["current"]["avg_recall"] == 1.0
         assert trend["baseline"]["avg_recall"] == 0.0
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M10 #1 · 多 K 召回曲线
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestMultiKRecall:
+    async def test_basic_curve(self) -> None:
+        add_ground_truth(project_id="p1", query_text="q",
+                         expected_doc_ids=["a", "b"])
+
+        async def qa(query, k):
+            return ["a", "x", "b", "y"]   # b 在 top 3
+
+        report = await run_multi_k_recall_eval(
+            qa_callable=qa, project_id="p1", ks=[1, 3, 5],
+        )
+        # k=1: top 1 = ["a"] → recall=0.5
+        # k=3: top 3 = ["a", "x", "b"] → recall=1.0
+        # k=5: 同 max=4 → recall=1.0
+        assert report.by_k[1]["avg_recall"] == 0.5
+        assert report.by_k[3]["avg_recall"] == 1.0
+        assert report.by_k[5]["avg_recall"] == 1.0
+        assert report.total_queries == 1
+
+    async def test_default_ks_when_not_specified(self) -> None:
+        add_ground_truth(project_id="p1", query_text="q",
+                         expected_doc_ids=["a"])
+
+        async def qa(query, k):
+            return ["a"]
+
+        report = await run_multi_k_recall_eval(
+            qa_callable=qa, project_id="p1",
+        )
+        assert report.ks == [1, 3, 5, 10]
+
+    async def test_qa_failure_zero_across_all_ks(self) -> None:
+        add_ground_truth(project_id="p1", query_text="q",
+                         expected_doc_ids=["a"])
+
+        async def crash(q, k):
+            raise RuntimeError("down")
+
+        report = await run_multi_k_recall_eval(
+            qa_callable=crash, project_id="p1", ks=[1, 5],
+        )
+        for k in [1, 5]:
+            assert report.by_k[k]["avg_recall"] == 0.0
+
+    async def test_dedup_and_sort_ks(self) -> None:
+        add_ground_truth(project_id="p1", query_text="q",
+                         expected_doc_ids=["a"])
+
+        async def qa(query, k):
+            return ["a"]
+
+        report = await run_multi_k_recall_eval(
+            qa_callable=qa, project_id="p1", ks=[5, 1, 5, 3],
+        )
+        assert report.ks == [1, 3, 5]
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M10 #1 · GroundTruth 自动构造候选
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestAutoConstructGT:
+    def test_no_queries_returns_empty(self) -> None:
+        assert auto_construct_ground_truth_candidates(project_id="p1") == []
+
+    def test_filters_below_min_samples(self) -> None:
+        # 单次查询 + 单次 useful → 不达样本数阈值
+        e = record_query(project_id="p1", query_text="孤儿问题",
+                         source_count=1)
+        record_query_feedback(query_id=e.query_id, useful=True)
+
+        out = auto_construct_ground_truth_candidates(
+            project_id="p1", min_samples=2,
+        )
+        assert out == []
+
+    def test_filters_below_min_useful_rate(self) -> None:
+        for _ in range(3):
+            e = record_query(project_id="p1", query_text="低评价问题",
+                             source_count=1)
+            record_query_feedback(query_id=e.query_id, useful=False)
+
+        out = auto_construct_ground_truth_candidates(
+            project_id="p1", min_samples=2, min_useful_rate=0.8,
+        )
+        assert out == []
+
+    def test_returns_high_useful_query(self) -> None:
+        # 4 次相同 query：3 useful + 1 not → useful_rate=0.75 < 0.8 不达
+        # 加成 4 useful → 1.0
+        for _ in range(4):
+            e = record_query(project_id="p1", query_text="电机故障",
+                             source_count=2)
+            record_query_feedback(query_id=e.query_id, useful=True)
+
+        out = auto_construct_ground_truth_candidates(
+            project_id="p1", min_samples=3, min_useful_rate=0.8,
+        )
+        assert len(out) == 1
+        c = out[0]
+        assert c.query_text == "电机故障"
+        assert c.useful_rate == 1.0
+        assert c.sample_size == 4
+        assert c.candidate_id.startswith("gtc_")
+
+    def test_filter_by_project(self) -> None:
+        for _ in range(3):
+            e1 = record_query(project_id="p1", query_text="x",
+                              source_count=1)
+            record_query_feedback(query_id=e1.query_id, useful=True)
+            e2 = record_query(project_id="p2", query_text="y",
+                              source_count=1)
+            record_query_feedback(query_id=e2.query_id, useful=True)
+
+        out = auto_construct_ground_truth_candidates(project_id="p1")
+        assert all(c.project_id == "p1" for c in out)
+        assert len(out) == 1
+
+    def test_skips_queries_without_feedback(self) -> None:
+        for _ in range(3):
+            record_query(project_id="p1", query_text="无反馈",
+                         source_count=1)
+        out = auto_construct_ground_truth_candidates(project_id="p1")
+        assert out == []
+
+    def test_sort_by_useful_rate_then_samples(self) -> None:
+        # query A: 5 次 + 4 useful → 0.8
+        for i in range(5):
+            e = record_query(project_id="p1", query_text="A",
+                             source_count=1)
+            record_query_feedback(
+                query_id=e.query_id, useful=(i < 4),
+            )
+        # query B: 3 次 + 3 useful → 1.0（更高，应排前）
+        for i in range(3):
+            e = record_query(project_id="p1", query_text="B",
+                             source_count=1)
+            record_query_feedback(query_id=e.query_id, useful=True)
+
+        out = auto_construct_ground_truth_candidates(
+            project_id="p1", min_samples=3,
+        )
+        assert len(out) == 2
+        assert out[0].query_text == "B"  # 1.0 > 0.8
+        assert out[1].query_text == "A"

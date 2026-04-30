@@ -20,13 +20,16 @@ from packages.common import get_logger
 from packages.common.roles import ROLE_SME, RequireRole
 from packages.observability import (
     DecisionEvent,
+    GroundTruthCandidate,
     GroundTruthQuery,
+    MultiKRecallReport,
     QueryEvent,
     RecallEvalReport,
     add_ground_truth,
     aggregate_decisions,
     aggregate_queries,
     arecord_query_feedback,
+    auto_construct_ground_truth_candidates,
     check_recall_alerts_and_propagate,
     compute_recall_trend,
     eval_all_projects,
@@ -36,6 +39,7 @@ from packages.observability import (
     list_queries,
     list_reports,
     remove_ground_truth,
+    run_multi_k_recall_eval,
     run_recall_eval,
 )
 from packages.rebuild import list_observations
@@ -279,6 +283,63 @@ async def eval_all_endpoint(
     log.info("eval_all_completed_via_api",
              reports=len(reports), user=getattr(user, "user_id", "?"))
     return reports
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M10 #1 · 多 K 召回曲线 + GT 自动构造
+# ════════════════════════════════════════════════════════════════════════
+
+
+class RunMultiKBody(BaseModel):
+    project_id: str = ""
+    version: str = ""
+    ks: list[int] = Field(default_factory=lambda: [1, 3, 5, 10])
+
+
+@router.post("/recall-eval/multi-k", response_model=MultiKRecallReport)
+async def run_multi_k_recall_endpoint(
+    body: RunMultiKBody,
+    user=Depends(RequireRole(ROLE_SME)),
+) -> MultiKRecallReport:
+    """一次跑多 K 评估，输出召回曲线（同 ground truth 集 + 同 qa）。"""
+    from api.deps import get_qa_engine
+
+    async def qa_callable(query_text: str, k: int) -> list[str]:
+        try:
+            engine = get_qa_engine()
+            result = await engine.ask(question=query_text, top_k=k)
+            return [s.doc_id for s in result.sources]
+        except Exception as e:
+            log.warning("multi_k_recall_qa_engine_failed", error=str(e))
+            return []
+
+    report = await run_multi_k_recall_eval(
+        qa_callable=qa_callable,
+        project_id=body.project_id, version=body.version, ks=body.ks,
+    )
+    log.info("multi_k_recall_completed",
+             report_id=report.report_id,
+             user=getattr(user, "user_id", "?"))
+    return report
+
+
+@router.get(
+    "/ground-truth/auto-construct",
+    response_model=list[GroundTruthCandidate],
+)
+async def auto_construct_gt_endpoint(
+    project_id: str = Query(default=""),
+    min_useful_rate: float = Query(default=0.8, ge=0.0, le=1.0),
+    min_samples: int = Query(default=2, ge=1, le=100),
+    max_results: int = Query(default=50, ge=1, le=500),
+) -> list[GroundTruthCandidate]:
+    """从 query_log 反向构造 gt 候选；返回候选列表（待 SME 调 add ground-truth 入库）。"""
+    return auto_construct_ground_truth_candidates(
+        project_id=project_id,
+        min_useful_rate=min_useful_rate,
+        min_samples=min_samples,
+        max_doc_ids=max_results,
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════

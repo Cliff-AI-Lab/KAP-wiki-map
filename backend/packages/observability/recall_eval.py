@@ -370,6 +370,174 @@ def list_projects_with_ground_truth() -> list[str]:
     return sorted(seen)
 
 
+class MultiKRecallReport(BaseModel):
+    """多 K 召回曲线评估报告（M10 #1）。"""
+    report_id: str
+    project_id: str = ""
+    version: str = ""
+    ks: list[int]
+    # k → avg_recall / avg_precision / avg_f1
+    by_k: dict[int, dict[str, float]] = Field(default_factory=dict)
+    total_queries: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
+
+
+async def run_multi_k_recall_eval(
+    *,
+    qa_callable: QaCallable,
+    project_id: str = "",
+    version: str = "",
+    ks: list[int] | None = None,
+) -> MultiKRecallReport:
+    """对当前 project 全部 ground truth 跑多 K 评估，输出召回曲线。
+
+    Args:
+        ks: 要评估的 k 值列表，默认 [1, 3, 5, 10]
+
+    Notes:
+        - 单次拉最大 max(ks) 个结果，按 k 截断重算（节省 qa 调用次数）
+        - 单 query 失败 → 该 query 各 K 都视为 0 召回
+    """
+    if not ks:
+        ks = [1, 3, 5, 10]
+    ks = sorted(set(int(x) for x in ks if int(x) > 0))
+    max_k = max(ks)
+
+    targets = list_ground_truth(project_id=project_id or None)
+    by_k: dict[int, dict[str, float]] = {
+        k: {"sum_recall": 0.0, "sum_precision": 0.0, "sum_f1": 0.0}
+        for k in ks
+    }
+
+    for gt in targets:
+        try:
+            retrieved = await qa_callable(gt.query_text, max_k)
+            if not isinstance(retrieved, list):
+                retrieved = []
+            retrieved = [str(d) for d in retrieved[:max_k]]
+        except Exception as e:
+            log.warning("multi_k_recall_qa_failed",
+                        gt_id=gt.gt_id, error=str(e))
+            retrieved = []
+
+        expected_set = set(gt.expected_doc_ids)
+        for k in ks:
+            top_k = retrieved[:k]
+            top_k_set = set(top_k)
+            matched = expected_set & top_k_set
+            r = _safe_div(len(matched), len(expected_set))
+            p = _safe_div(len(matched), len(top_k_set))
+            f = (
+                _safe_div(2 * r * p, r + p)
+                if (r + p) > 0 else 0.0
+            )
+            by_k[k]["sum_recall"] += r
+            by_k[k]["sum_precision"] += p
+            by_k[k]["sum_f1"] += f
+
+    n = len(targets) or 1
+    aggregated: dict[int, dict[str, float]] = {}
+    for k in ks:
+        aggregated[k] = {
+            "avg_recall": round(by_k[k]["sum_recall"] / n, 4),
+            "avg_precision": round(by_k[k]["sum_precision"] / n, 4),
+            "avg_f1": round(by_k[k]["sum_f1"] / n, 4),
+        }
+
+    report = MultiKRecallReport(
+        report_id=f"mreval_{uuid.uuid4().hex[:10]}",
+        project_id=project_id, version=version,
+        ks=ks, by_k=aggregated, total_queries=len(targets),
+    )
+    log.info("multi_k_recall_eval_done",
+             report_id=report.report_id, ks=ks,
+             total=report.total_queries)
+    return report
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  GroundTruth 自动构造（M10 #1）
+# ════════════════════════════════════════════════════════════════════════
+
+
+class GroundTruthCandidate(BaseModel):
+    """从 query_log 反向构造的 gt 候选（待 SME 审批入库）。"""
+    candidate_id: str
+    project_id: str = ""
+    query_text: str
+    proposed_doc_ids: list[str] = Field(default_factory=list)
+    sample_size: int = 0           # 满足条件的 query 实例数
+    useful_rate: float = 0.0       # 该 query_text 的 useful 比例
+    reasoning: str = ""
+
+
+def auto_construct_ground_truth_candidates(
+    *,
+    project_id: str = "",
+    min_useful_rate: float = 0.8,
+    min_samples: int = 2,
+    max_doc_ids: int = 10,
+) -> list[GroundTruthCandidate]:
+    """从 query_log 反向构造 ground truth 候选。
+
+    算法：
+    1. 拉所有 query_text 出现 ≥ min_samples 次的查询
+    2. 计算每组的 useful_rate（仅算有 feedback 的）
+    3. useful_rate ≥ min_useful_rate → 候选
+    4. proposed_doc_ids = 该组所有 useful=True 实例的"已知 source doc_ids 交集"
+       —— M10 lite：因为 QueryEvent 没存 sources doc_ids 列表，本批先用启发式：
+       - source_count > 0 且 useful=True → 取该 query_text 所有 useful 命中的实例
+       - 实际 doc_id 列表需 SME 在 confirm 阶段补充
+       (M11+ 计划：QueryEvent 存 retrieved_doc_ids，自动算交集)
+
+    Returns:
+        候选列表（待 SME 审批）；不直接入 ground_truth 集
+    """
+    from packages.observability.query_log import _queries  # type: ignore[reportPrivateUsage]
+
+    # 按 (project_id, query_text) 分组
+    groups: dict[tuple[str, str], list] = {}
+    for q in _queries:
+        if project_id and q.project_id != project_id:
+            continue
+        key = (q.project_id, q.query_text)
+        groups.setdefault(key, []).append(q)
+
+    candidates: list[GroundTruthCandidate] = []
+    for (proj, text), events in groups.items():
+        if len(events) < min_samples:
+            continue
+        feedbacked = [e for e in events if e.useful is not None]
+        if not feedbacked:
+            continue
+        useful_count = sum(1 for e in feedbacked if e.useful is True)
+        useful_rate = useful_count / len(feedbacked)
+        if useful_rate < min_useful_rate:
+            continue
+        # M10 lite：proposed_doc_ids 留空让 SME confirm 时补；
+        # M11 等 QueryEvent 存 sources doc_ids 后自动算交集
+        candidates.append(GroundTruthCandidate(
+            candidate_id=f"gtc_{uuid.uuid4().hex[:10]}",
+            project_id=proj,
+            query_text=text,
+            proposed_doc_ids=[],
+            sample_size=len(events),
+            useful_rate=round(useful_rate, 4),
+            reasoning=(
+                f"{len(events)} 次查询，{len(feedbacked)} 次有反馈，"
+                f"{useful_count} useful（占 {useful_rate:.0%}）"
+            ),
+        ))
+
+    # 高 useful_rate + 高 sample_size 优先
+    candidates.sort(
+        key=lambda c: (c.useful_rate, c.sample_size), reverse=True,
+    )
+    log.info("ground_truth_candidates_constructed",
+             project_id=project_id, count=len(candidates))
+    return candidates[:max_doc_ids]
+
+
 async def eval_all_projects(
     *, qa_callable: QaCallable, version: str = "", k: int = 5,
 ) -> list[RecallEvalReport]:
