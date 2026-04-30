@@ -236,11 +236,12 @@ async def dashboard(
     since: datetime | None = Query(default=None),
     until: datetime | None = Query(default=None),
 ) -> dict[str, Any]:
-    """单端点聚合运营三源指标：
+    """单端点聚合运营全维度指标：
 
     - **decisions**：approve / reject / promote / rollback 计数 + 派生比率
-    - **queries**：召回 hit_rate + p95 latency
+    - **queries**：召回 hit_rate + p95 latency + useful_rate (M8 #1 用户反馈)
     - **observations**：当前活跃观察期摘要（status + alerts 数量）
+    - **recall_eval**：最近一份评估报告摘要（M8 #2）+ ground truth 集大小
 
     给前端运营看板一次拉全。
     """
@@ -269,6 +270,23 @@ async def dashboard(
     obs_active = sum(1 for o in obs_list if o.status == "watching")
     obs_alerting = sum(1 for o in obs_list if o.status == "alert")
 
+    # M8 #2 召回评估摘要（精简：仅 avg 指标 + report_id，明细走 /reports/{id}）
+    latest = get_latest_report(project_id=project_id)
+    if latest is not None:
+        recall_summary = {
+            "report_id": latest.report_id,
+            "version": latest.version,
+            "k": latest.k,
+            "total_queries": latest.total_queries,
+            "avg_recall": latest.avg_recall,
+            "avg_precision": latest.avg_precision,
+            "avg_f1": latest.avg_f1,
+            "created_at": latest.created_at.isoformat(),
+        }
+    else:
+        recall_summary = None
+    gt_count = len(list_ground_truth(project_id=project_id))
+
     return {
         "window": {
             "since": since.isoformat() if since else None,
@@ -282,5 +300,9 @@ async def dashboard(
             "active": obs_active,
             "alerting": obs_alerting,
             "items": obs_summary,
+        },
+        "recall_eval": {
+            "ground_truth_count": gt_count,
+            "latest": recall_summary,
         },
     }

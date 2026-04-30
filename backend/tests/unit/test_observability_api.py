@@ -212,6 +212,50 @@ class TestDashboard:
         body = r.json()
         assert body["decisions"]["total"] == 1
 
+    def test_dashboard_includes_feedback_and_recall(self, client) -> None:
+        # query feedback (M8 #1)
+        e = record_query(project_id="p1", query_text="x", source_count=2)
+        client.post(
+            f"/api/v1/observability/queries/{e.query_id}/feedback",
+            json={"useful": True},
+        )
+
+        # ground truth + recall report (M8 #2)
+        from packages.observability import (
+            add_ground_truth,
+            run_recall_eval,
+        )
+        add_ground_truth(project_id="p1", query_text="q1",
+                         expected_doc_ids=["a", "b"])
+
+        async def fake_qa(q, k):
+            return ["a"]  # recall=0.5
+
+        import asyncio
+        asyncio.get_event_loop().run_until_complete(
+            run_recall_eval(qa_callable=fake_qa, project_id="p1")
+        )
+
+        r = client.get(
+            "/api/v1/observability/dashboard?project_id=p1"
+        )
+        assert r.status_code == 200
+        body = r.json()
+        # query feedback in dashboard
+        assert body["queries"]["useful_rate"] == 1.0
+        # recall_eval 维度
+        assert body["recall_eval"]["ground_truth_count"] == 1
+        latest = body["recall_eval"]["latest"]
+        assert latest is not None
+        assert latest["avg_recall"] == 0.5
+        assert latest["total_queries"] == 1
+
+    def test_dashboard_recall_eval_empty(self, client) -> None:
+        r = client.get("/api/v1/observability/dashboard")
+        body = r.json()
+        assert body["recall_eval"]["ground_truth_count"] == 0
+        assert body["recall_eval"]["latest"] is None
+
 
 # ════════════════════════════════════════════════════════════════════════
 #  M8 #1 · portal 用户反馈端点
