@@ -19,6 +19,7 @@ from packages.observability import (
     get_version,
     list_prompt_versions,
     reset_prompt_versions_for_test,
+    resolve_active_system_prompt,
 )
 
 
@@ -208,7 +209,7 @@ class TestABScore:
         )
         assert scores[0].sample_size == 0
 
-    def test_is_active_flag(self) -> None:
+    def test_is_active_flag_active_versions(self) -> None:
         v_active = create_prompt_version(condition_type="new_entity_type")
         v_old = create_prompt_version(condition_type="standard_upgrade")
         deactivate_prompt_version(v_old.version_id)
@@ -217,3 +218,75 @@ class TestABScore:
         by_id = {s.version_id: s for s in scores}
         assert by_id[v_active.version_id].is_active is True
         assert by_id[v_old.version_id].is_active is False
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M12 #1 · resolve_active_system_prompt（动态 prompt 解析）
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestResolveActiveSystemPrompt:
+    def test_no_active_returns_fallback(self) -> None:
+        out = resolve_active_system_prompt(
+            "new_entity_type", "FALLBACK_HARDCODED",
+        )
+        assert out == "FALLBACK_HARDCODED"
+
+    def test_active_with_empty_system_prompt_returns_fallback(self) -> None:
+        # M11 #4 兼容：旧版本无 system_prompt → 用 fallback
+        create_prompt_version(
+            condition_type="new_entity_type",
+            prompt_text_excerpt="just a hint",
+        )
+        out = resolve_active_system_prompt(
+            "new_entity_type", "FALLBACK_HARDCODED",
+        )
+        assert out == "FALLBACK_HARDCODED"
+
+    def test_active_with_system_prompt_returns_override(self) -> None:
+        create_prompt_version(
+            condition_type="standard_upgrade",
+            system_prompt="OVERRIDE_PROMPT",
+        )
+        out = resolve_active_system_prompt(
+            "standard_upgrade", "FALLBACK_HARDCODED",
+        )
+        assert out == "OVERRIDE_PROMPT"
+
+    def test_deactivated_version_falls_back(self) -> None:
+        v = create_prompt_version(
+            condition_type="relation_split",
+            system_prompt="OLD_OVERRIDE",
+        )
+        deactivate_prompt_version(v.version_id)
+        out = resolve_active_system_prompt(
+            "relation_split", "FALLBACK_HARDCODED",
+        )
+        assert out == "FALLBACK_HARDCODED"
+
+    def test_independent_per_condition(self) -> None:
+        create_prompt_version(
+            condition_type="new_entity_type",
+            system_prompt="NEW_ENT_OVERRIDE",
+        )
+        create_prompt_version(
+            condition_type="relation_solidification",
+            system_prompt="REL_OVERRIDE",
+        )
+        assert resolve_active_system_prompt(
+            "new_entity_type", "F1",
+        ) == "NEW_ENT_OVERRIDE"
+        assert resolve_active_system_prompt(
+            "relation_solidification", "F2",
+        ) == "REL_OVERRIDE"
+        # 第三类无 active → fallback
+        assert resolve_active_system_prompt(
+            "standard_upgrade", "F3",
+        ) == "F3"
+
+    def test_create_with_system_prompt_persists(self) -> None:
+        v = create_prompt_version(
+            condition_type="new_entity_type",
+            system_prompt="A" * 1000,    # 不截断 system_prompt
+        )
+        assert len(v.system_prompt) == 1000

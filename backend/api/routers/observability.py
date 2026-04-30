@@ -345,6 +345,7 @@ async def run_multi_k_recall_endpoint(
 class CreatePromptVersionBody(BaseModel):
     condition_type: str
     prompt_text_excerpt: str = Field(default="", max_length=200)
+    system_prompt: str = Field(default="", max_length=8000)   # M12 #1
     note: str = Field(default="", max_length=200)
 
 
@@ -385,6 +386,7 @@ async def create_prompt_version_endpoint(
     version = create_prompt_version(
         condition_type=body.condition_type,    # type: ignore[arg-type]
         prompt_text_excerpt=body.prompt_text_excerpt,
+        system_prompt=body.system_prompt,
         created_by=getattr(user, "user_id", "") or "",
         note=body.note,
     )

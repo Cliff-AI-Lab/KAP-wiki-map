@@ -26,6 +26,7 @@ from packages.common.types import (
     OntologyVersion,
 )
 from packages.distillation.llm_client import acall_llm_json
+from packages.observability.prompt_versions import resolve_active_system_prompt
 from packages.ontology.base import get_current_l1, get_current_l2
 from packages.ontology.prompts import (
     ENTITY_TYPE_PROPOSE_SYSTEM,
@@ -144,7 +145,11 @@ async def propose_new_entity_type(
     )
 
     try:
-        data = await acall_llm_json(ENTITY_TYPE_PROPOSE_SYSTEM, user_prompt)
+        # M12 #1 · LLM 自学习闭环：active PromptVersion 优先；无则 fallback 硬编码
+        sys_prompt = resolve_active_system_prompt(
+            "new_entity_type", ENTITY_TYPE_PROPOSE_SYSTEM,
+        )
+        data = await acall_llm_json(sys_prompt, user_prompt)
     except Exception as e:
         log.warning("ontology_propose_llm_failed", error=str(e))
         return None
@@ -316,7 +321,10 @@ async def propose_relation_solidification(
     )
 
     try:
-        data = await acall_llm_json(RELATION_SOLIDIFY_SYSTEM, user_prompt)
+        sys_prompt = resolve_active_system_prompt(
+            "relation_solidification", RELATION_SOLIDIFY_SYSTEM,
+        )
+        data = await acall_llm_json(sys_prompt, user_prompt)
     except Exception as e:
         log.warning("evolution_relation_llm_failed", error=str(e))
         return None
@@ -431,7 +439,10 @@ async def propose_relation_split_for_drift(
     )
 
     try:
-        data = await acall_llm_json(RELATION_SPLIT_SYSTEM, user_prompt)
+        sys_prompt = resolve_active_system_prompt(
+            "relation_split", RELATION_SPLIT_SYSTEM,
+        )
+        data = await acall_llm_json(sys_prompt, user_prompt)
     except Exception as e:
         log.warning("evolution_split_llm_failed", error=str(e))
         return None
@@ -559,7 +570,10 @@ async def propose_standard_upgrade(
     )
 
     try:
-        data = await acall_llm_json(STANDARD_UPGRADE_SYSTEM, user_prompt)
+        sys_prompt = resolve_active_system_prompt(
+            "standard_upgrade", STANDARD_UPGRADE_SYSTEM,
+        )
+        data = await acall_llm_json(sys_prompt, user_prompt)
     except Exception as e:
         log.warning("evolution_standard_llm_failed", error=str(e))
         return None

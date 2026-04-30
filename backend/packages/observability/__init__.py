@@ -46,6 +46,7 @@ from packages.observability.prompt_versions import (
     get_version,
     list_prompt_versions,
     reset_prompt_versions_for_test,
+    resolve_active_system_prompt,
 )
 from packages.observability.recall_eval import (
     GroundTruthCandidate,
@@ -116,6 +117,7 @@ __all__ = [
     "list_projects_with_ground_truth",
     "list_prompt_versions",
     "reset_prompt_versions_for_test",
+    "resolve_active_system_prompt",
     "get_ground_truth",
     "get_latest_report",
     "get_query_event",

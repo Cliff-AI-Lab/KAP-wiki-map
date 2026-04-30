@@ -35,10 +35,16 @@ log = get_logger("observability.prompt_versions")
 
 
 class PromptVersion(BaseModel):
-    """监测条件 prompt 版本元数据（M11 #4）。"""
+    """监测条件 prompt 版本元数据（M11 #4 + M12 #1）。
+
+    M11 #4：仅元数据 + 时间窗 AB 比较；不改实际 prompt。
+    M12 #1：增加 ``system_prompt`` 全文字段，evolution_proposer 在调 LLM 时
+    按 active 版本动态选用（非空时覆盖硬编码，空则 fallback）。
+    """
     version_id: str
     condition_type: ConditionType
-    prompt_text_excerpt: str = ""              # 200 字摘要
+    prompt_text_excerpt: str = ""              # 200 字摘要（兼容 M11 #4 老字段）
+    system_prompt: str = ""                     # M12 #1：完整 system prompt 覆盖
     created_by: str = ""                        # SME user_id
     activated_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
     deactivated_at: datetime | None = None     # None = 当前 active
@@ -101,10 +107,17 @@ def create_prompt_version(
     *,
     condition_type: ConditionType,
     prompt_text_excerpt: str = "",
+    system_prompt: str = "",
     created_by: str = "",
     note: str = "",
 ) -> PromptVersion:
-    """创建新 prompt 版本并激活（自动停用同 condition_type 的旧 active）。"""
+    """创建新 prompt 版本并激活（自动停用同 condition_type 的旧 active）。
+
+    Args:
+        prompt_text_excerpt: 200 字摘要（M11 #4 兼容）
+        system_prompt: M12 #1 完整 system prompt（非空 → evolution_proposer
+                       在调 LLM 时优先使用此值；为空则 fallback 硬编码）
+    """
     now = datetime.now(tz=None)
 
     # 自动停用同 condition_type 的当前 active
@@ -120,6 +133,7 @@ def create_prompt_version(
         version_id=f"pver_{uuid.uuid4().hex[:10]}",
         condition_type=condition_type,
         prompt_text_excerpt=prompt_text_excerpt[:200],
+        system_prompt=system_prompt,                # 不截断，完整存
         created_by=created_by,
         activated_at=now,
         note=note[:200],
@@ -130,8 +144,19 @@ def create_prompt_version(
         version_id=new.version_id,
         condition_type=condition_type,
         created_by=created_by or "system",
+        has_system_prompt=bool(system_prompt),
     )
     return new
+
+
+def resolve_active_system_prompt(
+    condition_type: ConditionType, fallback: str,
+) -> str:
+    """供 evolution_proposer 使用：取 active 版本的 system_prompt（非空时），否则 fallback。"""
+    active = get_active_version(condition_type)
+    if active is not None and active.system_prompt:
+        return active.system_prompt
+    return fallback
 
 
 def deactivate_prompt_version(version_id: str) -> bool:
