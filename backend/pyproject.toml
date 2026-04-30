@@ -59,3 +59,8 @@ line-length = 100
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# M13 #1 · 真 LLM 集成测试默认 skip；显式 `pytest -m live_llm` 才跑
+addopts = "-m 'not live_llm'"
+markers = [
+    "live_llm: integration test that calls a real LLM endpoint (requires network + API key)",
+]

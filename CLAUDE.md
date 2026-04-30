@@ -118,6 +118,16 @@
 
 **新约束** (M12 收尾时由用户提出)：涉及 LLM 的测试改用真实 LLM（不 mock acall_llm_json）；老 mock 测试不强制重写，新增遵循。
 
+### 真 LLM 集成测试（M13 #1 已就绪）
+
+新写涉及 LLM 的测试时：
+- 文件放 `backend/tests/integration/`；标 `pytestmark = pytest.mark.live_llm`
+- 用 `require_live_llm` fixture：缺 API key 时 skip 而非 fail
+- 弱断言（schema / 类型 / 长度），不精确字符串匹配；prompt 调优后不立即破坏
+- 默认运行 `pytest` 自动 skip（`addopts = "-m 'not live_llm'"`）
+- 显式 `pytest -m live_llm tests/integration/` 跑真测
+- 示范：[`tests/integration/test_live_llm_smoke.py`](backend/tests/integration/test_live_llm_smoke.py)
+
 ### Obsidian 图谱配色（已配置）
 
 vault 配置文件 `E:\Obsidian\知识PPL\.obsidian\graph.json` 已直接写入 5 组着色规则，
