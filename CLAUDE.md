@@ -64,15 +64,15 @@
 ## 当前阶段
 
 ```
-[M0 KAP-Lite]──→[M1 企业级v1]──→[M2 AI-native]──→[M3 高级治理]──→[M4 重抽影子库]──→[M5 演化机制完整版]──→[M6 演化收尾]──→[M7 运营观察持久化]──→[M8 反馈与召回评估]──→[M9 评估持久化与趋势告警]──→ M10⬜
+[M0 KAP-Lite]──→[M1 企业级v1]──→[M2 AI-native]──→[M3 高级治理]──→[M4 重抽影子库]──→[M5 演化机制完整版]──→[M6 演化收尾]──→[M7 运营观察持久化]──→[M8 反馈与召回评估]──→[M9 评估持久化与趋势告警]──→[M10 评估深化与前端仪表盘]──→ M11⬜
 ```
 
 进程链（按时间正序，每份是独立快照）：
-[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → [M9-评估持久化与趋势告警](docs/progress/M9-评估持久化与趋势告警.md) → M10（待启动）
+[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → [M9-评估持久化与趋势告警](docs/progress/M9-评估持久化与趋势告警.md) → [M10-评估深化与前端仪表盘](docs/progress/M10-评估深化与前端仪表盘.md) → M11（待启动）
 
-**KAP 累计**：~98 commits / 测试 877/879 ✓ / 实际 ~70h vs Opus 估 ~447h，节省 ~84%。
+**KAP 累计**：~102 commits / 测试 904/906 ✓ / 实际 ~74h vs Opus 估 ~462h，节省 ~84%。
 
-### 整体进度看板（M0-M9 ✓ / M10+ ⬜）
+### 整体进度看板（M0-M10 ✓ / M11+ ⬜）
 
 | 维度                       | 状态 | 来自里程碑              |
 |:---------------------------|:---:|:-----------------------|
@@ -92,16 +92,20 @@
 | 评估 PG 持久化 + 趋势告警   | ✓   | M9                     |
 | 外部 cron / ISS-Job 入口    | ✓   | M6+M9（HTTP 端点）     |
 | 综合运营仪表盘 API          | ✓   | M7+M8                  |
-| 前端运营仪表盘 UI           | ⬜   | M10+（前端落后）       |
-| 块②前端 4×6 矩阵 UI         | ⬜   | M10+                   |
-| 监测条件 LLM 自学习         | ⬜   | M10+                   |
+| 多 K 召回曲线               | ✓   | M10                    |
+| ground truth 自动构造候选   | ✓   | M10                    |
+| 监测条件 LLM 自学习 lite    | ✓   | M10                    |
+| 前端运营仪表盘 UI           | ✓   | M10                    |
+| 块②前端 4×6 矩阵 UI         | ⬜   | M11+                   |
+| LLM 自学习闭环（A/B prompt）| ⬜   | M11+                   |
+| GT 候选确认入库 UI          | ⬜   | M11+                   |
+| QueryEvent retrieved_doc_ids| ⬜   | M11+                   |
+| 前端单测（RTL+happy-dom）   | ⬜   | M11+                   |
 | 独立物理 Neo4j 实例         | ⬜   | 部署期                 |
-| 多 K 召回曲线               | ⬜   | M10+                   |
-| ground truth 自动构造       | ⬜   | M10+                   |
 | ChunkHashCache LRU 分片     | ⬜   | 大规模实测后           |
 | DecisionLog 时序分区        | ⬜   | 大规模实测后           |
 
-**下一阶段 M10 待启动**：监测条件 LLM 自学习 / 前端运营仪表盘 + 4×6 矩阵 UI / 多 K 召回曲线 / ground truth 自动构造 / 独立物理 Neo4j / 时序分区。
+**下一阶段 M11 待启动**：QueryEvent retrieved_doc_ids（GT 自动构造完整化）/ 前端单测 / LLM 自学习闭环 / GT 候选 UI / 块②前端 4×6 矩阵 UI / 独立物理 Neo4j。
 
 ### Obsidian 图谱配色（已配置）
 
