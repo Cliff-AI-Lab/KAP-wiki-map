@@ -64,21 +64,44 @@
 ## 当前阶段
 
 ```
-[M0 KAP-Lite]──→[M1 企业级v1]──→[M2 AI-native]──→[M3 高级治理]──→[M4 重抽影子库]──→[M5 演化机制完整版]──→[M6 演化收尾]──→[M7 运营观察持久化]──→[M8 反馈与召回评估]──→ M9⬜
+[M0 KAP-Lite]──→[M1 企业级v1]──→[M2 AI-native]──→[M3 高级治理]──→[M4 重抽影子库]──→[M5 演化机制完整版]──→[M6 演化收尾]──→[M7 运营观察持久化]──→[M8 反馈与召回评估]──→[M9 评估持久化与趋势告警]──→ M10⬜
 ```
 
 进程链（按时间正序，每份是独立快照）：
-[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → M9（待启动）
+[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → [M9-评估持久化与趋势告警](docs/progress/M9-评估持久化与趋势告警.md) → M10（待启动）
 
-**KAP 累计**：~94 commits / 测试 855/857 ✓ / 实际 ~67h vs Opus 估 ~437h，节省 ~85%。
+**KAP 累计**：~98 commits / 测试 877/879 ✓ / 实际 ~70h vs Opus 估 ~447h，节省 ~84%。
 
-**三块产品形态全部就位**：
-- 块①（M2 + M3 完整对话式建体系）
-- 块②（M0+M1+M3 6 工位 + 4×6 矩阵 + 脱敏 + W4 LLM 抽取 + M4 重抽 + M5 演化 + M6/M7/M8 全维度运营观察）
-- 块③（M0+M2 三路召回 + obsidian 图谱 + M7 召回埋点 + M8 用户反馈/召回率评估）
-- M3-M8 双层本体演化 + 全量重抽 + 4 监测条件 LLM + 7 天观察期 + as_of 时光机 + SME 决策聚合 + 用户反馈 + recall@k 评估管线（[决策书 §5.3 D8/D9](docs/01-技术决策书.md) KAP IP 引擎全维度运营观察就位）
+### 整体进度看板（M0-M9 ✓ / M10+ ⬜）
 
-**下一阶段 M9 待启动**：ground truth + reports PG 持久化 / 召回率趋势对比 + 告警阈值 / 监测条件 LLM 自学习 / 独立物理 Neo4j 实例 / 前端 4×6 矩阵 UI / DecisionLog 时序分区。
+| 维度                       | 状态 | 来自里程碑              |
+|:---------------------------|:---:|:-----------------------|
+| 块① 知识咨询智能体          | ✓   | M2 + M3                |
+| 块② 知识库 + 知识图谱       | ✓   | M0+M1+M3+M4            |
+| 块③ 渐进式消费门户          | ✓   | M0+M2                  |
+| ISS 集成（JWT/Redis/HTTP） | ✓   | M1                     |
+| 4×6 矩阵审核台              | ✓   | M1+M3                  |
+| 双层本体（L1+L2）演化       | ✓   | M3+M5                  |
+| 全量重抽影子库              | ✓   | M4                     |
+| 7 天 promote 观察期         | ✓   | M5+M6                  |
+| `as_of` 时光机查询          | ✓   | M6                     |
+| SME 决策日志 + PG           | ✓   | M6+M7                  |
+| 查询召回埋点 + PG           | ✓   | M7                     |
+| 用户反馈（有用/无用）       | ✓   | M8                     |
+| 召回率/精确率/F1 评估       | ✓   | M8                     |
+| 评估 PG 持久化 + 趋势告警   | ✓   | M9                     |
+| 外部 cron / ISS-Job 入口    | ✓   | M6+M9（HTTP 端点）     |
+| 综合运营仪表盘 API          | ✓   | M7+M8                  |
+| 前端运营仪表盘 UI           | ⬜   | M10+（前端落后）       |
+| 块②前端 4×6 矩阵 UI         | ⬜   | M10+                   |
+| 监测条件 LLM 自学习         | ⬜   | M10+                   |
+| 独立物理 Neo4j 实例         | ⬜   | 部署期                 |
+| 多 K 召回曲线               | ⬜   | M10+                   |
+| ground truth 自动构造       | ⬜   | M10+                   |
+| ChunkHashCache LRU 分片     | ⬜   | 大规模实测后           |
+| DecisionLog 时序分区        | ⬜   | 大规模实测后           |
+
+**下一阶段 M10 待启动**：监测条件 LLM 自学习 / 前端运营仪表盘 + 4×6 矩阵 UI / 多 K 召回曲线 / ground truth 自动构造 / 独立物理 Neo4j / 时序分区。
 
 ### Obsidian 图谱配色（已配置）
 
