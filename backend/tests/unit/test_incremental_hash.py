@@ -72,6 +72,50 @@ class TestChunkHashCache:
 
 
 # ════════════════════════════════════════════════════════════════════════
+#  M14 #2 · ChunkHashCache LRU
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestChunkHashCacheLRU:
+    def test_lru_evicts_oldest_when_over_limit(self) -> None:
+        cache = ChunkHashCache(size_limit=3)
+        cache.set("a", "h1")
+        cache.set("b", "h2")
+        cache.set("c", "h3")
+        cache.set("d", "h4")    # 触发 evict a
+        assert cache.size() == 3
+        assert cache.get("a") is None
+        assert cache.get("b") == "h2"
+
+    def test_lru_get_promotes_recent(self) -> None:
+        cache = ChunkHashCache(size_limit=3)
+        cache.set("a", "h1")
+        cache.set("b", "h2")
+        cache.set("c", "h3")
+        # 访问 a 让它变 most-recent
+        cache.get("a")
+        cache.set("d", "h4")    # 应该 evict b（不是 a）
+        assert cache.get("a") == "h1"
+        assert cache.get("b") is None
+        assert cache.get("c") == "h3"
+        assert cache.get("d") == "h4"
+
+    def test_lru_default_limit_used(self) -> None:
+        cache = ChunkHashCache()
+        # 默认 100k 上限；只检查实例化不爆
+        cache.set("a", "h1")
+        assert cache.get("a") == "h1"
+
+    def test_set_existing_key_updates_no_evict(self) -> None:
+        cache = ChunkHashCache(size_limit=2)
+        cache.set("a", "h1")
+        cache.set("b", "h2")
+        cache.set("a", "h1_new")
+        assert cache.size() == 2
+        assert cache.get("a") == "h1_new"
+
+
+# ════════════════════════════════════════════════════════════════════════
 #  should_reextract
 # ════════════════════════════════════════════════════════════════════════
 
@@ -114,7 +158,10 @@ class _FakeCursor:
         return False
 
     async def execute(self, sql, params=None):
-        self._conn.executed.append((sql.strip().split()[0], params))
+        sql_up = sql.strip().split()[0].upper()
+        self._conn.executed.append((sql_up, params))
+        self._conn._last_sql = sql.strip()
+        self._conn._last_params = params
 
     async def executemany(self, sql, rows):
         self._conn.executemany_calls.append((sql.strip().split()[0], list(rows)))
@@ -124,6 +171,16 @@ class _FakeCursor:
     async def fetchall(self):
         return [(k, v) for k, v in self._conn.table.items()]
 
+    async def fetchone(self):
+        # M14 #2 · 支持 SELECT content_hash WHERE chunk_id=%s（lazy 模式）
+        sql = self._conn._last_sql or ""
+        params = self._conn._last_params
+        if "WHERE chunk_id" in sql and params:
+            chunk_id = params[0]
+            v = self._conn.table.get(chunk_id)
+            return (v,) if v is not None else None
+        return None
+
 
 class _FakeAsyncConn:
     def __init__(self):
@@ -132,6 +189,8 @@ class _FakeAsyncConn:
         self.executemany_calls: list = []
         self.committed = 0
         self.closed = False
+        self._last_sql = ""
+        self._last_params = None
 
     def cursor(self):
         return _FakeCursor(self)
@@ -244,3 +303,83 @@ class TestFactory:
         )
         cache = await get_chunk_hash_cache()
         assert isinstance(cache, ChunkHashCache)
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M14 #2 · PgChunkHashCache lazy 模式
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestPgLazyMode:
+    async def test_lazy_does_not_load_all_at_init(self, fake_pg) -> None:
+        # 预置 PG 已有数据
+        fake_pg.table["c_existing"] = "hash_old"
+        cache = PgChunkHashCache(
+            dsn="postgresql://x/y", lazy=True, size_limit=10,
+        )
+        await cache.initialize()
+        # lazy 模式 → 内存仍为空
+        assert cache.size() == 0
+        assert cache.get("c_existing") is None
+
+    async def test_aget_lazy_loads_from_pg(self, fake_pg) -> None:
+        fake_pg.table["c1"] = "hash_pg"
+        cache = PgChunkHashCache(
+            dsn="postgresql://x/y", lazy=True, size_limit=10,
+        )
+        await cache.initialize()
+        # aget miss → 单查 PG
+        v = await cache.aget("c1")
+        assert v == "hash_pg"
+        # 命中后进 LRU
+        assert cache.size() == 1
+        assert cache.get("c1") == "hash_pg"
+
+    async def test_aget_unknown_returns_none(self, fake_pg) -> None:
+        cache = PgChunkHashCache(
+            dsn="postgresql://x/y", lazy=True, size_limit=10,
+        )
+        await cache.initialize()
+        v = await cache.aget("nonexistent")
+        assert v is None
+
+    async def test_lazy_lru_evicts_under_pressure(self, fake_pg) -> None:
+        for i in range(5):
+            fake_pg.table[f"c{i}"] = f"hash_{i}"
+        cache = PgChunkHashCache(
+            dsn="postgresql://x/y", lazy=True, size_limit=2,
+        )
+        await cache.initialize()
+        # 拉 3 个 → 第 1 个被驱逐
+        await cache.aget("c0")
+        await cache.aget("c1")
+        await cache.aget("c2")
+        assert cache.size() == 2
+        # c0 不在 LRU；但 PG 还有 → 再 aget 拉回来
+        v = await cache.aget("c0")
+        assert v == "hash_0"
+
+    async def test_lazy_flush_only_writes_pending(self, fake_pg) -> None:
+        # 预置 PG 已有 c_existing；本次 set 新 c_new
+        fake_pg.table["c_existing"] = "hash_old"
+        cache = PgChunkHashCache(
+            dsn="postgresql://x/y", lazy=True, size_limit=10,
+        )
+        await cache.initialize()
+        cache.set("c_new", "hash_new")
+        # flush 只写 pending
+        n = await cache.flush()
+        assert n == 1
+        assert fake_pg.table["c_new"] == "hash_new"
+        # c_existing 没被覆盖（M5 #3 老逻辑会重写整个 _cache）
+        assert fake_pg.table["c_existing"] == "hash_old"
+
+    async def test_factory_lazy_env_var(self, fake_pg, monkeypatch) -> None:
+        monkeypatch.setenv("KAP_CHUNK_HASH_PG", "1")
+        monkeypatch.setenv("KAP_CHUNK_HASH_LAZY", "1")
+        monkeypatch.setenv("KAP_CHUNK_HASH_LIMIT", "50")
+        cache = await get_chunk_hash_cache()
+        assert isinstance(cache, PgChunkHashCache)
+        # 私有字段访问验证（白盒测试，确保 env 解析对）
+        assert cache._lazy is True
+        assert cache._size_limit == 50
