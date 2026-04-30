@@ -19,9 +19,10 @@ prompt 的 SME 接受率，形成自学习反馈闭环。
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Awaitable, Callable, Literal
 
 from pydantic import BaseModel, Field
 
@@ -71,9 +72,35 @@ class PromptABScore(BaseModel):
 
 _versions: dict[str, PromptVersion] = {}
 
+# M12 #2 PG sinks
+_upsert_sink: Callable[[PromptVersion], Awaitable[None]] | None = None
+_deactivate_sink: Callable[[str, datetime], Awaitable[None]] | None = None
+
 
 def reset_prompt_versions_for_test() -> None:
+    global _upsert_sink, _deactivate_sink
     _versions.clear()
+    _upsert_sink = None
+    _deactivate_sink = None
+
+
+def set_prompt_version_pg_sinks(
+    *,
+    upsert_sink: Callable[[PromptVersion], Awaitable[None]] | None = None,
+    deactivate_sink: Callable[[str, datetime], Awaitable[None]] | None = None,
+) -> None:
+    """注入 PG sinks（pg_prompt_versions.initialize 调用）。"""
+    global _upsert_sink, _deactivate_sink
+    _upsert_sink = upsert_sink
+    _deactivate_sink = deactivate_sink
+
+
+def _fire_and_forget(coro_factory) -> None:
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(coro_factory())
+    except RuntimeError:
+        pass
 
 
 def list_prompt_versions(
@@ -128,6 +155,8 @@ def create_prompt_version(
             "prompt_version_auto_deactivated",
             old_id=old.version_id, condition_type=condition_type,
         )
+        if _upsert_sink is not None:
+            _fire_and_forget(lambda: _upsert_sink(old))
 
     new = PromptVersion(
         version_id=f"pver_{uuid.uuid4().hex[:10]}",
@@ -146,6 +175,8 @@ def create_prompt_version(
         created_by=created_by or "system",
         has_system_prompt=bool(system_prompt),
     )
+    if _upsert_sink is not None:
+        _fire_and_forget(lambda: _upsert_sink(new))
     return new
 
 
@@ -169,6 +200,8 @@ def deactivate_prompt_version(version_id: str) -> bool:
         "prompt_version_deactivated",
         version_id=version_id, condition_type=v.condition_type,
     )
+    if _deactivate_sink is not None:
+        _fire_and_forget(lambda: _deactivate_sink(version_id, v.deactivated_at))
     return True
 
 

@@ -36,6 +36,10 @@ from packages.observability.condition_health import (
     analyze_condition_health,
     classify_condition,
 )
+from packages.observability.pg_prompt_versions import (
+    initialize_pg_prompt_versions,
+    shutdown_pg_prompt_versions,
+)
 from packages.observability.prompt_versions import (
     PromptABScore,
     PromptVersion,
@@ -47,6 +51,7 @@ from packages.observability.prompt_versions import (
     list_prompt_versions,
     reset_prompt_versions_for_test,
     resolve_active_system_prompt,
+    set_prompt_version_pg_sinks,
 )
 from packages.observability.recall_eval import (
     GroundTruthCandidate,
@@ -122,6 +127,7 @@ __all__ = [
     "get_latest_report",
     "get_query_event",
     "initialize_pg_decision_log",
+    "initialize_pg_prompt_versions",
     "initialize_pg_query_log",
     "initialize_pg_recall_eval",
     "list_decisions",
@@ -138,10 +144,12 @@ __all__ = [
     "run_multi_k_recall_eval",
     "run_recall_eval",
     "set_pg_sink",
+    "set_prompt_version_pg_sinks",
     "set_query_feedback_pg_sink",
     "set_query_pg_sink",
     "set_recall_eval_pg_sinks",
     "shutdown_pg_decision_log",
+    "shutdown_pg_prompt_versions",
     "shutdown_pg_query_log",
     "shutdown_pg_recall_eval",
 ]

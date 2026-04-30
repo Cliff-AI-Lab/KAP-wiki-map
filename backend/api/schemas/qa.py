@@ -50,3 +50,4 @@ class AskResponse(BaseModel):
     sources: list[SourceItem] = []             # 参考来源文档列表
     intent_category: str = ""                  # 识别到的用户意图分类
     latency_ms: int = 0                        # 端到端处理耗时（毫秒）
+    query_id: str = ""                         # M12 #2 portal 反馈用，关联 query_log

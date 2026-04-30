@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { askQuestion, type QAResponse, type QASource } from '@/services/api';
+import QueryFeedbackButton from '@/components/v15/QueryFeedbackButton';
 import { useProject } from '@/contexts/ProjectContext';
 
 /* ---------- types ---------- */
@@ -47,6 +48,8 @@ interface ChatMessage {
   routePath?: string;
   /** 后端响应延迟（毫秒） */
   latencyMs?: number;
+  /** M12 #2 后端返回的 query_id，供反馈按钮关联 query_log */
+  queryId?: string;
   /** 错误信息（请求失败时填充） */
   error?: string;
 }
@@ -117,6 +120,7 @@ export default function QAPage() {
           intentCategory: data.intent_category,
           routePath: data.route_path || 'rag',
           latencyMs: data.latency_ms,
+          queryId: data.query_id,
         };
         setMessages((prev) => [...prev, assistantMsg]);
       } catch (err) {
@@ -221,6 +225,13 @@ export default function QAPage() {
                     {msg.latencyMs !== undefined && (
                       <span>{msg.latencyMs}ms</span>
                     )}
+                  </div>
+                )}
+
+                {/* M12 #2 portal 反馈按钮 */}
+                {msg.role === 'assistant' && msg.queryId && (
+                  <div className="mt-2">
+                    <QueryFeedbackButton queryId={msg.queryId} compact />
                   </div>
                 )}
 

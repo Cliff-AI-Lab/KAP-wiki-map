@@ -44,9 +44,10 @@ async def ask_question(req: AskRequest, request: Request) -> AskResponse:
             user_access_level=user.access_level,   # 用户权限级别，用于文档访问控制
             user_department=user.department_id,     # 用户所属部门，用于部门级数据隔离
         )
-        # M7 #2 · 召回埋点（M11 #1 加 retrieved_doc_ids 让 GT 自动构造可用）
+        # M7 #2 · 召回埋点（M11 #1 加 retrieved_doc_ids；M12 #2 返回 query_id 给前端）
+        recorded_query_id = ""
         try:
-            await arecord_query(
+            event = await arecord_query(
                 project_id=req.project_id or "",
                 user_id=getattr(user, "user_id", "") or "",
                 query_text=req.question,
@@ -54,6 +55,7 @@ async def ask_question(req: AskRequest, request: Request) -> AskResponse:
                 retrieved_doc_ids=[s.doc_id for s in result.sources],
                 latency_ms=int(result.latency_ms or 0),
             )
+            recorded_query_id = event.query_id
         except Exception:
             log.exception("query_log_record_failed")
         return AskResponse(
@@ -74,6 +76,7 @@ async def ask_question(req: AskRequest, request: Request) -> AskResponse:
             ],
             intent_category=result.intent_category,
             latency_ms=result.latency_ms,
+            query_id=recorded_query_id,
         )
     except AssertionError:
         raise HTTPException(status_code=503, detail="问答引擎未初始化，请稍后重试")

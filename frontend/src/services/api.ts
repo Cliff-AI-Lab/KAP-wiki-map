@@ -221,6 +221,7 @@ export interface QAResponse {
   route_path?: string;  // V11: "wiki" | "rag" | "hybrid"
   routed_domains?: string[];
   latency_ms?: number;
+  query_id?: string;  // M12 #2 portal 反馈用
 }
 
 /** 数据导入结果（含采集、蒸馏、存储统计） */

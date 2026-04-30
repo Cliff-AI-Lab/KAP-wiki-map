@@ -251,3 +251,19 @@ export function deleteGroundTruth(gtId: string): Promise<{ gt_id: string; remove
     { method: 'DELETE' },
   );
 }
+
+// ════════════════════════════════════════════════════════════════════════
+//  M8 #1 · portal 用户反馈
+// ════════════════════════════════════════════════════════════════════════
+
+export function submitQueryFeedback(
+  queryId: string, useful: boolean, note = '',
+): Promise<{ query_id: string; useful: boolean }> {
+  return request(
+    `/api/v1/observability/queries/${encodeURIComponent(queryId)}/feedback`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ useful, note }),
+    },
+  );
+}
