@@ -18,6 +18,7 @@ const GovernanceMatrix = lazy(() => import('@/pages/v15/GovernanceMatrix'));
 const WikiReader = lazy(() => import('@/pages/v15/WikiReader'));
 const GraphView = lazy(() => import('@/pages/v15/GraphView'));
 const CodeGraph = lazy(() => import('@/pages/v15/CodeGraph'));
+const ObservabilityDashboard = lazy(() => import('@/pages/v15/ObservabilityDashboard'));
 const ImportLayout = lazy(() => import('@/pages/v15/import/ImportLayout'));
 const UploadStep = lazy(() => import('@/pages/v15/import/UploadStep'));
 const ReviewStep = lazy(() => import('@/pages/v15/import/ReviewStep'));
@@ -59,6 +60,7 @@ export const router = createBrowserRouter([
       // 治理模式
       { path: 'manage',        element: <L><GovernanceHome /></L> },
       { path: 'manage/matrix', element: <L><GovernanceMatrix /></L> },  // M1 4×6 矩阵审核台
+      { path: 'manage/observability', element: <L><ObservabilityDashboard /></L> },  // M10 #3 运营观察仪表盘
       {
         path: 'manage/import',
         element: <L><ImportLayout /></L>,
