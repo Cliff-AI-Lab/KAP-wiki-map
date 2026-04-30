@@ -35,6 +35,7 @@ class QueryEvent(BaseModel):
     user_id: str = ""
     query_text: str = ""        # 已截断（前 200 字）
     source_count: int = 0       # 召回 sources 数量
+    retrieved_doc_ids: list[str] = Field(default_factory=list)  # M11 #1 实际召回的 doc_id 列表
     hit: bool = True            # 默认 source_count > 0；portal 可显式覆盖
     latency_ms: int = 0
     # M8 #1 用户反馈（None = 未表态；True = 有用；False = 无用）
@@ -83,14 +84,18 @@ def get_query_event(query_id: str) -> QueryEvent | None:
 def _build_event(
     *, project_id: str, user_id: str, query_text: str,
     source_count: int, hit: bool | None, latency_ms: int,
+    retrieved_doc_ids: list[str] | None = None,
 ) -> QueryEvent:
     if hit is None:
         hit = source_count > 0
+    doc_ids = [str(d)[:80] for d in (retrieved_doc_ids or [])][:50]
     event = QueryEvent(
         query_id=f"q_{uuid.uuid4().hex[:10]}",
         project_id=project_id, user_id=user_id,
         query_text=query_text[:200],
-        source_count=source_count, hit=hit,
+        source_count=source_count,
+        retrieved_doc_ids=doc_ids,
+        hit=hit,
         latency_ms=max(0, int(latency_ms)),
     )
     _queries.append(event)
@@ -109,6 +114,7 @@ def record_query(
     user_id: str = "",
     query_text: str = "",
     source_count: int = 0,
+    retrieved_doc_ids: list[str] | None = None,
     hit: bool | None = None,
     latency_ms: int = 0,
 ) -> QueryEvent:
@@ -116,6 +122,7 @@ def record_query(
     event = _build_event(
         project_id=project_id, user_id=user_id, query_text=query_text,
         source_count=source_count, hit=hit, latency_ms=latency_ms,
+        retrieved_doc_ids=retrieved_doc_ids,
     )
     if _pg_sink is not None:
         try:
@@ -132,6 +139,7 @@ async def arecord_query(
     user_id: str = "",
     query_text: str = "",
     source_count: int = 0,
+    retrieved_doc_ids: list[str] | None = None,
     hit: bool | None = None,
     latency_ms: int = 0,
 ) -> QueryEvent:
@@ -139,6 +147,7 @@ async def arecord_query(
     event = _build_event(
         project_id=project_id, user_id=user_id, query_text=query_text,
         source_count=source_count, hit=hit, latency_ms=latency_ms,
+        retrieved_doc_ids=retrieved_doc_ids,
     )
     if _pg_sink is not None:
         try:

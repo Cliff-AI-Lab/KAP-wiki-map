@@ -508,6 +508,80 @@ class TestAutoConstructGT:
         out = auto_construct_ground_truth_candidates(project_id="p1")
         assert out == []
 
+    def test_proposed_doc_ids_intersection(self) -> None:
+        """M11 #1：≥2 个 useful 实例 → 取 retrieved_doc_ids 交集。"""
+        for _ in range(3):
+            e = record_query(
+                project_id="p1", query_text="q",
+                source_count=3,
+                retrieved_doc_ids=["a", "b", "c"],
+            )
+            record_query_feedback(query_id=e.query_id, useful=True)
+        # 第 4 次 useful 但不同 retrieved
+        e = record_query(
+            project_id="p1", query_text="q",
+            source_count=2, retrieved_doc_ids=["a", "b"],
+        )
+        record_query_feedback(query_id=e.query_id, useful=True)
+
+        out = auto_construct_ground_truth_candidates(
+            project_id="p1", min_samples=4,
+        )
+        assert len(out) == 1
+        # 4 个 useful 实例的交集 = {a, b}
+        assert set(out[0].proposed_doc_ids) == {"a", "b"}
+        assert "intersection" in out[0].reasoning
+
+    def test_proposed_doc_ids_frequency_union_fallback(self) -> None:
+        """M11 #1：交集为空 → 按频次降序的 union 兜底。"""
+        events = [
+            ("a",), ("b",), ("c",),
+        ]
+        for docs in events:
+            e = record_query(
+                project_id="p1", query_text="q", source_count=1,
+                retrieved_doc_ids=list(docs),
+            )
+            record_query_feedback(query_id=e.query_id, useful=True)
+        # 4 个完全不同 retrieved → 交集 = 空
+        e = record_query(
+            project_id="p1", query_text="q", source_count=1,
+            retrieved_doc_ids=["d"],
+        )
+        record_query_feedback(query_id=e.query_id, useful=True)
+
+        out = auto_construct_ground_truth_candidates(
+            project_id="p1", min_samples=4,
+        )
+        assert len(out) == 1
+        # union {a, b, c, d} 都频次 1 — 都返回
+        assert set(out[0].proposed_doc_ids) == {"a", "b", "c", "d"}
+        assert "frequency_union" in out[0].reasoning
+
+    def test_proposed_doc_ids_empty_when_no_retrieved(self) -> None:
+        """没有 retrieved_doc_ids 时（M10 老数据兼容）→ proposed_doc_ids = []."""
+        for _ in range(3):
+            e = record_query(project_id="p1", query_text="q", source_count=1)
+            record_query_feedback(query_id=e.query_id, useful=True)
+        out = auto_construct_ground_truth_candidates(
+            project_id="p1", min_samples=3,
+        )
+        assert out[0].proposed_doc_ids == []
+
+    def test_proposed_doc_ids_capped_at_max(self) -> None:
+        """max_doc_ids 截断生效。"""
+        big_set = [f"d{i}" for i in range(20)]
+        for _ in range(3):
+            e = record_query(
+                project_id="p1", query_text="q", source_count=20,
+                retrieved_doc_ids=big_set,
+            )
+            record_query_feedback(query_id=e.query_id, useful=True)
+        out = auto_construct_ground_truth_candidates(
+            project_id="p1", min_samples=3, max_doc_ids=5,
+        )
+        assert len(out[0].proposed_doc_ids) == 5
+
     def test_sort_by_useful_rate_then_samples(self) -> None:
         # query A: 5 次 + 4 useful → 0.8
         for i in range(5):

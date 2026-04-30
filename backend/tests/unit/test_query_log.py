@@ -51,6 +51,22 @@ class TestRecord:
         e = record_query(query_text="x", latency_ms=-50)
         assert e.latency_ms == 0
 
+    def test_retrieved_doc_ids_stored(self) -> None:
+        e = record_query(
+            query_text="x", source_count=3,
+            retrieved_doc_ids=["doc_a", "doc_b", "doc_c"],
+        )
+        assert e.retrieved_doc_ids == ["doc_a", "doc_b", "doc_c"]
+
+    def test_retrieved_doc_ids_capped_at_50(self) -> None:
+        ids = [f"d{i}" for i in range(100)]
+        e = record_query(query_text="x", retrieved_doc_ids=ids)
+        assert len(e.retrieved_doc_ids) == 50
+
+    def test_retrieved_doc_ids_default_empty(self) -> None:
+        e = record_query(query_text="x")
+        assert e.retrieved_doc_ids == []
+
 
 class TestList:
     def test_filter_by_project(self) -> None:

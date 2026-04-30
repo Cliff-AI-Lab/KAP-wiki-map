@@ -44,13 +44,14 @@ async def ask_question(req: AskRequest, request: Request) -> AskResponse:
             user_access_level=user.access_level,   # 用户权限级别，用于文档访问控制
             user_department=user.department_id,     # 用户所属部门，用于部门级数据隔离
         )
-        # M7 #2 · 召回埋点（不阻断主流程）
+        # M7 #2 · 召回埋点（M11 #1 加 retrieved_doc_ids 让 GT 自动构造可用）
         try:
             await arecord_query(
                 project_id=req.project_id or "",
                 user_id=getattr(user, "user_id", "") or "",
                 query_text=req.question,
                 source_count=len(result.sources),
+                retrieved_doc_ids=[s.doc_id for s in result.sources],
                 latency_ms=int(result.latency_ms or 0),
             )
         except Exception:

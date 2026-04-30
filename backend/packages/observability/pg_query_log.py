@@ -23,25 +23,27 @@ log = get_logger("observability.pg_query_log")
 
 _DDL = """
 CREATE TABLE IF NOT EXISTS query_events (
-    query_id      VARCHAR(32)  PRIMARY KEY,
-    project_id    VARCHAR(64)  NOT NULL DEFAULT '',
-    user_id       VARCHAR(64)  NOT NULL DEFAULT '',
-    query_text    TEXT         NOT NULL DEFAULT '',
-    source_count  INT          NOT NULL DEFAULT 0,
-    hit           BOOLEAN      NOT NULL DEFAULT TRUE,
-    latency_ms    INT          NOT NULL DEFAULT 0,
-    useful        BOOLEAN,                         -- M8 #1 用户反馈
-    feedback_note TEXT         NOT NULL DEFAULT '',
-    feedback_at   TIMESTAMPTZ,
-    occurred_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    query_id          VARCHAR(32)  PRIMARY KEY,
+    project_id        VARCHAR(64)  NOT NULL DEFAULT '',
+    user_id           VARCHAR(64)  NOT NULL DEFAULT '',
+    query_text        TEXT         NOT NULL DEFAULT '',
+    source_count      INT          NOT NULL DEFAULT 0,
+    retrieved_doc_ids JSONB        NOT NULL DEFAULT '[]'::jsonb,
+    hit               BOOLEAN      NOT NULL DEFAULT TRUE,
+    latency_ms        INT          NOT NULL DEFAULT 0,
+    useful            BOOLEAN,                         -- M8 #1 用户反馈
+    feedback_note     TEXT         NOT NULL DEFAULT '',
+    feedback_at       TIMESTAMPTZ,
+    occurred_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 )
 """
 
-# 兼容老库：尝试 ALTER 加 M8 字段（已存在则忽略）
+# 兼容老库：ALTER 加 M8/M11 字段（已存在则忽略）
 _ALTER_DDL = [
     "ALTER TABLE query_events ADD COLUMN IF NOT EXISTS useful BOOLEAN",
     "ALTER TABLE query_events ADD COLUMN IF NOT EXISTS feedback_note TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE query_events ADD COLUMN IF NOT EXISTS feedback_at TIMESTAMPTZ",
+    "ALTER TABLE query_events ADD COLUMN IF NOT EXISTS retrieved_doc_ids JSONB NOT NULL DEFAULT '[]'::jsonb",
 ]
 
 _INDEX_DDL = """
@@ -77,21 +79,25 @@ async def initialize_pg_query_log(
         await _conn.commit()
         await cur.execute(
             "SELECT query_id, project_id, user_id, query_text, source_count, "
-            "hit, latency_ms, useful, feedback_note, feedback_at, occurred_at "
+            "retrieved_doc_ids, hit, latency_ms, useful, feedback_note, "
+            "feedback_at, occurred_at "
             "FROM query_events ORDER BY occurred_at DESC LIMIT %s",
             (load_limit,),
         )
         rows = await cur.fetchall()
 
     for row in reversed(rows):
+        import json as _json
+        retrieved = row[5] if isinstance(row[5], list) else _json.loads(row[5] or "[]")
         _queries.append(QueryEvent(
             query_id=row[0], project_id=row[1] or "", user_id=row[2] or "",
             query_text=row[3] or "", source_count=row[4] or 0,
-            hit=bool(row[5]), latency_ms=row[6] or 0,
-            useful=row[7],  # 可能 None
-            feedback_note=row[8] or "",
-            feedback_at=row[9],
-            occurred_at=row[10],
+            retrieved_doc_ids=[str(x) for x in retrieved],
+            hit=bool(row[6]), latency_ms=row[7] or 0,
+            useful=row[8],
+            feedback_note=row[9] or "",
+            feedback_at=row[10],
+            occurred_at=row[11],
         ))
 
     set_query_pg_sink(_pg_append)
@@ -104,19 +110,22 @@ async def initialize_pg_query_log(
 async def _pg_append(event: QueryEvent) -> None:
     if _conn is None or _lock is None:
         return
+    import json as _json
     async with _lock:
         async with _conn.cursor() as cur:
             await cur.execute(
                 """
                 INSERT INTO query_events
                   (query_id, project_id, user_id, query_text,
-                   source_count, hit, latency_ms, occurred_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                   source_count, retrieved_doc_ids, hit, latency_ms, occurred_at)
+                VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s)
                 ON CONFLICT (query_id) DO NOTHING
                 """,
                 (
                     event.query_id, event.project_id, event.user_id,
-                    event.query_text, event.source_count, event.hit,
+                    event.query_text, event.source_count,
+                    _json.dumps(event.retrieved_doc_ids, ensure_ascii=False),
+                    event.hit,
                     event.latency_ms, event.occurred_at,
                 ),
             )

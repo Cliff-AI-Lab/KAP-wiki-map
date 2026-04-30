@@ -471,6 +471,46 @@ class GroundTruthCandidate(BaseModel):
     reasoning: str = ""
 
 
+def _compute_proposed_doc_ids(
+    useful_events: list,
+    *, max_doc_ids: int,
+    intersection_min_useful: int = 2,
+) -> tuple[list[str], str]:
+    """从 useful query 实例反向算 proposed doc_ids（M11 #1）。
+
+    策略：
+    1. 优先：≥ 2 个 useful 实例时取交集（每个实例都返回的 doc）
+    2. 兜底：交集为空 / 仅 1 个 useful 实例 → 用频次降序的 union
+    3. 都没有 retrieved_doc_ids → 返回空
+
+    Returns:
+        (proposed_doc_ids, strategy_label)
+    """
+    if not useful_events:
+        return [], "no_useful"
+
+    instance_doc_sets = [
+        set(getattr(e, "retrieved_doc_ids", []) or []) for e in useful_events
+    ]
+    instance_doc_sets = [s for s in instance_doc_sets if s]
+    if not instance_doc_sets:
+        return [], "no_doc_ids"
+
+    # 策略 1：交集
+    if len(instance_doc_sets) >= intersection_min_useful:
+        intersection = set.intersection(*instance_doc_sets)
+        if intersection:
+            return sorted(intersection)[:max_doc_ids], "intersection"
+
+    # 策略 2：union 按频次降序
+    freq: dict[str, int] = {}
+    for s in instance_doc_sets:
+        for d in s:
+            freq[d] = freq.get(d, 0) + 1
+    ranked = sorted(freq.items(), key=lambda kv: kv[1], reverse=True)
+    return [d for d, _ in ranked[:max_doc_ids]], "frequency_union"
+
+
 def auto_construct_ground_truth_candidates(
     *,
     project_id: str = "",
@@ -484,11 +524,9 @@ def auto_construct_ground_truth_candidates(
     1. 拉所有 query_text 出现 ≥ min_samples 次的查询
     2. 计算每组的 useful_rate（仅算有 feedback 的）
     3. useful_rate ≥ min_useful_rate → 候选
-    4. proposed_doc_ids = 该组所有 useful=True 实例的"已知 source doc_ids 交集"
-       —— M10 lite：因为 QueryEvent 没存 sources doc_ids 列表，本批先用启发式：
-       - source_count > 0 且 useful=True → 取该 query_text 所有 useful 命中的实例
-       - 实际 doc_id 列表需 SME 在 confirm 阶段补充
-       (M11+ 计划：QueryEvent 存 retrieved_doc_ids，自动算交集)
+    4. proposed_doc_ids（M11 #1 完整化）：
+       - 优先：useful=True 实例的 retrieved_doc_ids 交集
+       - 兜底：union 按频次降序
 
     Returns:
         候选列表（待 SME 审批）；不直接入 ground_truth 集
@@ -514,18 +552,21 @@ def auto_construct_ground_truth_candidates(
         useful_rate = useful_count / len(feedbacked)
         if useful_rate < min_useful_rate:
             continue
-        # M10 lite：proposed_doc_ids 留空让 SME confirm 时补；
-        # M11 等 QueryEvent 存 sources doc_ids 后自动算交集
+        useful_events = [e for e in events if e.useful is True]
+        proposed_docs, strategy = _compute_proposed_doc_ids(
+            useful_events, max_doc_ids=max_doc_ids,
+        )
         candidates.append(GroundTruthCandidate(
             candidate_id=f"gtc_{uuid.uuid4().hex[:10]}",
             project_id=proj,
             query_text=text,
-            proposed_doc_ids=[],
+            proposed_doc_ids=proposed_docs,
             sample_size=len(events),
             useful_rate=round(useful_rate, 4),
             reasoning=(
                 f"{len(events)} 次查询，{len(feedbacked)} 次有反馈，"
                 f"{useful_count} useful（占 {useful_rate:.0%}）"
+                f"; doc_ids 来源: {strategy}"
             ),
         ))
 
