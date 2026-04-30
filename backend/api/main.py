@@ -29,7 +29,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from api.deps import init_stores, shutdown_stores
 from api.middleware.auth import AuthMiddleware
-from api.routers import analysis, architect, audit, governance, health, knowledge, observability, ontology, platform, projects, qa, rebuild, recall_test, sensitive, settings, system, v15, wiki
+from api.routers import analysis, architect, audit, governance, health, iss_job, knowledge, observability, ontology, platform, projects, qa, rebuild, recall_test, sensitive, settings, system, v15, wiki
 from packages.common.config import settings as app_settings
 
 log = structlog.get_logger(__name__)
@@ -135,6 +135,7 @@ app.include_router(architect.router, prefix="/api/v1")    # M2 #4: 块① 咨询
 app.include_router(ontology.router, prefix="/api/v1")    # M3 #1: 双层本体演化
 app.include_router(rebuild.router, prefix="/api/v1")    # M4: 全量重抽影子库
 app.include_router(observability.router, prefix="/api/v1")  # M6 #3: SME 决策日志聚合
+app.include_router(iss_job.router, prefix="/api/v1")        # M13 #4: ISS-Job 调度协调
 app.include_router(v15.router, prefix="/api/v1")           # V15: 专属路由 (Phase L 起)
 app.include_router(platform.router)                        # 平台级接口
 app.include_router(settings.router)                        # 系统设置
