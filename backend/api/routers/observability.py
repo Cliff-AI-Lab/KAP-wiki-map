@@ -20,10 +20,13 @@ from packages.common import get_logger
 from packages.common.roles import ROLE_SME, RequireRole
 from packages.observability import (
     ConditionHealth,
+    ConditionType,
     DecisionEvent,
     GroundTruthCandidate,
     GroundTruthQuery,
     MultiKRecallReport,
+    PromptABScore,
+    PromptVersion,
     QueryEvent,
     RecallEvalReport,
     add_ground_truth,
@@ -33,11 +36,15 @@ from packages.observability import (
     arecord_query_feedback,
     auto_construct_ground_truth_candidates,
     check_recall_alerts_and_propagate,
+    compute_prompt_ab_score,
     compute_recall_trend,
+    create_prompt_version,
+    deactivate_prompt_version,
     eval_all_projects,
     get_latest_report,
     list_decisions,
     list_ground_truth,
+    list_prompt_versions,
     list_queries,
     list_reports,
     remove_ground_truth,
@@ -328,6 +335,96 @@ async def run_multi_k_recall_endpoint(
 # ════════════════════════════════════════════════════════════════════════
 #  M10 #2 · 监测条件 LLM 自学习
 # ════════════════════════════════════════════════════════════════════════
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M11 #4 · LLM 自学习闭环（prompt versioning + AB 比较）
+# ════════════════════════════════════════════════════════════════════════
+
+
+class CreatePromptVersionBody(BaseModel):
+    condition_type: str
+    prompt_text_excerpt: str = Field(default="", max_length=200)
+    note: str = Field(default="", max_length=200)
+
+
+_VALID_CONDITIONS = {
+    "new_entity_type",
+    "relation_solidification",
+    "relation_split",
+    "standard_upgrade",
+}
+
+
+@router.get("/prompt-versions", response_model=list[PromptVersion])
+async def list_prompt_versions_endpoint(
+    condition_type: str | None = Query(default=None),
+    only_active: bool = Query(default=False),
+) -> list[PromptVersion]:
+    if condition_type and condition_type not in _VALID_CONDITIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"非法 condition_type；合法：{sorted(_VALID_CONDITIONS)}",
+        )
+    return list_prompt_versions(
+        condition_type=condition_type,    # type: ignore[arg-type]
+        only_active=only_active,
+    )
+
+
+@router.post("/prompt-versions", response_model=PromptVersion)
+async def create_prompt_version_endpoint(
+    body: CreatePromptVersionBody,
+    user=Depends(RequireRole(ROLE_SME)),
+) -> PromptVersion:
+    if body.condition_type not in _VALID_CONDITIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"非法 condition_type；合法：{sorted(_VALID_CONDITIONS)}",
+        )
+    version = create_prompt_version(
+        condition_type=body.condition_type,    # type: ignore[arg-type]
+        prompt_text_excerpt=body.prompt_text_excerpt,
+        created_by=getattr(user, "user_id", "") or "",
+        note=body.note,
+    )
+    log.info("prompt_version_created_via_api",
+             version_id=version.version_id,
+             user=getattr(user, "user_id", "?"))
+    return version
+
+
+@router.post("/prompt-versions/{version_id}/deactivate")
+async def deactivate_prompt_version_endpoint(
+    version_id: str,
+    user=Depends(RequireRole(ROLE_SME)),
+) -> dict[str, Any]:
+    if not deactivate_prompt_version(version_id):
+        raise HTTPException(
+            status_code=404, detail="version 不存在或已停用",
+        )
+    return {"version_id": version_id, "deactivated": True}
+
+
+@router.get("/prompt-versions/ab", response_model=list[PromptABScore])
+async def prompt_ab_score_endpoint(
+    condition_type: str | None = Query(default=None),
+    project_id: str | None = Query(default=None),
+) -> list[PromptABScore]:
+    """每个 prompt 版本在其活跃期内的 SME approve_rate（AB 比较）。"""
+    if condition_type and condition_type not in _VALID_CONDITIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"非法 condition_type；合法：{sorted(_VALID_CONDITIONS)}",
+        )
+    from api.routers.ontology import _proposal_store
+    proposals = list(_proposal_store.values())
+    if project_id:
+        proposals = [p for p in proposals if p.project_id == project_id]
+    return compute_prompt_ab_score(
+        proposals,
+        condition_type=condition_type,    # type: ignore[arg-type]
+    )
 
 
 @router.get("/condition-health", response_model=dict[str, ConditionHealth])

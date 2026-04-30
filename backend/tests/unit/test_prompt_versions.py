@@ -1,0 +1,219 @@
+"""M11 #4 · prompt 版本追踪 + AB 比较单测（决策书 §5.3）。"""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+
+import pytest
+
+from packages.common.types import (
+    OntologyEntityType,
+    OntologyEvolutionProposal,
+    OntologyRelationType,
+)
+from packages.observability import (
+    compute_prompt_ab_score,
+    create_prompt_version,
+    deactivate_prompt_version,
+    get_active_version,
+    get_version,
+    list_prompt_versions,
+    reset_prompt_versions_for_test,
+)
+
+
+@pytest.fixture(autouse=True)
+def _reset():
+    reset_prompt_versions_for_test()
+    yield
+    reset_prompt_versions_for_test()
+
+
+def _proposal(
+    *, condition: str, status: str, created_at: datetime,
+) -> OntologyEvolutionProposal:
+    if condition == "new_entity_type":
+        et = OntologyEntityType(type_id="x", type_name="X")
+        rt = None
+        reasoning = ""
+    elif condition == "standard_upgrade":
+        et = OntologyEntityType(type_id="standard", type_name="标准")
+        rt = None
+        reasoning = ""
+    elif condition == "relation_solidification":
+        et = None
+        rt = OntologyRelationType(type_id="r", type_name="R")
+        reasoning = ""
+    else:  # relation_split
+        et = None
+        rt = OntologyRelationType(type_id="r2", type_name="R2")
+        reasoning = "拆分自 governs"
+    return OntologyEvolutionProposal(
+        proposal_id=f"p_{condition}_{status}_{created_at.isoformat()}",
+        project_id="p1",
+        proposed_entity_type=et,
+        proposed_relation_type=rt,
+        reasoning=reasoning,
+        status=status,    # type: ignore[arg-type]
+        created_at=created_at,
+    )
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  CRUD
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestCRUD:
+    def test_create_first_version_active(self) -> None:
+        v = create_prompt_version(
+            condition_type="new_entity_type",
+            prompt_text_excerpt="新版 prompt",
+            created_by="sme01",
+        )
+        assert v.version_id.startswith("pver_")
+        assert v.deactivated_at is None
+        active = get_active_version("new_entity_type")
+        assert active is v
+
+    def test_create_second_auto_deactivates_first(self) -> None:
+        v1 = create_prompt_version(
+            condition_type="new_entity_type", prompt_text_excerpt="v1",
+        )
+        v2 = create_prompt_version(
+            condition_type="new_entity_type", prompt_text_excerpt="v2",
+        )
+        # v1 自动停用
+        v1_after = get_version(v1.version_id)
+        assert v1_after is not None
+        assert v1_after.deactivated_at is not None
+        # 新 active 是 v2
+        active = get_active_version("new_entity_type")
+        assert active.version_id == v2.version_id
+
+    def test_different_conditions_independent(self) -> None:
+        v_entity = create_prompt_version(condition_type="new_entity_type")
+        v_split = create_prompt_version(condition_type="relation_split")
+        assert v_entity.deactivated_at is None
+        assert v_split.deactivated_at is None
+
+    def test_excerpt_truncated(self) -> None:
+        v = create_prompt_version(
+            condition_type="new_entity_type",
+            prompt_text_excerpt="a" * 500,
+        )
+        assert len(v.prompt_text_excerpt) == 200
+
+    def test_manual_deactivate(self) -> None:
+        v = create_prompt_version(condition_type="standard_upgrade")
+        assert deactivate_prompt_version(v.version_id) is True
+        v_after = get_version(v.version_id)
+        assert v_after.deactivated_at is not None
+        # 二次停用 → False
+        assert deactivate_prompt_version(v.version_id) is False
+
+    def test_deactivate_unknown_returns_false(self) -> None:
+        assert deactivate_prompt_version("pver_unknown") is False
+
+    def test_list_filter_only_active(self) -> None:
+        v1 = create_prompt_version(condition_type="new_entity_type")
+        deactivate_prompt_version(v1.version_id)
+        v2 = create_prompt_version(condition_type="new_entity_type")
+
+        active_only = list_prompt_versions(only_active=True)
+        assert len(active_only) == 1
+        assert active_only[0].version_id == v2.version_id
+
+        all_ver = list_prompt_versions()
+        assert len(all_ver) == 2
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  AB 比较
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestABScore:
+    def test_empty_versions_returns_empty(self) -> None:
+        scores = compute_prompt_ab_score([])
+        assert scores == []
+
+    def test_proposals_assigned_to_correct_version_window(self) -> None:
+        # 模拟：v1 用了 5 分钟（10:00-10:05），v2 从 10:05 开始
+        # proposal_a created 10:02 → v1 区间
+        # proposal_b created 10:07 → v2 区间
+        from packages.observability import prompt_versions as pv_mod
+
+        # 直接构造（绕过 datetime.now()）
+        t0 = datetime(2026, 4, 30, 10, 0, 0)
+        t1 = datetime(2026, 4, 30, 10, 5, 0)
+        t2 = datetime(2026, 4, 30, 10, 5, 0)
+
+        v1 = create_prompt_version(condition_type="new_entity_type",
+                                    prompt_text_excerpt="v1")
+        v1.activated_at = t0
+        v1.deactivated_at = t1
+
+        v2 = create_prompt_version(condition_type="new_entity_type",
+                                    prompt_text_excerpt="v2")
+        v2.activated_at = t2
+        v2.deactivated_at = None
+
+        # proposals
+        p_v1 = _proposal(condition="new_entity_type", status="approved",
+                         created_at=datetime(2026, 4, 30, 10, 2, 0))
+        p_v2_a = _proposal(condition="new_entity_type", status="rejected",
+                           created_at=datetime(2026, 4, 30, 10, 7, 0))
+        p_v2_b = _proposal(condition="new_entity_type", status="approved",
+                           created_at=datetime(2026, 4, 30, 10, 8, 0))
+        # 不同条件不应混入
+        p_other = _proposal(condition="standard_upgrade", status="approved",
+                            created_at=datetime(2026, 4, 30, 10, 7, 0))
+
+        scores = compute_prompt_ab_score(
+            [p_v1, p_v2_a, p_v2_b, p_other],
+            condition_type="new_entity_type",
+        )
+        assert len(scores) == 2
+
+        by_id = {s.version_id: s for s in scores}
+        s_v1 = by_id[v1.version_id]
+        assert s_v1.sample_size == 1
+        assert s_v1.approve_rate == 1.0
+
+        s_v2 = by_id[v2.version_id]
+        assert s_v2.sample_size == 2
+        assert s_v2.approve_rate == 0.5
+
+    def test_filter_by_condition_type(self) -> None:
+        v_a = create_prompt_version(condition_type="new_entity_type")
+        v_b = create_prompt_version(condition_type="relation_split")
+        scores = compute_prompt_ab_score(
+            [], condition_type="new_entity_type",
+        )
+        ids = {s.version_id for s in scores}
+        assert v_a.version_id in ids
+        assert v_b.version_id not in ids
+
+    def test_proposal_before_window_excluded(self) -> None:
+        v = create_prompt_version(condition_type="new_entity_type")
+        v.activated_at = datetime(2026, 4, 30, 10, 0, 0)
+        # proposal 在激活前创建 → 不算
+        early = _proposal(
+            condition="new_entity_type", status="approved",
+            created_at=datetime(2026, 4, 30, 9, 0, 0),
+        )
+        scores = compute_prompt_ab_score(
+            [early], condition_type="new_entity_type",
+        )
+        assert scores[0].sample_size == 0
+
+    def test_is_active_flag(self) -> None:
+        v_active = create_prompt_version(condition_type="new_entity_type")
+        v_old = create_prompt_version(condition_type="standard_upgrade")
+        deactivate_prompt_version(v_old.version_id)
+
+        scores = compute_prompt_ab_score([])
+        by_id = {s.version_id: s for s in scores}
+        assert by_id[v_active.version_id].is_active is True
+        assert by_id[v_old.version_id].is_active is False

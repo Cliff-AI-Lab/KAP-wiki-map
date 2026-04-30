@@ -475,6 +475,104 @@ class TestEvalAllEndpoint:
         for k_str in ["1", "5"]:
             assert body["by_k"][k_str]["avg_recall"] == 1.0
 
+    def test_prompt_versions_create_and_list(self, client) -> None:
+        from packages.observability import reset_prompt_versions_for_test
+        reset_prompt_versions_for_test()
+
+        try:
+            r = client.post(
+                "/api/v1/observability/prompt-versions",
+                json={"condition_type": "new_entity_type",
+                      "prompt_text_excerpt": "v1 prompt",
+                      "note": "first try"},
+                headers={"X-Test-Roles": "SME"},
+            )
+            assert r.status_code == 200
+            v1 = r.json()
+            assert v1["version_id"].startswith("pver_")
+            assert v1["deactivated_at"] is None
+
+            r2 = client.get("/api/v1/observability/prompt-versions")
+            assert r2.status_code == 200
+            assert len(r2.json()) == 1
+        finally:
+            reset_prompt_versions_for_test()
+
+    def test_prompt_versions_invalid_condition_400(self, client) -> None:
+        r = client.post(
+            "/api/v1/observability/prompt-versions",
+            json={"condition_type": "bogus_condition"},
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 400
+
+    def test_prompt_versions_non_sme_blocked(self, client) -> None:
+        r = client.post(
+            "/api/v1/observability/prompt-versions",
+            json={"condition_type": "new_entity_type"},
+            headers={"X-Test-Roles": "READER"},
+        )
+        assert r.status_code == 403
+
+    def test_prompt_versions_ab_score(self, client) -> None:
+        from packages.observability import (
+            create_prompt_version,
+            reset_prompt_versions_for_test,
+        )
+        from api.routers import ontology
+        from packages.common.types import (
+            OntologyEntityType,
+            OntologyEvolutionProposal,
+        )
+
+        reset_prompt_versions_for_test()
+        v1 = create_prompt_version(condition_type="new_entity_type")
+        v2 = create_prompt_version(condition_type="new_entity_type")
+        ontology._proposal_store["t_a"] = OntologyEvolutionProposal(
+            proposal_id="t_a", project_id="p1",
+            proposed_entity_type=OntologyEntityType(type_id="x", type_name="X"),
+            status="approved",
+            created_at=v2.activated_at,  # 落 v2 区间
+        )
+
+        try:
+            r = client.get(
+                "/api/v1/observability/prompt-versions/ab"
+                "?condition_type=new_entity_type&project_id=p1"
+            )
+            assert r.status_code == 200
+            scores = r.json()
+            assert len(scores) == 2
+            by_id = {s["version_id"]: s for s in scores}
+            assert by_id[v2.version_id]["sample_size"] == 1
+            assert by_id[v1.version_id]["sample_size"] == 0
+        finally:
+            ontology._proposal_store.pop("t_a", None)
+            reset_prompt_versions_for_test()
+
+    def test_prompt_versions_deactivate(self, client) -> None:
+        from packages.observability import (
+            create_prompt_version,
+            reset_prompt_versions_for_test,
+        )
+        reset_prompt_versions_for_test()
+        v = create_prompt_version(condition_type="standard_upgrade")
+        try:
+            r = client.post(
+                f"/api/v1/observability/prompt-versions/{v.version_id}/deactivate",
+                headers={"X-Test-Roles": "SME"},
+            )
+            assert r.status_code == 200
+
+            # 二次停用 → 404
+            r2 = client.post(
+                f"/api/v1/observability/prompt-versions/{v.version_id}/deactivate",
+                headers={"X-Test-Roles": "SME"},
+            )
+            assert r2.status_code == 404
+        finally:
+            reset_prompt_versions_for_test()
+
     def test_condition_health_endpoint(self, client) -> None:
         """端点直接读 ontology._proposal_store；测试通过 monkey injection 模拟。"""
         from api.routers import ontology
