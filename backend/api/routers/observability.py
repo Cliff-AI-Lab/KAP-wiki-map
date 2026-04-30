@@ -27,6 +27,8 @@ from packages.observability import (
     aggregate_decisions,
     aggregate_queries,
     arecord_query_feedback,
+    check_recall_alerts_and_propagate,
+    compute_recall_trend,
     get_latest_report,
     list_decisions,
     list_ground_truth,
@@ -201,6 +203,12 @@ async def run_recall_eval_endpoint(
         qa_callable=qa_callable,
         project_id=body.project_id, version=body.version, k=body.k,
     )
+    # M9 #2 · 评估完跑趋势检查；跌破阈值自动告警观察期
+    if body.project_id:
+        try:
+            check_recall_alerts_and_propagate(project_id=body.project_id)
+        except Exception as e:
+            log.warning("recall_alert_check_failed", error=str(e))
     log.info("recall_eval_completed",
              report_id=report.report_id,
              user=getattr(user, "user_id", "?"))
@@ -223,6 +231,19 @@ async def latest_recall_report(
     if report is None:
         raise HTTPException(status_code=404, detail="尚无评估报告")
     return report
+
+
+@router.get("/recall-eval/trend")
+async def recall_trend(
+    project_id: str | None = Query(default=None),
+    lookback: int = Query(default=10, ge=2, le=100),
+) -> dict[str, Any]:
+    """召回率 / 精确率 趋势（current 对比 baseline = 最早一份）。
+
+    跌破阈值（默认 -10pp）→ recall_alert / precision_alert = True；
+    alert_messages 列出文字。前端直接渲染。
+    """
+    return compute_recall_trend(project_id=project_id, lookback=lookback)
 
 
 # ════════════════════════════════════════════════════════════════════════

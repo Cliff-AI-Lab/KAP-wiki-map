@@ -385,3 +385,40 @@ class TestRecallEvalEndpoint:
         r = client.get("/api/v1/observability/recall-eval/reports")
         assert r.status_code == 200
         assert r.json() == []
+
+
+class TestRecallTrendEndpoint:
+    def test_trend_empty(self, client) -> None:
+        r = client.get(
+            "/api/v1/observability/recall-eval/trend?project_id=p1"
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["samples"] == 0
+        assert body["recall_alert"] is False
+
+    def test_trend_with_drop(self, client) -> None:
+        from packages.observability import (
+            add_ground_truth as _add,
+            run_recall_eval as _run,
+        )
+        import asyncio
+        _add(project_id="p1", query_text="q", expected_doc_ids=["a", "b"])
+
+        async def good(q, k):
+            return ["a", "b"]
+
+        async def bad(q, k):
+            return []
+
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(_run(qa_callable=good, project_id="p1"))
+        loop.run_until_complete(_run(qa_callable=bad, project_id="p1"))
+
+        r = client.get(
+            "/api/v1/observability/recall-eval/trend?project_id=p1"
+        )
+        body = r.json()
+        assert body["samples"] == 2
+        assert body["recall_delta"] == -1.0
+        assert body["recall_alert"] is True

@@ -270,3 +270,127 @@ def get_latest_report(
 ) -> RecallEvalReport | None:
     reports = list_reports(project_id=project_id, limit=1)
     return reports[0] if reports else None
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M9 #2 · 召回率趋势 + 告警阈值
+# ════════════════════════════════════════════════════════════════════════
+
+
+# 召回率跌破基线告警阈值（默认 -10pp）
+_RECALL_DROP_ALERT_THRESHOLD = 0.10
+# 精确率跌破基线告警阈值（默认 -10pp）
+_PRECISION_DROP_ALERT_THRESHOLD = 0.10
+
+
+def compute_recall_trend(
+    *, project_id: str | None = None, lookback: int = 10,
+) -> dict:
+    """计算召回率趋势。
+
+    Args:
+        lookback: 回看最多 N 份 reports；baseline = 最早一份，current = 最新一份
+
+    Returns:
+        {
+            "samples": int,
+            "baseline": {report_id, avg_recall, avg_precision, avg_f1, created_at},
+            "current": {...同上},
+            "recall_delta": float,        # current - baseline (带符号)
+            "precision_delta": float,
+            "f1_delta": float,
+            "recall_alert": bool,          # current 跌 > 阈值
+            "precision_alert": bool,
+            "alert_messages": list[str],
+        }
+
+    Notes:
+        - reports < 2 份 → samples 字段返回，其它指标 0；alert 全部 False
+    """
+    reports = list_reports(project_id=project_id, limit=lookback)
+    if len(reports) < 2:
+        return {
+            "samples": len(reports),
+            "baseline": None, "current": None,
+            "recall_delta": 0.0, "precision_delta": 0.0, "f1_delta": 0.0,
+            "recall_alert": False, "precision_alert": False,
+            "alert_messages": [],
+        }
+
+    # list_reports 倒序（newest first）→ baseline = 最早 = 末尾
+    current = reports[0]
+    baseline = reports[-1]
+
+    recall_delta = round(current.avg_recall - baseline.avg_recall, 4)
+    precision_delta = round(current.avg_precision - baseline.avg_precision, 4)
+    f1_delta = round(current.avg_f1 - baseline.avg_f1, 4)
+
+    alert_messages: list[str] = []
+    recall_alert = recall_delta < -_RECALL_DROP_ALERT_THRESHOLD
+    precision_alert = precision_delta < -_PRECISION_DROP_ALERT_THRESHOLD
+    if recall_alert:
+        alert_messages.append(
+            f"召回率跌破基线 {abs(recall_delta):.1%} "
+            f"(baseline={baseline.avg_recall:.2f} → current={current.avg_recall:.2f})"
+        )
+    if precision_alert:
+        alert_messages.append(
+            f"精确率跌破基线 {abs(precision_delta):.1%} "
+            f"(baseline={baseline.avg_precision:.2f} → current={current.avg_precision:.2f})"
+        )
+
+    def _summary(r: RecallEvalReport) -> dict:
+        return {
+            "report_id": r.report_id,
+            "avg_recall": r.avg_recall,
+            "avg_precision": r.avg_precision,
+            "avg_f1": r.avg_f1,
+            "created_at": r.created_at.isoformat(),
+        }
+
+    return {
+        "samples": len(reports),
+        "baseline": _summary(baseline),
+        "current": _summary(current),
+        "recall_delta": recall_delta,
+        "precision_delta": precision_delta,
+        "f1_delta": f1_delta,
+        "recall_alert": recall_alert,
+        "precision_alert": precision_alert,
+        "alert_messages": alert_messages,
+    }
+
+
+def check_recall_alerts_and_propagate(
+    *, project_id: str, lookback: int = 10,
+) -> dict:
+    """评估 + 把告警追加到当前活跃观察期（M5 #2 PromotionObservation）。
+
+    用途：run_recall_eval 完成后调一次，让 dashboard `observations.alerting`
+    包含召回率漂移信号。返回 trend dict（同 compute_recall_trend）+ propagated bool。
+    """
+    trend = compute_recall_trend(project_id=project_id, lookback=lookback)
+    propagated = False
+    if trend["alert_messages"]:
+        # 复用 M5 #2 观察期 alerts 通道（不新增一套机制）
+        try:
+            from packages.rebuild import get_current_observation
+            obs = get_current_observation(project_id)
+            if obs is not None:
+                for msg in trend["alert_messages"]:
+                    if msg not in obs.alerts:
+                        obs.alerts.append(msg)
+                if obs.status == "watching":
+                    obs.status = "alert"
+                propagated = True
+                log.warning(
+                    "recall_drift_alert_propagated",
+                    project_id=project_id,
+                    observation_id=obs.observation_id,
+                    alerts=trend["alert_messages"],
+                )
+        except Exception as e:
+            log.warning("recall_alert_propagate_failed",
+                        project_id=project_id, error=str(e))
+    trend["propagated"] = propagated
+    return trend

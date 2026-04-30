@@ -6,6 +6,8 @@ import pytest
 
 from packages.observability import (
     add_ground_truth,
+    check_recall_alerts_and_propagate,
+    compute_recall_trend,
     get_ground_truth,
     get_latest_report,
     list_ground_truth,
@@ -14,13 +16,23 @@ from packages.observability import (
     reset_recall_eval_for_test,
     run_recall_eval,
 )
+from packages.rebuild import (
+    ShadowGraphStore,
+    reset_observations_for_test,
+    reset_shadow_store_for_test,
+    start_observation,
+)
 
 
 @pytest.fixture(autouse=True)
 def _reset():
     reset_recall_eval_for_test()
+    reset_observations_for_test()
+    reset_shadow_store_for_test()
     yield
     reset_recall_eval_for_test()
+    reset_observations_for_test()
+    reset_shadow_store_for_test()
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -189,3 +201,120 @@ class TestRunEval:
         assert d.recall == 0.5
         assert d.precision == 0.5
         assert d.f1 == 0.5
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M9 #2 · 趋势 + 告警
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestRecallTrend:
+    def test_trend_with_lt_2_samples(self) -> None:
+        trend = compute_recall_trend(project_id="p1")
+        assert trend["samples"] == 0
+        assert trend["recall_alert"] is False
+        assert trend["alert_messages"] == []
+
+    async def test_trend_no_alert_when_stable(self) -> None:
+        add_ground_truth(project_id="p1", query_text="q",
+                         expected_doc_ids=["a"])
+
+        async def steady_qa(q, k):
+            return ["a"]
+
+        await run_recall_eval(qa_callable=steady_qa, project_id="p1")
+        await run_recall_eval(qa_callable=steady_qa, project_id="p1")
+        trend = compute_recall_trend(project_id="p1")
+        assert trend["samples"] == 2
+        assert trend["recall_delta"] == 0.0
+        assert trend["recall_alert"] is False
+
+    async def test_trend_alert_when_recall_drops(self) -> None:
+        add_ground_truth(project_id="p1", query_text="q",
+                         expected_doc_ids=["a", "b", "c", "d"])
+
+        async def good_qa(q, k):
+            return ["a", "b", "c", "d"]      # recall=1.0 baseline
+
+        async def bad_qa(q, k):
+            return ["a"]                      # recall=0.25 → 跌 0.75
+
+        await run_recall_eval(qa_callable=good_qa, project_id="p1", k=5)
+        await run_recall_eval(qa_callable=bad_qa, project_id="p1", k=5)
+
+        trend = compute_recall_trend(project_id="p1")
+        assert trend["recall_delta"] == -0.75
+        assert trend["recall_alert"] is True
+        assert any("召回率跌破基线" in m for m in trend["alert_messages"])
+
+    async def test_alert_propagates_to_active_observation(self) -> None:
+        add_ground_truth(project_id="p1", query_text="q",
+                         expected_doc_ids=["a", "b"])
+
+        async def good(q, k):
+            return ["a", "b"]
+
+        async def bad(q, k):
+            return []
+
+        await run_recall_eval(qa_callable=good, project_id="p1")
+        await run_recall_eval(qa_callable=bad, project_id="p1")
+
+        # 启动观察期（M5 #2）
+        s = ShadowGraphStore()
+        for i in range(3):
+            s.add_entity("p1", "v1", entity_name=f"E{i}",
+                         type_id="equipment", doc_id="d")
+        start_observation("p1", "v1", shadow=s)
+
+        result = check_recall_alerts_and_propagate(project_id="p1")
+        assert result["recall_alert"] is True
+        assert result["propagated"] is True
+
+        from packages.rebuild import get_current_observation
+        obs = get_current_observation("p1")
+        assert any("召回率跌破基线" in a for a in obs.alerts)
+        assert obs.status == "alert"
+
+    async def test_no_propagation_when_no_observation(self) -> None:
+        add_ground_truth(project_id="p1", query_text="q",
+                         expected_doc_ids=["a", "b"])
+
+        async def bad(q, k):
+            return []
+
+        async def good(q, k):
+            return ["a", "b"]
+
+        await run_recall_eval(qa_callable=good, project_id="p1")
+        await run_recall_eval(qa_callable=bad, project_id="p1")
+
+        result = check_recall_alerts_and_propagate(project_id="p1")
+        assert result["recall_alert"] is True
+        assert result["propagated"] is False  # 无活跃观察期
+
+    async def test_lookback_limits_baseline(self) -> None:
+        """lookback=3 时 baseline = 最近 3 份的最早 = 第 3 份。"""
+        add_ground_truth(project_id="p1", query_text="q",
+                         expected_doc_ids=["a"])
+
+        async def hit(q, k):
+            return ["a"]
+
+        async def miss(q, k):
+            return []
+
+        # 5 份 reports：[hit, hit, miss, miss, hit]
+        await run_recall_eval(qa_callable=hit, project_id="p1")
+        await run_recall_eval(qa_callable=hit, project_id="p1")
+        await run_recall_eval(qa_callable=miss, project_id="p1")
+        await run_recall_eval(qa_callable=miss, project_id="p1")
+        await run_recall_eval(qa_callable=hit, project_id="p1")
+
+        # lookback=3 → 最近 3 份 = [hit, miss, miss]（newest first）
+        # baseline = miss (最早即最末) = 0.0
+        # current = hit = 1.0
+        trend = compute_recall_trend(project_id="p1", lookback=3)
+        assert trend["samples"] == 3
+        assert trend["current"]["avg_recall"] == 1.0
+        assert trend["baseline"]["avg_recall"] == 0.0
