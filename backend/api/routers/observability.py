@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from packages.common import get_logger
 from packages.common.roles import ROLE_SME, RequireRole
 from packages.observability import (
+    ConditionHealth,
     DecisionEvent,
     GroundTruthCandidate,
     GroundTruthQuery,
@@ -28,6 +29,7 @@ from packages.observability import (
     add_ground_truth,
     aggregate_decisions,
     aggregate_queries,
+    analyze_condition_health,
     arecord_query_feedback,
     auto_construct_ground_truth_candidates,
     check_recall_alerts_and_propagate,
@@ -321,6 +323,33 @@ async def run_multi_k_recall_endpoint(
              report_id=report.report_id,
              user=getattr(user, "user_id", "?"))
     return report
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M10 #2 · 监测条件 LLM 自学习
+# ════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/condition-health", response_model=dict[str, ConditionHealth])
+async def condition_health_endpoint(
+    project_id: str | None = Query(default=None),
+) -> dict[str, ConditionHealth]:
+    """统计 4 监测条件的 SME approve/reject 比例 + 调优建议。
+
+    分类规则（启发式）：
+    - relation_split: proposed_relation_type + reasoning startswith "拆分自"
+    - relation_solidification: proposed_relation_type 其他
+    - standard_upgrade: proposed_entity_type.type_id == "standard"
+    - new_entity_type: proposed_entity_type 其他
+
+    返回 4 类强制 key + 可选 unknown 类。
+    """
+    from api.routers.ontology import _proposal_store
+
+    proposals = list(_proposal_store.values())
+    if project_id:
+        proposals = [p for p in proposals if p.project_id == project_id]
+    return analyze_condition_health(proposals)
 
 
 @router.get(

@@ -475,6 +475,43 @@ class TestEvalAllEndpoint:
         for k_str in ["1", "5"]:
             assert body["by_k"][k_str]["avg_recall"] == 1.0
 
+    def test_condition_health_endpoint(self, client) -> None:
+        """端点直接读 ontology._proposal_store；测试通过 monkey injection 模拟。"""
+        from api.routers import ontology
+        from packages.common.types import (
+            OntologyEntityType,
+            OntologyEvolutionProposal,
+        )
+        ontology._proposal_store["t_approve"] = OntologyEvolutionProposal(
+            proposal_id="t_approve", project_id="p1",
+            proposed_entity_type=OntologyEntityType(
+                type_id="control_loop", type_name="控制回路",
+            ),
+            status="approved",
+        )
+        ontology._proposal_store["t_reject"] = OntologyEvolutionProposal(
+            proposal_id="t_reject", project_id="p1",
+            proposed_entity_type=OntologyEntityType(
+                type_id="too_narrow", type_name="太窄",
+            ),
+            reasoning="r | SME 驳回: 类型粒度太窄",
+            status="rejected",
+        )
+
+        try:
+            r = client.get(
+                "/api/v1/observability/condition-health?project_id=p1"
+            )
+            assert r.status_code == 200
+            body = r.json()
+            assert "new_entity_type" in body
+            assert body["new_entity_type"]["total"] == 2
+            assert body["new_entity_type"]["approve_rate"] == 0.5
+            assert "类型粒度太窄" in body["new_entity_type"]["common_reject_reasons"]
+        finally:
+            ontology._proposal_store.pop("t_approve", None)
+            ontology._proposal_store.pop("t_reject", None)
+
     def test_auto_construct_endpoint(self, client) -> None:
         from packages.observability import (
             record_query as _q,

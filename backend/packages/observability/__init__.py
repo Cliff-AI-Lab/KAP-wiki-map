@@ -30,6 +30,12 @@ from packages.observability.pg_recall_eval import (
     initialize_pg_recall_eval,
     shutdown_pg_recall_eval,
 )
+from packages.observability.condition_health import (
+    ConditionHealth,
+    ConditionType,
+    analyze_condition_health,
+    classify_condition,
+)
 from packages.observability.recall_eval import (
     GroundTruthCandidate,
     GroundTruthQuery,
@@ -67,6 +73,8 @@ from packages.observability.query_log import (
 )
 
 __all__ = [
+    "ConditionHealth",
+    "ConditionType",
     "DecisionEvent",
     "DecisionType",
     "GroundTruthCandidate",
@@ -76,7 +84,9 @@ __all__ = [
     "RecallEvalDetail",
     "RecallEvalReport",
     "add_ground_truth",
+    "analyze_condition_health",
     "auto_construct_ground_truth_candidates",
+    "classify_condition",
     "aggregate_decisions",
     "aggregate_queries",
     "arecord_decision",
