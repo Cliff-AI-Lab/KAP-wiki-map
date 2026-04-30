@@ -13,18 +13,27 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from packages.common import get_logger
+from packages.common.roles import ROLE_SME, RequireRole
 from packages.observability import (
     DecisionEvent,
+    GroundTruthQuery,
     QueryEvent,
+    RecallEvalReport,
+    add_ground_truth,
     aggregate_decisions,
     aggregate_queries,
     arecord_query_feedback,
+    get_latest_report,
     list_decisions,
+    list_ground_truth,
     list_queries,
+    list_reports,
+    remove_ground_truth,
+    run_recall_eval,
 )
 from packages.rebuild import list_observations
 
@@ -113,6 +122,107 @@ async def submit_query_feedback(
     if event is None:
         raise HTTPException(status_code=404, detail=f"query_id={query_id} 不存在")
     return event
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M8 #2 · 召回率评估管线
+# ════════════════════════════════════════════════════════════════════════
+
+
+class GroundTruthBody(BaseModel):
+    project_id: str = ""
+    query_text: str = Field(min_length=1, max_length=500)
+    expected_doc_ids: list[str] = Field(default_factory=list)
+    note: str = Field(default="", max_length=200)
+
+
+@router.get("/ground-truth", response_model=list[GroundTruthQuery])
+async def list_ground_truth_endpoint(
+    project_id: str | None = Query(default=None),
+) -> list[GroundTruthQuery]:
+    return list_ground_truth(project_id=project_id)
+
+
+@router.post("/ground-truth", response_model=GroundTruthQuery)
+async def add_ground_truth_endpoint(
+    body: GroundTruthBody,
+    user=Depends(RequireRole(ROLE_SME)),
+) -> GroundTruthQuery:
+    """SME 上传 ground truth 查询条目。"""
+    gt = add_ground_truth(
+        project_id=body.project_id,
+        query_text=body.query_text,
+        expected_doc_ids=body.expected_doc_ids,
+        note=body.note,
+    )
+    log.info("ground_truth_added_via_api",
+             gt_id=gt.gt_id, user=getattr(user, "user_id", "?"))
+    return gt
+
+
+@router.delete("/ground-truth/{gt_id}")
+async def delete_ground_truth_endpoint(
+    gt_id: str,
+    user=Depends(RequireRole(ROLE_SME)),
+) -> dict[str, Any]:
+    if not remove_ground_truth(gt_id):
+        raise HTTPException(status_code=404, detail="gt_id 不存在")
+    return {"gt_id": gt_id, "removed": True}
+
+
+class RunRecallEvalBody(BaseModel):
+    project_id: str = ""
+    version: str = ""
+    k: int = Field(default=5, ge=1, le=50)
+
+
+@router.post("/recall-eval", response_model=RecallEvalReport)
+async def run_recall_eval_endpoint(
+    body: RunRecallEvalBody,
+    user=Depends(RequireRole(ROLE_SME)),
+) -> RecallEvalReport:
+    """SME 触发召回率评估（对该 project 全部 ground truth 跑一遍）。
+
+    M8 lite 用 qa_engine 包装为 ``QaCallable``。M9 加 trend / 自动定时跑。
+    """
+    # qa 包装：注入 qa_engine.ask（运行时）
+    from api.deps import get_qa_engine
+
+    async def qa_callable(query_text: str, k: int) -> list[str]:
+        try:
+            engine = get_qa_engine()
+            result = await engine.ask(question=query_text, top_k=k)
+            return [s.doc_id for s in result.sources]
+        except Exception as e:
+            log.warning("recall_eval_qa_engine_failed", error=str(e))
+            return []
+
+    report = await run_recall_eval(
+        qa_callable=qa_callable,
+        project_id=body.project_id, version=body.version, k=body.k,
+    )
+    log.info("recall_eval_completed",
+             report_id=report.report_id,
+             user=getattr(user, "user_id", "?"))
+    return report
+
+
+@router.get("/recall-eval/reports", response_model=list[RecallEvalReport])
+async def list_recall_reports(
+    project_id: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> list[RecallEvalReport]:
+    return list_reports(project_id=project_id, limit=limit)
+
+
+@router.get("/recall-eval/latest", response_model=RecallEvalReport)
+async def latest_recall_report(
+    project_id: str | None = Query(default=None),
+) -> RecallEvalReport:
+    report = get_latest_report(project_id=project_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="尚无评估报告")
+    return report
 
 
 # ════════════════════════════════════════════════════════════════════════

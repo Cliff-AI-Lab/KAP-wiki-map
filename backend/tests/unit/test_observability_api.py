@@ -10,10 +10,12 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from api.routers.observability import router
 from packages.common.auth import UserContext
 from packages.observability import (
+    add_ground_truth,
     record_decision,
     record_query,
     reset_decisions_for_test,
     reset_queries_for_test,
+    reset_recall_eval_for_test,
 )
 from packages.rebuild import (
     ShadowGraphStore,
@@ -44,11 +46,13 @@ def _reset():
     reset_queries_for_test()
     reset_observations_for_test()
     reset_shadow_store_for_test()
+    reset_recall_eval_for_test()
     yield
     reset_decisions_for_test()
     reset_queries_for_test()
     reset_observations_for_test()
     reset_shadow_store_for_test()
+    reset_recall_eval_for_test()
 
 
 @pytest.fixture
@@ -249,3 +253,91 @@ class TestFeedbackEndpoint:
         body = r.json()
         assert body["feedback_total"] == 2
         assert body["useful_rate"] == 0.5
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M8 #2 · 召回率评估端点
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestGroundTruthEndpoint:
+    def test_list_empty(self, client) -> None:
+        r = client.get("/api/v1/observability/ground-truth")
+        assert r.status_code == 200
+        assert r.json() == []
+
+    def test_add_requires_sme(self, client) -> None:
+        r = client.post(
+            "/api/v1/observability/ground-truth",
+            json={"project_id": "p1", "query_text": "q",
+                  "expected_doc_ids": ["d1"]},
+            headers={"X-Test-Roles": "READER"},
+        )
+        assert r.status_code == 403
+
+    def test_add_succeeds_for_sme(self, client) -> None:
+        r = client.post(
+            "/api/v1/observability/ground-truth",
+            json={"project_id": "p1", "query_text": "电机故障",
+                  "expected_doc_ids": ["d1", "d2"], "note": "demo"},
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["gt_id"].startswith("gt_")
+        assert body["expected_doc_ids"] == ["d1", "d2"]
+
+    def test_delete(self, client) -> None:
+        gt = add_ground_truth(query_text="x", expected_doc_ids=[])
+        r = client.delete(
+            f"/api/v1/observability/ground-truth/{gt.gt_id}",
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 200
+        r2 = client.delete(
+            f"/api/v1/observability/ground-truth/{gt.gt_id}",
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r2.status_code == 404
+
+
+class TestRecallEvalEndpoint:
+    def test_run_eval_with_mocked_qa(self, client, monkeypatch) -> None:
+        add_ground_truth(project_id="p1", query_text="q1",
+                         expected_doc_ids=["a"])
+
+        # mock get_qa_engine 返回的 engine.ask
+        from api import deps
+
+        class FakeSource:
+            def __init__(self, doc_id):
+                self.doc_id = doc_id
+
+        class FakeResult:
+            def __init__(self, doc_ids):
+                self.sources = [FakeSource(d) for d in doc_ids]
+
+        class FakeEngine:
+            async def ask(self, *, question, top_k, **kwargs):
+                return FakeResult(["a"])  # 完全命中
+
+        monkeypatch.setattr(deps, "get_qa_engine", lambda: FakeEngine())
+
+        r = client.post(
+            "/api/v1/observability/recall-eval",
+            json={"project_id": "p1", "k": 5},
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["total_queries"] == 1
+        assert body["avg_recall"] == 1.0
+
+    def test_latest_404_when_no_reports(self, client) -> None:
+        r = client.get("/api/v1/observability/recall-eval/latest")
+        assert r.status_code == 404
+
+    def test_list_reports_empty(self, client) -> None:
+        r = client.get("/api/v1/observability/recall-eval/reports")
+        assert r.status_code == 200
+        assert r.json() == []
