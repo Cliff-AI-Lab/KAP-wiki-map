@@ -19,6 +19,7 @@ const WikiReader = lazy(() => import('@/pages/v15/WikiReader'));
 const GraphView = lazy(() => import('@/pages/v15/GraphView'));
 const CodeGraph = lazy(() => import('@/pages/v15/CodeGraph'));
 const ObservabilityDashboard = lazy(() => import('@/pages/v15/ObservabilityDashboard'));
+const ObservabilityCompare = lazy(() => import('@/pages/v15/ObservabilityCompare'));
 const GroundTruthReview = lazy(() => import('@/pages/v15/GroundTruthReview'));
 const MyClaimed = lazy(() => import('@/pages/v15/MyClaimed'));
 const ImportLayout = lazy(() => import('@/pages/v15/import/ImportLayout'));
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
       { path: 'manage',        element: <L><GovernanceHome /></L> },
       { path: 'manage/matrix', element: <L><GovernanceMatrix /></L> },  // M1 4×6 矩阵审核台
       { path: 'manage/observability', element: <L><ObservabilityDashboard /></L> },  // M10 #3 运营观察仪表盘
+      { path: 'manage/observability/compare', element: <L><ObservabilityCompare /></L> },  // M13 #3 多 project 横评
       { path: 'manage/ground-truth',  element: <L><GroundTruthReview /></L> },        // M11 #3 GT 候选审批
       { path: 'manage/my-claimed',    element: <L><MyClaimed /></L> },                // M13 #2 我认领的工单 + 批量决策
       {

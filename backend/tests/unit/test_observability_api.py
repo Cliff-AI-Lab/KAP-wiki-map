@@ -258,6 +258,44 @@ class TestDashboard:
 
 
 # ════════════════════════════════════════════════════════════════════════
+#  M13 #3 · 多 project 横评
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestDashboardMulti:
+    def test_multi_with_explicit_project_ids(self, client) -> None:
+        record_decision(project_id="p1", decision_type="approve_proposal")
+        record_decision(project_id="p2", decision_type="reject_proposal")
+
+        r = client.get(
+            "/api/v1/observability/dashboard/multi?project_ids=p1,p2"
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["project_ids"] == ["p1", "p2"]
+        assert len(body["rows"]) == 2
+        by_pid = {row["project_id"]: row for row in body["rows"]}
+        assert by_pid["p1"]["decisions"]["total"] == 1
+        assert by_pid["p2"]["decisions"]["total"] == 1
+
+    def test_multi_auto_infers_projects(self, client) -> None:
+        record_decision(project_id="auto_p1", decision_type="approve_proposal")
+        record_query(project_id="auto_p2", query_text="x", source_count=1)
+
+        r = client.get("/api/v1/observability/dashboard/multi")
+        body = r.json()
+        # 两个 project 应都被自动发现
+        assert "auto_p1" in body["project_ids"]
+        assert "auto_p2" in body["project_ids"]
+
+    def test_multi_empty_returns_empty_rows(self, client) -> None:
+        r = client.get("/api/v1/observability/dashboard/multi")
+        body = r.json()
+        assert body["project_ids"] == []
+        assert body["rows"] == []
+
+
+# ════════════════════════════════════════════════════════════════════════
 #  M8 #1 · portal 用户反馈端点
 # ════════════════════════════════════════════════════════════════════════
 

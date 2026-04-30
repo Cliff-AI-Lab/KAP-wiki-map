@@ -293,3 +293,40 @@ export function fetchRecallReports(
   });
   return request(`/api/v1/observability/recall-eval/reports${qs}`);
 }
+
+// ════════════════════════════════════════════════════════════════════════
+//  M13 #3 · 多 project 横评
+// ════════════════════════════════════════════════════════════════════════
+
+export interface DashboardMultiRow {
+  project_id: string;
+  decisions: DecisionsAggregate;
+  queries: QueriesAggregate;
+  observations: { total: number; active: number; alerting: number };
+  recall_eval: {
+    ground_truth_count: number;
+    latest: {
+      report_id: string;
+      k: number;
+      avg_recall: number;
+      avg_precision: number;
+      avg_f1: number;
+      created_at: string;
+    } | null;
+  };
+}
+
+export interface DashboardMulti {
+  window: { since: string | null; until: string | null };
+  project_ids: string[];
+  rows: DashboardMultiRow[];
+}
+
+export function fetchDashboardMulti(
+  projectIds?: string[],
+): Promise<DashboardMulti> {
+  const qs = buildQuery({
+    project_ids: projectIds && projectIds.length > 0 ? projectIds.join(',') : undefined,
+  });
+  return request(`/api/v1/observability/dashboard/multi${qs}`);
+}

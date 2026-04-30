@@ -475,6 +475,89 @@ async def auto_construct_gt_endpoint(
 # ════════════════════════════════════════════════════════════════════════
 
 
+@router.get("/dashboard/multi")
+async def dashboard_multi(
+    since: datetime | None = Query(default=None),
+    until: datetime | None = Query(default=None),
+    project_ids: str | None = Query(
+        default=None,
+        description="逗号分隔；不填则自动从 list_observations + list_decisions 推断有数据的 project",
+    ),
+) -> dict[str, Any]:
+    """M13 #3 · 多 project 横评仪表盘。
+
+    一次拉所有指定 project 的 dashboard 摘要，前端并排展示做横评。
+    project_ids 不填时，自动推断有数据的 project（来自 decisions / queries /
+    observations / recall_eval 任一 project_id 集合的并集）。
+    """
+    explicit_ids: list[str] | None = None
+    if project_ids:
+        explicit_ids = [p.strip() for p in project_ids.split(",") if p.strip()]
+
+    if explicit_ids:
+        targets = explicit_ids
+    else:
+        # 自动推断：扫描各源的 project_id 集合
+        from packages.observability import (
+            list_decisions as _list_d,
+            list_queries as _list_q,
+        )
+        seen: set[str] = set()
+        for d in _list_d(limit=10000):
+            if d.project_id:
+                seen.add(d.project_id)
+        for q in _list_q(limit=10000):
+            if q.project_id:
+                seen.add(q.project_id)
+        for o in list_observations():
+            if o.project_id:
+                seen.add(o.project_id)
+        targets = sorted(seen)
+
+    rows = []
+    for pid in targets:
+        decisions = aggregate_decisions(
+            project_id=pid, since=since, until=until,
+        )
+        queries = aggregate_queries(
+            project_id=pid, since=since, until=until,
+        )
+        obs_list = list_observations(project_id=pid)
+        latest = get_latest_report(project_id=pid)
+        rows.append({
+            "project_id": pid,
+            "decisions": decisions,
+            "queries": queries,
+            "observations": {
+                "total": len(obs_list),
+                "active": sum(1 for o in obs_list if o.status == "watching"),
+                "alerting": sum(1 for o in obs_list if o.status == "alert"),
+            },
+            "recall_eval": {
+                "ground_truth_count": len(list_ground_truth(project_id=pid)),
+                "latest": (
+                    {
+                        "report_id": latest.report_id,
+                        "k": latest.k,
+                        "avg_recall": latest.avg_recall,
+                        "avg_precision": latest.avg_precision,
+                        "avg_f1": latest.avg_f1,
+                        "created_at": latest.created_at.isoformat(),
+                    }
+                    if latest else None
+                ),
+            },
+        })
+    return {
+        "window": {
+            "since": since.isoformat() if since else None,
+            "until": until.isoformat() if until else None,
+        },
+        "project_ids": targets,
+        "rows": rows,
+    }
+
+
 @router.get("/dashboard")
 async def dashboard(
     project_id: str | None = Query(default=None),
