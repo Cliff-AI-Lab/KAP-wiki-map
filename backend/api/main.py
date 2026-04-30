@@ -73,6 +73,9 @@ async def lifespan(app: FastAPI):
     if os.environ.get("KAP_QUERY_LOG_PG") == "1":
         from packages.observability import initialize_pg_query_log
         await initialize_pg_query_log(app_settings.postgres_dsn)
+    if os.environ.get("KAP_RECALL_EVAL_PG") == "1":
+        from packages.observability import initialize_pg_recall_eval
+        await initialize_pg_recall_eval(app_settings.postgres_dsn)
 
     _STARTED_AT = time.time()
     log.info("app_started", version="v1.0.0-m0")
@@ -81,9 +84,11 @@ async def lifespan(app: FastAPI):
     from packages.observability import (
         shutdown_pg_decision_log,
         shutdown_pg_query_log,
+        shutdown_pg_recall_eval,
     )
     await shutdown_pg_decision_log()
     await shutdown_pg_query_log()
+    await shutdown_pg_recall_eval()
     await shutdown_stores()
     log.info("app_shutdown")
 

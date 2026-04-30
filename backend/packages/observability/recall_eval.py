@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime
 from typing import Awaitable, Callable
@@ -73,10 +74,41 @@ class RecallEvalReport(BaseModel):
 _ground_truth: dict[str, GroundTruthQuery] = {}
 _reports: list[RecallEvalReport] = []
 
+# M9 #1 · PG 持久化 sinks（async；通过 set_*_sink 注入）
+_gt_sink: Callable[[GroundTruthQuery], Awaitable[None]] | None = None
+_gt_remove_sink: Callable[[str], Awaitable[None]] | None = None
+_report_sink: Callable[[RecallEvalReport], Awaitable[None]] | None = None
+
 
 def reset_recall_eval_for_test() -> None:
+    global _gt_sink, _gt_remove_sink, _report_sink
     _ground_truth.clear()
     _reports.clear()
+    _gt_sink = None
+    _gt_remove_sink = None
+    _report_sink = None
+
+
+def set_recall_eval_pg_sinks(
+    *,
+    gt_sink: Callable[[GroundTruthQuery], Awaitable[None]] | None = None,
+    gt_remove_sink: Callable[[str], Awaitable[None]] | None = None,
+    report_sink: Callable[[RecallEvalReport], Awaitable[None]] | None = None,
+) -> None:
+    """注入三个 sink（pg_recall_eval.initialize 内部调用）。"""
+    global _gt_sink, _gt_remove_sink, _report_sink
+    _gt_sink = gt_sink
+    _gt_remove_sink = gt_remove_sink
+    _report_sink = report_sink
+
+
+def _fire_and_forget(coro_factory) -> None:
+    """通用 fire-and-forget 工具：有 loop 时 create_task，无则跳过。"""
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(coro_factory())
+    except RuntimeError:
+        pass
 
 
 # ── ground truth CRUD ──
@@ -100,6 +132,8 @@ def add_ground_truth(
     log.info("ground_truth_added",
              gt_id=gt.gt_id, project_id=project_id,
              expected=len(expected_doc_ids))
+    if _gt_sink is not None:
+        _fire_and_forget(lambda: _gt_sink(gt))
     return gt
 
 
@@ -117,7 +151,10 @@ def get_ground_truth(gt_id: str) -> GroundTruthQuery | None:
 
 
 def remove_ground_truth(gt_id: str) -> bool:
-    return _ground_truth.pop(gt_id, None) is not None
+    removed = _ground_truth.pop(gt_id, None) is not None
+    if removed and _gt_remove_sink is not None:
+        _fire_and_forget(lambda: _gt_remove_sink(gt_id))
+    return removed
 
 
 # ── 评估 ──
@@ -203,6 +240,11 @@ async def run_recall_eval(
              total=report.total_queries,
              avg_recall=report.avg_recall,
              avg_precision=report.avg_precision)
+    if _report_sink is not None:
+        try:
+            await _report_sink(report)
+        except Exception as e:
+            log.warning("recall_eval_report_pg_write_failed", error=str(e))
     return report
 
 

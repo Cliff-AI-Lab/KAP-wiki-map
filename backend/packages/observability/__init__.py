@@ -26,6 +26,10 @@ from packages.observability.pg_query_log import (
     initialize_pg_query_log,
     shutdown_pg_query_log,
 )
+from packages.observability.pg_recall_eval import (
+    initialize_pg_recall_eval,
+    shutdown_pg_recall_eval,
+)
 from packages.observability.recall_eval import (
     GroundTruthQuery,
     RecallEvalDetail,
@@ -38,6 +42,7 @@ from packages.observability.recall_eval import (
     remove_ground_truth,
     reset_recall_eval_for_test,
     run_recall_eval,
+    set_recall_eval_pg_sinks,
 )
 from packages.observability.query_log import (
     QueryEvent,
@@ -71,6 +76,7 @@ __all__ = [
     "get_query_event",
     "initialize_pg_decision_log",
     "initialize_pg_query_log",
+    "initialize_pg_recall_eval",
     "list_decisions",
     "list_ground_truth",
     "list_queries",
@@ -86,6 +92,8 @@ __all__ = [
     "set_pg_sink",
     "set_query_feedback_pg_sink",
     "set_query_pg_sink",
+    "set_recall_eval_pg_sinks",
     "shutdown_pg_decision_log",
     "shutdown_pg_query_log",
+    "shutdown_pg_recall_eval",
 ]
