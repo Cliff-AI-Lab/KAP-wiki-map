@@ -29,6 +29,7 @@ from packages.observability import (
     arecord_query_feedback,
     check_recall_alerts_and_propagate,
     compute_recall_trend,
+    eval_all_projects,
     get_latest_report,
     list_decisions,
     list_ground_truth,
@@ -244,6 +245,40 @@ async def recall_trend(
     alert_messages 列出文字。前端直接渲染。
     """
     return compute_recall_trend(project_id=project_id, lookback=lookback)
+
+
+class EvalAllBody(BaseModel):
+    version: str = ""
+    k: int = Field(default=5, ge=1, le=50)
+
+
+@router.post("/recall-eval/eval-all", response_model=list[RecallEvalReport])
+async def eval_all_endpoint(
+    body: EvalAllBody,
+    user=Depends(RequireRole(ROLE_SME)),
+) -> list[RecallEvalReport]:
+    """批量评估所有有 ground truth 的 project（M9 #3 · 外部 cron / ISS-Job 入口）。
+
+    给定时器 / Quartz 调度器一次性触发的端点；遍历每个 project 跑 recall_eval
+    并自动 check_recall_alerts_and_propagate。返回每个 project 最新报告。
+    """
+    from api.deps import get_qa_engine
+
+    async def qa_callable(query_text: str, k: int) -> list[str]:
+        try:
+            engine = get_qa_engine()
+            result = await engine.ask(question=query_text, top_k=k)
+            return [s.doc_id for s in result.sources]
+        except Exception as e:
+            log.warning("eval_all_qa_engine_failed", error=str(e))
+            return []
+
+    reports = await eval_all_projects(
+        qa_callable=qa_callable, version=body.version, k=body.k,
+    )
+    log.info("eval_all_completed_via_api",
+             reports=len(reports), user=getattr(user, "user_id", "?"))
+    return reports
 
 
 # ════════════════════════════════════════════════════════════════════════

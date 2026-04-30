@@ -8,9 +8,11 @@ from packages.observability import (
     add_ground_truth,
     check_recall_alerts_and_propagate,
     compute_recall_trend,
+    eval_all_projects,
     get_ground_truth,
     get_latest_report,
     list_ground_truth,
+    list_projects_with_ground_truth,
     list_reports,
     remove_ground_truth,
     reset_recall_eval_for_test,
@@ -292,6 +294,54 @@ class TestRecallTrend:
         result = check_recall_alerts_and_propagate(project_id="p1")
         assert result["recall_alert"] is True
         assert result["propagated"] is False  # 无活跃观察期
+
+    async def test_eval_all_processes_multiple_projects(self) -> None:
+        add_ground_truth(project_id="p1", query_text="q1",
+                         expected_doc_ids=["a"])
+        add_ground_truth(project_id="p2", query_text="q2",
+                         expected_doc_ids=["b"])
+
+        async def qa(query_text, k):
+            if query_text == "q1":
+                return ["a"]
+            return ["b"]
+
+        reports = await eval_all_projects(qa_callable=qa)
+        assert len(reports) == 2
+        assert {r.project_id for r in reports} == {"p1", "p2"}
+        assert all(r.avg_recall == 1.0 for r in reports)
+
+    async def test_eval_all_skips_empty_project_id(self) -> None:
+        # gt with project_id="" 不应被列入
+        add_ground_truth(query_text="x", expected_doc_ids=["a"])
+
+        async def qa(q, k):
+            return ["a"]
+
+        reports = await eval_all_projects(qa_callable=qa)
+        assert reports == []
+
+    async def test_eval_all_handles_per_project_failure(self) -> None:
+        add_ground_truth(project_id="p1", query_text="q",
+                         expected_doc_ids=["a"])
+        add_ground_truth(project_id="p2", query_text="q",
+                         expected_doc_ids=["b"])
+
+        async def qa(q, k):
+            return ["a"]  # p1 命中, p2 不命中（recall=0）
+
+        reports = await eval_all_projects(qa_callable=qa)
+        # 即使 p2 recall=0 也不算异常
+        assert len(reports) == 2
+
+    def test_list_projects_with_ground_truth(self) -> None:
+        add_ground_truth(project_id="p1", query_text="x",
+                         expected_doc_ids=[])
+        add_ground_truth(project_id="p2", query_text="y",
+                         expected_doc_ids=[])
+        add_ground_truth(query_text="z", expected_doc_ids=[])  # no project
+        out = list_projects_with_ground_truth()
+        assert out == ["p1", "p2"]
 
     async def test_lookback_limits_baseline(self) -> None:
         """lookback=3 时 baseline = 最近 3 份的最早 = 第 3 份。"""

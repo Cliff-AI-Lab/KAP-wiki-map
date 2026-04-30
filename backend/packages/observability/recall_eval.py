@@ -361,6 +361,45 @@ def compute_recall_trend(
     }
 
 
+def list_projects_with_ground_truth() -> list[str]:
+    """列出当前所有有 ground truth 集的 project_id（不含 ""）。"""
+    seen: set[str] = set()
+    for gt in _ground_truth.values():
+        if gt.project_id:
+            seen.add(gt.project_id)
+    return sorted(seen)
+
+
+async def eval_all_projects(
+    *, qa_callable: QaCallable, version: str = "", k: int = 5,
+) -> list[RecallEvalReport]:
+    """批量评估所有有 ground truth 的 project（M9 #3 · 外部 cron / ISS-Job 入口）。
+
+    遍历每个 project 调 ``run_recall_eval`` + ``check_recall_alerts_and_propagate``。
+    单 project 异常静默吞掉，不阻断其他。返回所有成功生成的 reports。
+    """
+    project_ids = list_projects_with_ground_truth()
+    out: list[RecallEvalReport] = []
+    for project_id in project_ids:
+        try:
+            report = await run_recall_eval(
+                qa_callable=qa_callable,
+                project_id=project_id, version=version, k=k,
+            )
+            out.append(report)
+            try:
+                check_recall_alerts_and_propagate(project_id=project_id)
+            except Exception as ce:
+                log.warning("eval_all_alert_check_failed",
+                            project_id=project_id, error=str(ce))
+        except Exception as e:
+            log.warning("eval_all_project_failed",
+                        project_id=project_id, error=str(e))
+    log.info("eval_all_completed",
+             projects=len(project_ids), reports=len(out))
+    return out
+
+
 def check_recall_alerts_and_propagate(
     *, project_id: str, lookback: int = 10,
 ) -> dict:

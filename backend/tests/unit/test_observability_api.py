@@ -422,3 +422,55 @@ class TestRecallTrendEndpoint:
         assert body["samples"] == 2
         assert body["recall_delta"] == -1.0
         assert body["recall_alert"] is True
+
+
+class TestEvalAllEndpoint:
+    def test_eval_all_empty(self, client) -> None:
+        r = client.post(
+            "/api/v1/observability/recall-eval/eval-all",
+            json={"k": 5},
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 200
+        assert r.json() == []
+
+    def test_eval_all_non_sme_blocked(self, client) -> None:
+        r = client.post(
+            "/api/v1/observability/recall-eval/eval-all",
+            json={"k": 5},
+            headers={"X-Test-Roles": "READER"},
+        )
+        assert r.status_code == 403
+
+    def test_eval_all_runs_for_all_projects(self, client, monkeypatch) -> None:
+        from packages.observability import add_ground_truth as _add
+        _add(project_id="p1", query_text="q1", expected_doc_ids=["a"])
+        _add(project_id="p2", query_text="q2", expected_doc_ids=["b"])
+
+        from api import deps
+
+        class FakeSource:
+            def __init__(self, doc_id):
+                self.doc_id = doc_id
+
+        class FakeResult:
+            def __init__(self, doc_ids):
+                self.sources = [FakeSource(d) for d in doc_ids]
+
+        class FakeEngine:
+            async def ask(self, *, question, top_k, **kwargs):
+                if question == "q1":
+                    return FakeResult(["a"])
+                return FakeResult(["b"])
+
+        monkeypatch.setattr(deps, "get_qa_engine", lambda: FakeEngine())
+
+        r = client.post(
+            "/api/v1/observability/recall-eval/eval-all",
+            json={"k": 5},
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert len(body) == 2
+        assert {b["project_id"] for b in body} == {"p1", "p2"}
