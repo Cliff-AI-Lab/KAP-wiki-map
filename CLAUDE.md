@@ -64,15 +64,15 @@
 ## 当前阶段
 
 ```
-[M0 KAP-Lite]──→[M1 企业级v1]──→[M2 AI-native]──→[M3 高级治理]──→[M4 重抽影子库]──→[M5 演化机制完整版]──→[M6 演化收尾]──→[M7 运营观察持久化]──→[M8 反馈与召回评估]──→[M9 评估持久化与趋势告警]──→[M10 评估深化与前端仪表盘]──→[M11 自学习闭环与GT工作流]──→[M12 自学习闭环到端+前端深耕]──→ M13⬜
+[M0 KAP-Lite]──→[M1 企业级v1]──→...──→[M11 自学习闭环与GT工作流]──→[M12 自学习闭环到端+前端深耕]──→[M13 真LLM测试与端到端深耕]──→ M14⬜
 ```
 
 进程链（按时间正序，每份是独立快照）：
-[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → [M9-评估持久化与趋势告警](docs/progress/M9-评估持久化与趋势告警.md) → [M10-评估深化与前端仪表盘](docs/progress/M10-评估深化与前端仪表盘.md) → [M11-自学习闭环与GT工作流](docs/progress/M11-自学习闭环与GT工作流.md) → [M12-自学习闭环到端+前端深耕](docs/progress/M12-自学习闭环到端%20%2B%20前端深耕.md) → M13（待启动）
+[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → [M9-评估持久化与趋势告警](docs/progress/M9-评估持久化与趋势告警.md) → [M10-评估深化与前端仪表盘](docs/progress/M10-评估深化与前端仪表盘.md) → [M11-自学习闭环与GT工作流](docs/progress/M11-自学习闭环与GT工作流.md) → [M12-自学习闭环到端+前端深耕](docs/progress/M12-自学习闭环到端%20%2B%20前端深耕.md) → [M13-真LLM测试与端到端深耕](docs/progress/M13-真LLM测试与端到端深耕.md) → M14（待启动）
 
-**KAP 累计**：~112 commits / 测试 941/943 ✓ + 21 前端 tests ✓ / 实际 ~84h vs Opus 估 ~498h，节省 ~83%。
+**KAP 累计**：~117 commits / 测试 949/951 ✓ + 29 前端 tests ✓ / 实际 ~89h vs Opus 估 ~514h，节省 ~83%。
 
-### 整体进度看板（M0-M12 ✓ / M13+ ⬜）
+### 整体进度看板（M0-M13 ✓ / M14+ ⬜）
 
 | 维度                       | 状态 | 来自里程碑              |
 |:---------------------------|:---:|:-----------------------|
@@ -106,15 +106,18 @@
 | portal 用户反馈按钮 UI        | ✓   | M12                    |
 | 块② 4×6 矩阵 UI smoke test    | ✓   | M12                    |
 | Dashboard 趋势曲线图          | ✓   | M12                    |
-| 真 LLM 集成测试基建          | ⬜   | M13+（用户新约束）      |
-| 块②前端"我认领的"过滤 / 批量决策 | ⬜  | M13+               |
-| 多 project 横评仪表盘        | ⬜   | M13+                   |
-| ISS-Job Quartz 真接入        | ⬜   | M13+                   |
-| 独立物理 Neo4j 实例         | ⬜   | 部署期                 |
+| 真 LLM 集成测试基建          | ✓   | M13                    |
+| 块②前端"我认领的"+ 批量决策   | ✓   | M13                    |
+| 多 project 横评仪表盘        | ✓   | M13                    |
+| ISS-Job Quartz 协调端点 + 配置文档 | ✓ | M13                |
+| 真 LLM 测试覆盖扩展（迁老 mock）| ⬜ | M14+                   |
 | ChunkHashCache LRU 分片     | ⬜   | 大规模实测后           |
 | DecisionLog 时序分区        | ⬜   | 大规模实测后           |
+| 独立物理 Neo4j 实例         | ⬜   | 部署期                 |
+| ISS-Job 真实环境联调          | ⬜   | M14+（接通真 ISS）     |
+| GovernanceMatrix SLA 看板    | ⬜   | M14+                   |
 
-**下一阶段 M13 待启动**：真 LLM 集成测试基建（@pytest.mark.live_llm 标记 + 弱断言）/ 块②前端深耕 / 多 project 横评 / ISS-Job 接入 / 物理 Neo4j。
+**下一阶段 M14 待启动**：真 LLM 老 mock 测试逐步迁移 / ChunkHashCache LRU 分片 / 时序分区 / 物理 Neo4j / ISS-Job 联调。
 
 **新约束** (M12 收尾时由用户提出)：涉及 LLM 的测试改用真实 LLM（不 mock acall_llm_json）；老 mock 测试不强制重写，新增遵循。
 
