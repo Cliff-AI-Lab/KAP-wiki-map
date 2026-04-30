@@ -267,3 +267,29 @@ export function submitQueryFeedback(
     },
   );
 }
+
+// ════════════════════════════════════════════════════════════════════════
+//  M12 #4 · 召回评估历史报告
+// ════════════════════════════════════════════════════════════════════════
+
+export interface RecallReportSummary {
+  report_id: string;
+  project_id: string;
+  version: string;
+  k: number;
+  total_queries: number;
+  avg_recall: number;
+  avg_precision: number;
+  avg_f1: number;
+  created_at: string;
+  details?: unknown[];   // 可选；列表 API 也带；图表不用
+}
+
+export function fetchRecallReports(
+  projectId?: string, limit = 30,
+): Promise<RecallReportSummary[]> {
+  const qs = buildQuery({
+    project_id: projectId, limit: String(limit),
+  });
+  return request(`/api/v1/observability/recall-eval/reports${qs}`);
+}

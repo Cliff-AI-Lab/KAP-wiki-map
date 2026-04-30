@@ -26,6 +26,7 @@ import {
   type Dashboard, type RecallTrend, type ConditionHealth,
 } from '@/services/observabilityApi';
 import { useActiveProject } from '@/hooks/useActiveProject';
+import RecallTrendChart from '@/components/v15/RecallTrendChart';
 
 // ════════════════════════════════════════════════════════════════════════
 //  小组件
@@ -502,9 +503,14 @@ export default function ObservabilityDashboard() {
         </MetricCard>
       </div>
 
+      {/* M12 #4 召回评估历史趋势曲线 */}
+      <div className="mt-4 rounded-card border border-th-border bg-elevated p-4">
+        <RecallTrendChart projectId={projectId} limit={30} />
+      </div>
+
       <div className="mt-6 text-xs text-th-text-muted text-center">
         <BarChart3 size={12} className="inline mr-1" />
-        数据来自 GET /api/v1/observability/dashboard + /trend + /condition-health
+        数据来自 GET /api/v1/observability/dashboard + /trend + /condition-health + /recall-eval/reports
       </div>
     </div>
   );

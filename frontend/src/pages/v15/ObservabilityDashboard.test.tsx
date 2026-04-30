@@ -22,17 +22,19 @@ vi.mock('@/hooks/useActiveProject', () => ({
   }),
 }));
 
-// mock observabilityApi 三个 fetch
+// mock observabilityApi 四个 fetch（M12 #4 加 fetchRecallReports）
 vi.mock('@/services/observabilityApi', async () => {
   return {
     fetchDashboard: vi.fn(),
     fetchRecallTrend: vi.fn(),
     fetchConditionHealth: vi.fn(),
+    fetchRecallReports: vi.fn(),
   };
 });
 
 import {
   fetchDashboard, fetchRecallTrend, fetchConditionHealth,
+  fetchRecallReports,
 } from '@/services/observabilityApi';
 
 const fakeDashboard = {
@@ -140,9 +142,11 @@ const fakeConditionHealth = {
 
 describe('ObservabilityDashboard', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(fetchDashboard).mockResolvedValue(fakeDashboard);
     vi.mocked(fetchRecallTrend).mockResolvedValue(fakeTrend);
     vi.mocked(fetchConditionHealth).mockResolvedValue(fakeConditionHealth);
+    vi.mocked(fetchRecallReports).mockResolvedValue([]);
   });
 
   it('renders all 6 cards with key metrics', async () => {
