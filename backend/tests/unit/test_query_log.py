@@ -1,4 +1,4 @@
-"""M7 #2 · 查询召回埋点单测（决策书 §5.3 简单运营观察）。"""
+"""M7 #2 · 查询召回埋点单测 + M8 #1 · portal 用户反馈（决策书 §5.3）。"""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from packages.observability import (
     aggregate_queries,
     list_queries,
     record_query,
+    record_query_feedback,
     reset_queries_for_test,
 )
 
@@ -112,3 +113,68 @@ class TestAggregate:
         record_query(project_id="p2", query_text="b", source_count=1)
         agg = aggregate_queries(project_id="p1")
         assert agg["total"] == 1
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M8 #1 · 用户反馈
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestFeedback:
+    def test_record_feedback_updates_event(self) -> None:
+        e = record_query(query_text="x", source_count=2)
+        updated = record_query_feedback(
+            query_id=e.query_id, useful=True, note="精准",
+        )
+        assert updated is not None
+        assert updated.useful is True
+        assert updated.feedback_note == "精准"
+        assert updated.feedback_at is not None
+
+    def test_unknown_query_id_returns_none(self) -> None:
+        result = record_query_feedback(
+            query_id="q_nonexistent", useful=True,
+        )
+        assert result is None
+
+    def test_feedback_note_truncated(self) -> None:
+        e = record_query(query_text="x")
+        long_note = "a" * 500
+        updated = record_query_feedback(
+            query_id=e.query_id, useful=False, note=long_note,
+        )
+        assert len(updated.feedback_note) == 200
+
+    def test_aggregate_useful_rate(self) -> None:
+        e1 = record_query(query_text="a", source_count=1)
+        e2 = record_query(query_text="b", source_count=1)
+        e3 = record_query(query_text="c", source_count=1)
+        e4 = record_query(query_text="d", source_count=1)
+
+        # 3 个反馈：2 useful + 1 not useful；e4 未反馈
+        record_query_feedback(query_id=e1.query_id, useful=True)
+        record_query_feedback(query_id=e2.query_id, useful=True)
+        record_query_feedback(query_id=e3.query_id, useful=False)
+
+        agg = aggregate_queries()
+        assert agg["feedback_total"] == 3
+        assert agg["useful_count"] == 2
+        assert agg["useful_rate"] == round(2 / 3, 4)
+        assert agg["feedback_coverage"] == 0.75   # 3 of 4
+
+    def test_aggregate_no_feedback(self) -> None:
+        record_query(query_text="x", source_count=1)
+        agg = aggregate_queries()
+        assert agg["feedback_total"] == 0
+        assert agg["useful_rate"] == 0.0
+        assert agg["feedback_coverage"] == 0.0
+
+    def test_feedback_can_be_overwritten(self) -> None:
+        e = record_query(query_text="x", source_count=1)
+        record_query_feedback(query_id=e.query_id, useful=True)
+        record_query_feedback(query_id=e.query_id, useful=False, note="改主意")
+        updated = record_query_feedback(
+            query_id=e.query_id, useful=False, note="还是无用",
+        )
+        assert updated.useful is False
+        assert updated.feedback_note == "还是无用"

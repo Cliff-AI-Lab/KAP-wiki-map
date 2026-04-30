@@ -13,7 +13,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from packages.common import get_logger
 from packages.observability import (
@@ -21,6 +22,7 @@ from packages.observability import (
     QueryEvent,
     aggregate_decisions,
     aggregate_queries,
+    arecord_query_feedback,
     list_decisions,
     list_queries,
 )
@@ -85,6 +87,32 @@ async def aggregate_query_events(
     return aggregate_queries(
         project_id=project_id, since=since, until=until,
     )
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M8 #1 · portal 用户反馈
+# ════════════════════════════════════════════════════════════════════════
+
+
+class QueryFeedbackBody(BaseModel):
+    useful: bool
+    note: str = Field(default="", max_length=200)
+
+
+@router.post("/queries/{query_id}/feedback", response_model=QueryEvent)
+async def submit_query_feedback(
+    query_id: str, body: QueryFeedbackBody,
+) -> QueryEvent:
+    """portal "有用 / 无用" 按钮入口。
+
+    任何登录用户可调；M9 加 RequireRole(USER) 走鉴权。
+    """
+    event = await arecord_query_feedback(
+        query_id=query_id, useful=body.useful, note=body.note,
+    )
+    if event is None:
+        raise HTTPException(status_code=404, detail=f"query_id={query_id} 不存在")
+    return event
 
 
 # ════════════════════════════════════════════════════════════════════════

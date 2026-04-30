@@ -207,3 +207,45 @@ class TestDashboard:
         )
         body = r.json()
         assert body["decisions"]["total"] == 1
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M8 #1 · portal 用户反馈端点
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestFeedbackEndpoint:
+    def test_submit_feedback_marks_useful(self, client) -> None:
+        e = record_query(query_text="测试", source_count=3)
+        r = client.post(
+            f"/api/v1/observability/queries/{e.query_id}/feedback",
+            json={"useful": True, "note": "精准"},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["useful"] is True
+        assert body["feedback_note"] == "精准"
+        assert body["feedback_at"] is not None
+
+    def test_submit_feedback_unknown_id_404(self, client) -> None:
+        r = client.post(
+            "/api/v1/observability/queries/q_no/feedback",
+            json={"useful": False},
+        )
+        assert r.status_code == 404
+
+    def test_aggregate_includes_useful_rate(self, client) -> None:
+        e1 = record_query(query_text="a", source_count=1)
+        e2 = record_query(query_text="b", source_count=1)
+        client.post(
+            f"/api/v1/observability/queries/{e1.query_id}/feedback",
+            json={"useful": True},
+        )
+        client.post(
+            f"/api/v1/observability/queries/{e2.query_id}/feedback",
+            json={"useful": False},
+        )
+        r = client.get("/api/v1/observability/queries/aggregate")
+        body = r.json()
+        assert body["feedback_total"] == 2
+        assert body["useful_rate"] == 0.5
