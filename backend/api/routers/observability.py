@@ -27,6 +27,7 @@ from packages.observability import (
     GroundTruthQuery,
     MultiKRecallReport,
     PromptABScore,
+    ExtractionMetric,
     PromptVersion,
     QueryEvent,
     RecallEvalReport,
@@ -34,6 +35,8 @@ from packages.observability import (
     add_ground_truth,
     aggregate_wiki_quality,
     compute_wiki_quality_trend,
+    aggregate_extraction_metrics,
+    list_extraction_metrics,
     auto_promote_best_prompt,
     auto_rollback_alerting_prompt,
     aggregate_decisions,
@@ -594,6 +597,31 @@ async def wiki_quality_trend_endpoint(
         bucket_size=bucket_size,
         max_buckets=max_buckets,
     )
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M19 #2 · W4 抽取质量诊断
+# ════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/extraction-quality", response_model=list[ExtractionMetric])
+async def list_extraction_metrics_endpoint(
+    project_id: str | None = Query(default=None),
+    only_alerting: bool = Query(default=False),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[ExtractionMetric]:
+    return list_extraction_metrics(
+        project_id=project_id,
+        only_alerting=only_alerting,
+        limit=limit,
+    )
+
+
+@router.get("/extraction-quality/aggregate")
+async def aggregate_extraction_metrics_endpoint(
+    project_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    return aggregate_extraction_metrics(project_id=project_id)
 
 
 @router.get("/condition-health", response_model=dict[str, ConditionHealth])

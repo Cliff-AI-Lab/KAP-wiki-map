@@ -36,6 +36,13 @@ from packages.observability.condition_health import (
     analyze_condition_health,
     classify_condition,
 )
+from packages.observability.extraction_quality import (
+    ExtractionMetric,
+    aggregate_extraction_metrics,
+    list_extraction_metrics,
+    record_extraction_metric,
+    reset_extraction_quality_for_test,
+)
 from packages.observability.wiki_quality import (
     DimensionScore,
     WikiQualityScore,
@@ -120,6 +127,11 @@ __all__ = [
     "AutoTuneResult",
     "ConditionHealth",
     "ConditionType",
+    "ExtractionMetric",
+    "aggregate_extraction_metrics",
+    "list_extraction_metrics",
+    "record_extraction_metric",
+    "reset_extraction_quality_for_test",
     "DimensionScore",
     "WikiQualityScore",
     "DecisionEvent",

@@ -198,7 +198,22 @@ async def extract_entities_and_relations(
         data = await acall_llm_json(W4_EXTRACT_SYSTEM, user_prompt)
     except Exception as e:
         log.warning("w4_extract_llm_failed", doc_id=doc_id, error=str(e))
-        return ExtractionResult(doc_id=doc_id, error=f"LLM 调用失败: {e}")
+        err_result = ExtractionResult(
+            doc_id=doc_id, error=f"LLM 调用失败: {e}",
+        )
+        # M19 #2 · 失败也记录诊断
+        try:
+            from packages.observability.extraction_quality import (
+                record_extraction_metric,
+            )
+            record_extraction_metric(
+                result=err_result, industry_code=industry_code,
+                project_id=project_id,
+                content_chars=min(len(content), content_chars_limit),
+            )
+        except Exception:
+            pass
+        return err_result
 
     # ── 解析实体 ──
     entities: list[ExtractedEntity] = []
@@ -294,10 +309,26 @@ async def extract_entities_and_relations(
         sensitive=sensitive_count, overall=round(overall, 3),
     )
 
-    return ExtractionResult(
+    result = ExtractionResult(
         doc_id=doc_id,
         entities=entities,
         relations=relations,
         overall_confidence=overall,
         sensitive_entity_count=sensitive_count,
     )
+
+    # M19 #2 · W4 链式自动评分（规则化，不调 LLM）
+    try:
+        from packages.observability.extraction_quality import (
+            record_extraction_metric,
+        )
+        record_extraction_metric(
+            result=result,
+            industry_code=industry_code,
+            project_id=project_id,
+            content_chars=min(len(content), content_chars_limit),
+        )
+    except Exception as e:  # 兜底：诊断失败不影响抽取流程
+        log.warning("w4_quality_record_failed", doc_id=doc_id, error=str(e))
+
+    return result
