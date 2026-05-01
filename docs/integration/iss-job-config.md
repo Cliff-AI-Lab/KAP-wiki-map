@@ -158,6 +158,39 @@ JWT 中 claims 需含 `roles: ["SME"]`（决策书 §10.4 RBAC）。建议用 IS
 
 ISS-Job 端建议把 `kap_status.alerting_observations > 0` 的事件转发给运维群（钉钉 / 企微 webhook），便于 SME 快速响应观察期告警。
 
+## 月度分区维护（M14 #3 加入）
+
+`decision_events` / `query_events` 改为 PG 月度分区后，需每月初提前创建下月分区。建议 ISS-Job 配一个 **每月 1 号** 触发的运维 job：
+
+```python
+# 通过 KAP 提供的工具函数（运维脚本调用）
+from datetime import date
+from packages.observability import ensure_partition_for_month
+from packages.common.config import settings
+import psycopg
+
+async def monthly_partition_maintenance():
+    today = date.today()
+    # 提前 2 个月创建分区（缓冲）
+    targets = [
+        (today.year, today.month),
+        (today.year + (today.month // 12), (today.month % 12) + 1),
+    ]
+    conn = await psycopg.AsyncConnection.connect(settings.postgres_dsn)
+    try:
+        for year, month in targets:
+            await ensure_partition_for_month(
+                conn, "decision_events", year, month,
+            )
+            await ensure_partition_for_month(
+                conn, "query_events", year, month,
+            )
+    finally:
+        await conn.close()
+```
+
+ISS-Job Quartz cron 表达式：`0 0 2 1 * ?`（每月 1 号凌晨 2 点）
+
 ## 与 KAP 内置 cron 的关系
 
 KAP 自身**不内置** cron 调度器（轻量化 + ISS 零侵入）。所有定时触发都依赖 ISS-Job 通过本文档配置的 HTTP 调用。

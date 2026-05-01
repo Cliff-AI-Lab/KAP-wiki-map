@@ -36,6 +36,13 @@ from packages.observability.condition_health import (
     analyze_condition_health,
     classify_condition,
 )
+from packages.observability.partitioning import (
+    build_migration_ddl,
+    build_partition_ddl,
+    ensure_partition_for_month,
+    list_recommended_months,
+    migrate_to_partitioned,
+)
 from packages.observability.pg_prompt_versions import (
     initialize_pg_prompt_versions,
     shutdown_pg_prompt_versions,
@@ -105,7 +112,12 @@ __all__ = [
     "add_ground_truth",
     "analyze_condition_health",
     "auto_construct_ground_truth_candidates",
+    "build_migration_ddl",
+    "build_partition_ddl",
     "classify_condition",
+    "ensure_partition_for_month",
+    "list_recommended_months",
+    "migrate_to_partitioned",
     "aggregate_decisions",
     "aggregate_queries",
     "arecord_decision",
