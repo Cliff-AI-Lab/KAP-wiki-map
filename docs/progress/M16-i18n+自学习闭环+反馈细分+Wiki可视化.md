@@ -12,7 +12,7 @@ status: completed
 tags: [kap, m16]
 ---
 
-> 进程链：[M0 KAP-Lite](M0-KAP-Lite.md) → ... → [M15 真 LLM 扩展 + 反馈告警 + 多语言](M15-真LLM扩展%2B反馈告警%2B多语言.md) → **【M16 i18n + 自学习闭环 + 反馈细分 + Wiki 可视化】** → M17⬜
+> 进程链：[M0 KAP-Lite](M0-KAP-Lite.md) → ... → [M15 真 LLM 扩展 + 反馈告警 + 多语言](M15-真LLM扩展%2B反馈告警%2B多语言.md) → **【M16 i18n + 自学习闭环 + 反馈细分 + Wiki 可视化】** → [M17 i18n 铺开 + 自动 tune + Wiki 质量](M17-i18n铺开%2B自动tune%2BWiki质量.md)
 
 # M16 i18n + 自学习闭环 + 反馈细分 + Wiki 可视化（4 commits / ~5h vs Opus 估 14-18h，节省 ~70%）
 
