@@ -26,7 +26,9 @@ import {
   type Dashboard, type RecallTrend, type ConditionHealth,
 } from '@/services/observabilityApi';
 import { useActiveProject } from '@/hooks/useActiveProject';
+import { useLocale } from '@/contexts/LocaleContext';
 import RecallTrendChart from '@/components/v15/RecallTrendChart';
+import LanguageSwitcher from '@/components/v15/LanguageSwitcher';
 
 // ════════════════════════════════════════════════════════════════════════
 //  小组件
@@ -118,6 +120,7 @@ function PercentBadge({ value }: { value: number }) {
 
 export default function ObservabilityDashboard() {
   const { projectId: activeProjectId } = useActiveProject();
+  const { t } = useLocale();
   const projectId = activeProjectId || undefined;
 
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -162,10 +165,10 @@ export default function ObservabilityDashboard() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-th-text-primary">
-            运营观察仪表盘
+            {t('observ.dashboard.title')}
           </h1>
           <p className="text-sm text-th-text-muted mt-1">
-            决策书 §5.3 KAP IP 引擎 · 全维度运营观察
+            {t('observ.dashboard.subtitle')}
             {projectId && (
               <span className="ml-2 px-2 py-0.5 rounded-full bg-accent/10 text-accent text-xs font-mono">
                 {projectId}
@@ -173,24 +176,27 @@ export default function ObservabilityDashboard() {
             )}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={loadAll}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-btn border border-th-border px-3 py-1.5 text-sm text-th-text-secondary hover:text-accent hover:border-accent disabled:opacity-40 transition"
-        >
-          {loading ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <RefreshCw size={14} />
-          )}
-          刷新
-        </button>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          <button
+            type="button"
+            onClick={loadAll}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-btn border border-th-border px-3 py-1.5 text-sm text-th-text-secondary hover:text-accent hover:border-accent disabled:opacity-40 transition"
+          >
+            {loading ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <RefreshCw size={14} />
+            )}
+            {t('observ.refresh')}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* 演化决策 */}
-        <MetricCard title="演化决策（M6 #3）" icon={<GitMerge size={16} />}>
+        <MetricCard title={t('observ.card.decisions')} icon={<GitMerge size={16} />}>
           <EmptyOrLoading
             loading={loading && !dashboard}
             error={errors.dashboard ?? null}
@@ -237,7 +243,7 @@ export default function ObservabilityDashboard() {
         </MetricCard>
 
         {/* 查询召回 */}
-        <MetricCard title="查询召回（M7+M8）" icon={<Search size={16} />}>
+        <MetricCard title={t('observ.card.queries')} icon={<Search size={16} />}>
           <EmptyOrLoading
             loading={loading && !dashboard}
             error={errors.dashboard ?? null}
@@ -283,7 +289,7 @@ export default function ObservabilityDashboard() {
 
         {/* 7 天观察期 */}
         <MetricCard
-          title="7 天观察期（M5 #2 + M6 #2）"
+          title={t('observ.card.observations')}
           icon={<Clock size={16} />}
           alert={!!dashboard && dashboard.observations.alerting > 0}
         >
@@ -345,7 +351,7 @@ export default function ObservabilityDashboard() {
 
         {/* 召回评估 */}
         <MetricCard
-          title="召回评估（M8 #2 + M9）"
+          title={t('observ.card.recallEval')}
           icon={<Target size={16} />}
         >
           <EmptyOrLoading
@@ -401,7 +407,7 @@ export default function ObservabilityDashboard() {
 
         {/* 召回率趋势 */}
         <MetricCard
-          title="召回率趋势（M9 #2）"
+          title={t('observ.card.recallTrend')}
           icon={
             trend && trend.recall_delta < 0 ? (
               <TrendingDown size={16} />
@@ -464,7 +470,7 @@ export default function ObservabilityDashboard() {
 
         {/* 监测条件健康度 */}
         <MetricCard
-          title="监测条件健康度（M10 #2）"
+          title={t('observ.card.conditionHealth')}
           icon={<Activity size={16} />}
         >
           <EmptyOrLoading

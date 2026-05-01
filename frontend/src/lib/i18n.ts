@@ -68,7 +68,20 @@ export type TranslationKey =
   | 'settings.save'
   | 'settings.localeZh'
   | 'settings.localeEn'
-  | 'settings.localeDesc';
+  | 'settings.localeDesc'
+  // M16 #1 · 运营观察仪表盘
+  | 'observ.dashboard.title'
+  | 'observ.dashboard.subtitle'
+  | 'observ.refresh'
+  | 'observ.card.decisions'
+  | 'observ.card.queries'
+  | 'observ.card.observations'
+  | 'observ.card.recallEval'
+  | 'observ.card.recallTrend'
+  | 'observ.card.conditionHealth'
+  | 'observ.alert'
+  | 'observ.empty'
+  | 'observ.loading';
 
 type Dict = Record<TranslationKey, string>;
 
@@ -133,6 +146,19 @@ const zh: Dict = {
   'settings.localeZh': '中文',
   'settings.localeEn': 'English',
   'settings.localeDesc': '切换界面语言；仅影响显示，不影响后端数据',
+  // M16 #1 · 运营观察仪表盘 (zh)
+  'observ.dashboard.title': '运营观察仪表盘',
+  'observ.dashboard.subtitle': '决策书 §5.3 KAP IP 引擎 · 全维度运营观察',
+  'observ.refresh': '刷新',
+  'observ.card.decisions': '演化决策（M6 #3）',
+  'observ.card.queries': '查询召回（M7+M8）',
+  'observ.card.observations': '7 天观察期（M5 #2 + M6 #2）',
+  'observ.card.recallEval': '召回评估（M8 #2 + M9）',
+  'observ.card.recallTrend': '召回率趋势（M9 #2）',
+  'observ.card.conditionHealth': '监测条件健康度（M10 #2）',
+  'observ.alert': '告警',
+  'observ.empty': '暂无数据',
+  'observ.loading': '加载中...',
 };
 
 const en: Dict = {
@@ -196,6 +222,19 @@ const en: Dict = {
   'settings.localeZh': '中文',
   'settings.localeEn': 'English',
   'settings.localeDesc': 'UI language only; backend data unaffected',
+  // M16 #1 · ObservabilityDashboard (en)
+  'observ.dashboard.title': 'Operations Observability',
+  'observ.dashboard.subtitle': 'Decision book §5.3 · KAP IP engine · all-dimension observability',
+  'observ.refresh': 'Refresh',
+  'observ.card.decisions': 'Evolution decisions (M6 #3)',
+  'observ.card.queries': 'Query recall (M7+M8)',
+  'observ.card.observations': '7-day observation window (M5 #2 + M6 #2)',
+  'observ.card.recallEval': 'Recall evaluation (M8 #2 + M9)',
+  'observ.card.recallTrend': 'Recall trend (M9 #2)',
+  'observ.card.conditionHealth': 'Condition health (M10 #2)',
+  'observ.alert': 'Alert',
+  'observ.empty': 'No data',
+  'observ.loading': 'Loading...',
 };
 
 const DICTS: Record<Locale, Dict> = { zh, en };

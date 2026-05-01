@@ -22,6 +22,31 @@ vi.mock('@/hooks/useActiveProject', () => ({
   }),
 }));
 
+// M16 #1 · mock LocaleContext 提供静态 zh 翻译
+vi.mock('@/contexts/LocaleContext', () => ({
+  useLocale: () => ({
+    locale: 'zh',
+    setLocale: vi.fn(),
+    t: (key: string) => {
+      const map: Record<string, string> = {
+        'observ.dashboard.title': '运营观察仪表盘',
+        'observ.dashboard.subtitle': 'KAP IP 引擎全维度运营观察',
+        'observ.refresh': '刷新',
+        'observ.card.decisions': '演化决策',
+        'observ.card.queries': '查询召回',
+        'observ.card.observations': '7 天观察期',
+        'observ.card.recallEval': '召回评估',
+        'observ.card.recallTrend': '召回率趋势',
+        'observ.card.conditionHealth': '监测条件健康度',
+        'observ.alert': '告警',
+        'observ.empty': '暂无数据',
+        'observ.loading': '加载中...',
+      };
+      return map[key] || key;
+    },
+  }),
+}));
+
 // mock observabilityApi 四个 fetch（M12 #4 加 fetchRecallReports）
 vi.mock('@/services/observabilityApi', async () => {
   return {
