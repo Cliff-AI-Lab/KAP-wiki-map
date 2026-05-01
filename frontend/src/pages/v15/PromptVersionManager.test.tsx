@@ -22,6 +22,12 @@ vi.mock('@/contexts/LocaleContext', () => ({
         'pv.subtitle': '自学习闭环',
         'pv.tabList': '版本列表',
         'pv.tabAB': 'AB 比较',
+        'pv.tabDiff': '版本对比',
+        'pv.diffSelectLeft': '左侧',
+        'pv.diffSelectRight': '右侧',
+        'pv.diffEmpty': '请选择两版本',
+        'pv.diffNoChanges': '完全一致',
+        'pv.diffStats': '差异：+{added} / -{removed}',
         'pv.create': '新建版本',
         'pv.deactivate': '停用',
         'pv.autoTune': '触发 auto-tune',
@@ -189,5 +195,80 @@ describe('PromptVersionManager', () => {
     await waitFor(() => {
       expect(screen.getByText(/PG down/)).toBeInTheDocument();
     });
+  });
+
+  it('switches to diff tab and renders empty state', async () => {
+    render(<PromptVersionManager />);
+    await waitFor(() => {
+      expect(screen.getByText('pv_001')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('版本对比'));
+    await waitFor(() => {
+      expect(screen.getByText('请选择两版本')).toBeInTheDocument();
+    });
+  });
+
+  it('renders diff between two versions', async () => {
+    // 把 fakeVersions 的 system_prompt 改成有差异的
+    vi.mocked(fetchPromptVersions).mockResolvedValue([
+      { ...fakeVersions[0], system_prompt: 'line1\nline2 old\nline3' },
+      { ...fakeVersions[1], system_prompt: 'line1\nline2 new\nline3\nline4' },
+    ]);
+    render(<PromptVersionManager />);
+    await waitFor(() => {
+      expect(screen.getByText('pv_001')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('版本对比'));
+
+    // 选两个版本
+    const selects = screen.getAllByRole('combobox');
+    // 顶部有 condition / language 过滤；diff tab 里有左 / 右
+    const diffSelects = selects.slice(-2);
+    fireEvent.change(diffSelects[0], { target: { value: 'pv_001' } });
+    fireEvent.change(diffSelects[1], { target: { value: 'pv_002' } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/差异：\+/)).toBeInTheDocument();
+    });
+    // diff 内容显示
+    expect(screen.getByText(/line2 old/)).toBeInTheDocument();
+    expect(screen.getByText(/line2 new/)).toBeInTheDocument();
+    expect(screen.getByText('line4')).toBeInTheDocument();   // 新增行
+  });
+});
+
+
+// ════════════════════════════════════════════════════════════════════════
+//  computeLineDiff 单测
+// ════════════════════════════════════════════════════════════════════════
+import { computeLineDiff } from './PromptVersionManager';
+
+describe('computeLineDiff', () => {
+  it('returns all common when identical', () => {
+    const out = computeLineDiff('a\nb\nc', 'a\nb\nc');
+    expect(out.every(d => d.kind === 'common')).toBe(true);
+    expect(out.length).toBe(3);
+  });
+
+  it('detects added line', () => {
+    const out = computeLineDiff('a\nb', 'a\nb\nc');
+    const added = out.filter(d => d.kind === 'added');
+    expect(added.length).toBe(1);
+    expect(added[0].text).toBe('c');
+  });
+
+  it('detects removed line', () => {
+    const out = computeLineDiff('a\nb\nc', 'a\nc');
+    const removed = out.filter(d => d.kind === 'removed');
+    expect(removed.length).toBe(1);
+    expect(removed[0].text).toBe('b');
+  });
+
+  it('detects modified line as one removed + one added', () => {
+    const out = computeLineDiff('hello world', 'hello there');
+    const added = out.filter(d => d.kind === 'added');
+    const removed = out.filter(d => d.kind === 'removed');
+    expect(added.length).toBe(1);
+    expect(removed.length).toBe(1);
   });
 });

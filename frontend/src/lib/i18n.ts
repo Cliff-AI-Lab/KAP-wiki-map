@@ -166,6 +166,16 @@ export type TranslationKey =
   | 'pv.autoTuneAction'
   | 'pv.autoTuneNoop'
   | 'pv.autoTuneReason'
+  // M19 #3 · PromptVersion diff UI
+  | 'pv.tabDiff'
+  | 'pv.diffSelect'
+  | 'pv.diffSelectLeft'
+  | 'pv.diffSelectRight'
+  | 'pv.diffEmpty'
+  | 'pv.diffNoChanges'
+  | 'pv.diffExcerpt'
+  | 'pv.diffSystem'
+  | 'pv.diffStats'
   // M18 #4 · 反馈原因可视化
   | 'observ.feedbackReasons.title'
   | 'observ.feedbackReasons.empty'
@@ -331,6 +341,15 @@ const zh: Dict = {
   'pv.autoTuneAction': '动作: {action}',
   'pv.autoTuneNoop': 'auto-tune 完成（无变化）',
   'pv.autoTuneReason': '原因',
+  'pv.tabDiff': '版本对比',
+  'pv.diffSelect': '选择两版本对比',
+  'pv.diffSelectLeft': '左侧（旧）',
+  'pv.diffSelectRight': '右侧（新）',
+  'pv.diffEmpty': '请选择两个版本',
+  'pv.diffNoChanges': '两版本 system_prompt 完全一致',
+  'pv.diffExcerpt': 'prompt 摘要',
+  'pv.diffSystem': 'system_prompt',
+  'pv.diffStats': '差异：+{added} / -{removed}',
   // M18 #4 · 反馈原因可视化 (zh)
   'observ.feedbackReasons.title': '反馈原因 Top 5（无用反馈）',
   'observ.feedbackReasons.empty': '暂无负反馈原因',
@@ -495,6 +514,15 @@ const en: Dict = {
   'pv.autoTuneAction': 'Action: {action}',
   'pv.autoTuneNoop': 'Auto-tune complete (no change)',
   'pv.autoTuneReason': 'Reason',
+  'pv.tabDiff': 'Diff',
+  'pv.diffSelect': 'Select two versions to compare',
+  'pv.diffSelectLeft': 'Left (older)',
+  'pv.diffSelectRight': 'Right (newer)',
+  'pv.diffEmpty': 'Please select two versions',
+  'pv.diffNoChanges': 'system_prompt is identical between the two versions',
+  'pv.diffExcerpt': 'Excerpt',
+  'pv.diffSystem': 'system_prompt',
+  'pv.diffStats': 'Diff: +{added} / -{removed}',
   // M18 #4 · Feedback reasons visualization (en)
   'observ.feedbackReasons.title': 'Top 5 feedback reasons (negative)',
   'observ.feedbackReasons.empty': 'No negative feedback reasons yet',

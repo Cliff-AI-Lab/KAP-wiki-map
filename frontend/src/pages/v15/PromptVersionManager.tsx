@@ -41,7 +41,9 @@ export default function PromptVersionManager() {
 
   const [conditionFilter, setConditionFilter] = useState<ConditionType | ''>('');
   const [languageFilter, setLanguageFilter] = useState<string>('');
-  const [tab, setTab] = useState<'list' | 'ab'>('list');
+  const [tab, setTab] = useState<'list' | 'ab' | 'diff'>('list');
+  const [diffLeftId, setDiffLeftId] = useState<string>('');
+  const [diffRightId, setDiffRightId] = useState<string>('');
 
   const [versions, setVersions] = useState<PromptVersion[]>([]);
   const [abScores, setAbScores] = useState<PromptABScore[]>([]);
@@ -221,12 +223,31 @@ export default function PromptVersionManager() {
         >
           {t('pv.tabAB')}
         </button>
+        <button
+          type="button"
+          onClick={() => setTab('diff')}
+          className={`px-4 py-2 -mb-px border-b-2 ${
+            tab === 'diff'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-th-text-muted hover:text-th-text-primary'
+          }`}
+        >
+          {t('pv.tabDiff')}
+        </button>
       </div>
 
-      {tab === 'list' ? (
+      {tab === 'list' && (
         <VersionList versions={versions} onDeactivate={onDeactivate} t={t} />
-      ) : (
-        <ABTable scores={abScores} t={t} />
+      )}
+      {tab === 'ab' && <ABTable scores={abScores} t={t} />}
+      {tab === 'diff' && (
+        <DiffView
+          versions={versions}
+          leftId={diffLeftId} rightId={diffRightId}
+          onChangeLeft={setDiffLeftId}
+          onChangeRight={setDiffRightId}
+          t={t}
+        />
       )}
     </div>
   );
@@ -401,6 +422,143 @@ function ABTable({
     </div>
   );
 }
+
+
+// ════════════════════════════════════════════════════════════════════════
+//  M19 #3 · 版本对比 (DiffView)
+// ════════════════════════════════════════════════════════════════════════
+
+type DiffLine = { kind: 'common' | 'added' | 'removed'; text: string };
+
+/** 简化 LCS 行级 diff（O(n*m)，足够 system_prompt 几十行）。*/
+function computeLineDiff(left: string, right: string): DiffLine[] {
+  const a = left.split('\n');
+  const b = right.split('\n');
+  const m = a.length;
+  const n = b.length;
+  // dp[i][j] = LCS length
+  const dp: number[][] = Array.from({ length: m + 1 }, () =>
+    Array(n + 1).fill(0),
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) dp[i][j] = dp[i - 1][j - 1] + 1;
+      else dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  const out: DiffLine[] = [];
+  let i = m, j = n;
+  while (i > 0 && j > 0) {
+    if (a[i - 1] === b[j - 1]) {
+      out.push({ kind: 'common', text: a[i - 1] });
+      i--; j--;
+    } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+      out.push({ kind: 'removed', text: a[i - 1] });
+      i--;
+    } else {
+      out.push({ kind: 'added', text: b[j - 1] });
+      j--;
+    }
+  }
+  while (i > 0) { out.push({ kind: 'removed', text: a[i - 1] }); i--; }
+  while (j > 0) { out.push({ kind: 'added', text: b[j - 1] }); j--; }
+  return out.reverse();
+}
+
+
+function DiffView({
+  versions, leftId, rightId, onChangeLeft, onChangeRight, t,
+}: {
+  versions: PromptVersion[];
+  leftId: string; rightId: string;
+  onChangeLeft: (id: string) => void;
+  onChangeRight: (id: string) => void;
+  t: (k: string, v?: Record<string, string | number>) => string;
+}) {
+  const left = versions.find(v => v.version_id === leftId);
+  const right = versions.find(v => v.version_id === rightId);
+
+  const diff = left && right
+    ? computeLineDiff(left.system_prompt, right.system_prompt)
+    : [];
+  const added = diff.filter(d => d.kind === 'added').length;
+  const removed = diff.filter(d => d.kind === 'removed').length;
+  const noChanges = left && right && added === 0 && removed === 0;
+
+  return (
+    <div className="rounded-card border border-th-border p-4 bg-elevated space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <label className="flex flex-col gap-1 text-xs text-th-text-muted">
+          {t('pv.diffSelectLeft')}
+          <select
+            value={leftId}
+            onChange={e => onChangeLeft(e.target.value)}
+            className="px-2 py-1 rounded-btn border border-th-border font-mono text-sm"
+          >
+            <option value="">—</option>
+            {versions.map(v => (
+              <option key={v.version_id} value={v.version_id}>
+                {v.version_id} · {v.condition_type} · {v.language}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-th-text-muted">
+          {t('pv.diffSelectRight')}
+          <select
+            value={rightId}
+            onChange={e => onChangeRight(e.target.value)}
+            className="px-2 py-1 rounded-btn border border-th-border font-mono text-sm"
+          >
+            <option value="">—</option>
+            {versions.map(v => (
+              <option key={v.version_id} value={v.version_id}>
+                {v.version_id} · {v.condition_type} · {v.language}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {!left || !right ? (
+        <div className="p-6 text-center text-th-text-muted text-sm">
+          {t('pv.diffEmpty')}
+        </div>
+      ) : noChanges ? (
+        <div className="p-6 text-center text-th-text-muted text-sm">
+          {t('pv.diffNoChanges')}
+        </div>
+      ) : (
+        <>
+          <div className="text-xs text-th-text-muted">
+            {t('pv.diffStats', { added, removed })}
+          </div>
+          <div className="rounded-card border border-th-border bg-th-bg-subtle font-mono text-xs overflow-x-auto">
+            {diff.map((line, idx) => (
+              <div
+                key={idx}
+                className={`px-2 py-0.5 whitespace-pre ${
+                  line.kind === 'added'
+                    ? 'bg-emerald-50/60 text-emerald-800'
+                    : line.kind === 'removed'
+                    ? 'bg-rose-50/60 text-rose-800'
+                    : ''
+                }`}
+              >
+                <span className="inline-block w-4 select-none text-th-text-muted">
+                  {line.kind === 'added' ? '+' : line.kind === 'removed' ? '-' : ' '}
+                </span>
+                {line.text || ' '}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export { computeLineDiff };
 
 
 function CreateForm({
