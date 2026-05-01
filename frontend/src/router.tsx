@@ -22,6 +22,7 @@ const ObservabilityDashboard = lazy(() => import('@/pages/v15/ObservabilityDashb
 const ObservabilityCompare = lazy(() => import('@/pages/v15/ObservabilityCompare'));
 const GroundTruthReview = lazy(() => import('@/pages/v15/GroundTruthReview'));
 const MyClaimed = lazy(() => import('@/pages/v15/MyClaimed'));
+const WikiTree = lazy(() => import('@/pages/v15/WikiTree'));
 const ImportLayout = lazy(() => import('@/pages/v15/import/ImportLayout'));
 const UploadStep = lazy(() => import('@/pages/v15/import/UploadStep'));
 const ReviewStep = lazy(() => import('@/pages/v15/import/ReviewStep'));
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
       // 消费模式
       { path: 'read',          element: <L><ReaderHome /></L> },
       { path: 'read/wiki/*',   element: <L><WikiReader /></L> },
+      { path: 'read/wiki-tree',element: <L><WikiTree /></L> },     // M16 #4 三层结构总览
       { path: 'read/graph',    element: <L><GraphView /></L> },
 
       // 治理模式
