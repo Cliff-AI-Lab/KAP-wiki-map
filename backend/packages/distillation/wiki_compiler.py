@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 from packages.common import get_logger
 from packages.common.types import WikiPage, RefinedResult
 from packages.distillation.llm_client import call_llm
+from packages.observability.wiki_quality import score_wiki_page
 
 if TYPE_CHECKING:
     from packages.storage.domain_store import DomainStore
@@ -190,10 +191,44 @@ class WikiCompiler:
     - compile_project(): 编排以上三步
     """
 
-    def __init__(self, raw_store: RawStore, wiki_store: WikiStore, domain_store: DomainStore):
+    def __init__(
+        self,
+        raw_store: RawStore,
+        wiki_store: WikiStore,
+        domain_store: DomainStore,
+        auto_score: bool = True,
+    ):
         self.raw_store = raw_store
         self.wiki_store = wiki_store
         self.domain_store = domain_store
+        self.auto_score = auto_score
+
+    async def _try_score_page(self, page: WikiPage, project_id: str) -> None:
+        """M18 #1 · 编译完成后自动 6 维评分；失败不阻塞编译。"""
+        if not self.auto_score:
+            return
+        try:
+            score = await score_wiki_page(
+                page_id=page.page_id,
+                page_type=page.page_type,
+                title=page.title,
+                content=page.content,
+                source_doc_count=len(page.source_doc_ids),
+                cross_ref_count=len(page.cross_refs),
+                version=1,
+                project_id=project_id,
+            )
+            if score.quality_alert:
+                log.warning(
+                    "wiki_quality_alert",
+                    page_id=page.page_id,
+                    overall=score.overall,
+                )
+        except Exception as e:  # 兜底：评分失败不影响编译流程
+            log.warning(
+                "wiki_quality_score_failed",
+                page_id=page.page_id, error=str(e),
+            )
 
     # ── Per-Source Compilation ──
 
@@ -260,6 +295,7 @@ class WikiCompiler:
 
         await self.wiki_store.upsert_page(page, project_id=project_id)
         log.info("wiki_source_compiled", page_id=page_id, content_len=len(content))
+        await self._try_score_page(page, project_id)
         return page
 
     # ── Domain-level Compilation ──
@@ -322,6 +358,7 @@ class WikiCompiler:
 
         await self.wiki_store.upsert_page(page, project_id=project_id)
         log.info("wiki_domain_compiled", domain_id=domain_id, content_len=len(content))
+        await self._try_score_page(page, project_id)
         return page
 
     # ── Index Page Compilation ──
