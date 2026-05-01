@@ -238,6 +238,127 @@ def list_queries(
     return out
 
 
+# ════════════════════════════════════════════════════════════════════════
+#  M15 #2 · useful_rate 趋势 + 告警阈值
+# ════════════════════════════════════════════════════════════════════════
+
+
+# 用户反馈维度的告警阈值
+_USEFUL_RATE_DROP_ALERT_THRESHOLD = 0.10   # 跌 > 10pp 触发告警
+_USEFUL_RATE_MIN_SAMPLES = 5                # 双窗口各至少 5 条 feedback 才判定
+
+
+def compute_useful_rate_trend(
+    *,
+    project_id: str | None = None,
+    window_size: int = 50,
+    lookback_size: int = 50,
+) -> dict:
+    """计算 useful_rate 时间窗对比（M9 #2 模式应用到用户反馈维度）。
+
+    Args:
+        window_size: 当前窗口大小（最近 N 条有反馈的 query）
+        lookback_size: 基线窗口大小（再往前 N 条有反馈的 query）
+
+    Returns:
+        {
+            "current": {samples, useful, useful_rate},
+            "baseline": {samples, useful, useful_rate},
+            "useful_rate_delta": float,    # current - baseline
+            "useful_alert": bool,
+            "alert_messages": list[str],
+        }
+        样本不足时 useful_alert=False + alert_messages=[]
+    """
+    # 拉所有有 feedback 的事件（按插入顺序倒序）
+    all_feedback: list[QueryEvent] = []
+    for q in reversed(_queries):
+        if project_id is not None and q.project_id != project_id:
+            continue
+        if q.useful is None:
+            continue
+        all_feedback.append(q)
+        if len(all_feedback) >= window_size + lookback_size:
+            break
+
+    current_window = all_feedback[:window_size]
+    baseline_window = all_feedback[window_size:window_size + lookback_size]
+
+    def _agg(events: list[QueryEvent]) -> dict:
+        n = len(events)
+        useful = sum(1 for e in events if e.useful is True)
+        rate = round(useful / n, 4) if n > 0 else 0.0
+        return {"samples": n, "useful": useful, "useful_rate": rate}
+
+    current = _agg(current_window)
+    baseline = _agg(baseline_window)
+
+    samples_enough = (
+        current["samples"] >= _USEFUL_RATE_MIN_SAMPLES
+        and baseline["samples"] >= _USEFUL_RATE_MIN_SAMPLES
+    )
+    delta = round(current["useful_rate"] - baseline["useful_rate"], 4)
+    alert = (
+        samples_enough
+        and delta < -_USEFUL_RATE_DROP_ALERT_THRESHOLD
+    )
+
+    alert_messages: list[str] = []
+    if alert:
+        alert_messages.append(
+            f"用户反馈有用率跌破基线 {abs(delta):.1%} "
+            f"(baseline={baseline['useful_rate']:.2f} → "
+            f"current={current['useful_rate']:.2f})"
+        )
+
+    return {
+        "current": current,
+        "baseline": baseline,
+        "useful_rate_delta": delta,
+        "useful_alert": alert,
+        "alert_messages": alert_messages,
+        "samples_enough": samples_enough,
+    }
+
+
+def check_useful_alerts_and_propagate(
+    *, project_id: str,
+    window_size: int = 50, lookback_size: int = 50,
+) -> dict:
+    """评估 useful 趋势 + 把告警追加到当前活跃观察期（M5 #2 复用 alerts 通道）。
+
+    无活跃观察期 → propagated=False；不阻断主流程。
+    """
+    trend = compute_useful_rate_trend(
+        project_id=project_id,
+        window_size=window_size, lookback_size=lookback_size,
+    )
+    propagated = False
+    if trend["alert_messages"]:
+        try:
+            from packages.rebuild import get_current_observation
+            obs = get_current_observation(project_id)
+            if obs is not None:
+                for msg in trend["alert_messages"]:
+                    if msg not in obs.alerts:
+                        obs.alerts.append(msg)
+                if obs.status == "watching":
+                    obs.status = "alert"
+                propagated = True
+                log.warning(
+                    "useful_rate_drift_alert_propagated",
+                    project_id=project_id,
+                    observation_id=obs.observation_id,
+                )
+        except Exception as e:
+            log.warning(
+                "useful_rate_alert_propagate_failed",
+                project_id=project_id, error=str(e),
+            )
+    trend["propagated"] = propagated
+    return trend
+
+
 def aggregate_queries(
     *,
     project_id: str | None = None,

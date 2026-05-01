@@ -36,8 +36,10 @@ from packages.observability import (
     arecord_query_feedback,
     auto_construct_ground_truth_candidates,
     check_recall_alerts_and_propagate,
+    check_useful_alerts_and_propagate,
     compute_prompt_ab_score,
     compute_recall_trend,
+    compute_useful_rate_trend,
     create_prompt_version,
     deactivate_prompt_version,
     eval_all_projects,
@@ -137,7 +139,29 @@ async def submit_query_feedback(
     )
     if event is None:
         raise HTTPException(status_code=404, detail=f"query_id={query_id} 不存在")
+    # M15 #2 · 反馈后跑趋势检查；跌破阈值 propagate 到观察期 alerts
+    if event.project_id:
+        try:
+            check_useful_alerts_and_propagate(project_id=event.project_id)
+        except Exception:
+            log.exception("useful_alert_check_failed")
     return event
+
+
+@router.get("/queries/useful-trend")
+async def useful_rate_trend(
+    project_id: str | None = Query(default=None),
+    window_size: int = Query(default=50, ge=1, le=500),
+    lookback_size: int = Query(default=50, ge=1, le=500),
+) -> dict[str, Any]:
+    """useful_rate 时间窗对比（M9 #2 模式应用到用户反馈维度）。
+
+    跌破阈值（默认 10pp）→ useful_alert=True；alert_messages 列出文字。
+    """
+    return compute_useful_rate_trend(
+        project_id=project_id,
+        window_size=window_size, lookback_size=lookback_size,
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════

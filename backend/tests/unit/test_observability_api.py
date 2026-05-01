@@ -336,6 +336,40 @@ class TestFeedbackEndpoint:
         assert body["feedback_total"] == 2
         assert body["useful_rate"] == 0.5
 
+    def test_useful_trend_endpoint_drop(self, client) -> None:
+        # 老批：10 useful；新批：10 not useful
+        for i in range(10):
+            e = record_query(project_id="p1", query_text=f"old_{i}",
+                             source_count=1)
+            client.post(
+                f"/api/v1/observability/queries/{e.query_id}/feedback",
+                json={"useful": True},
+            )
+        for i in range(10):
+            e = record_query(project_id="p1", query_text=f"new_{i}",
+                             source_count=1)
+            client.post(
+                f"/api/v1/observability/queries/{e.query_id}/feedback",
+                json={"useful": False},
+            )
+
+        r = client.get(
+            "/api/v1/observability/queries/useful-trend"
+            "?project_id=p1&window_size=10&lookback_size=10"
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["useful_alert"] is True
+        assert body["useful_rate_delta"] == -1.0
+
+    def test_useful_trend_endpoint_empty(self, client) -> None:
+        r = client.get(
+            "/api/v1/observability/queries/useful-trend?project_id=p_no"
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["useful_alert"] is False
+
 
 # ════════════════════════════════════════════════════════════════════════
 #  M8 #2 · 召回率评估端点

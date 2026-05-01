@@ -194,3 +194,125 @@ class TestFeedback:
         )
         assert updated.useful is False
         assert updated.feedback_note == "还是无用"
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M15 #2 · useful_rate 趋势 + 告警
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestUsefulRateTrend:
+    def test_empty_returns_no_alert(self) -> None:
+        from packages.observability import compute_useful_rate_trend
+        trend = compute_useful_rate_trend()
+        assert trend["useful_alert"] is False
+        assert trend["alert_messages"] == []
+        assert trend["samples_enough"] is False
+
+    def test_below_min_samples_no_alert(self) -> None:
+        """有反馈但量不够（< 5）→ 不触发告警。"""
+        from packages.observability import compute_useful_rate_trend
+        for i in range(3):
+            e = record_query(project_id="p1", query_text=f"q{i}", source_count=1)
+            record_query_feedback(query_id=e.query_id, useful=True)
+        trend = compute_useful_rate_trend(
+            project_id="p1", window_size=5, lookback_size=5,
+        )
+        assert trend["useful_alert"] is False
+
+    def test_stable_no_alert(self) -> None:
+        """两窗口 useful_rate 相近 → 不告警。"""
+        from packages.observability import compute_useful_rate_trend
+        # 共 20 条，全 useful
+        for i in range(20):
+            e = record_query(project_id="p1", query_text=f"q{i}", source_count=1)
+            record_query_feedback(query_id=e.query_id, useful=True)
+        trend = compute_useful_rate_trend(
+            project_id="p1", window_size=10, lookback_size=10,
+        )
+        assert trend["useful_alert"] is False
+
+    def test_drop_triggers_alert(self) -> None:
+        """前期高 useful，最近一批 useful_rate 跌破 → 告警。"""
+        from packages.observability import compute_useful_rate_trend
+        # baseline 窗口（先记录的）：10 条 useful=True → useful_rate=1.0
+        # 注意 _queries 反向迭代：当前是最新的；最早记录的进 baseline
+        for i in range(10):
+            e = record_query(project_id="p1", query_text=f"old_q{i}",
+                             source_count=1)
+            record_query_feedback(query_id=e.query_id, useful=True)
+        # 当前窗口（后记录）：10 条 useful=False → useful_rate=0.0
+        for i in range(10):
+            e = record_query(project_id="p1", query_text=f"new_q{i}",
+                             source_count=1)
+            record_query_feedback(query_id=e.query_id, useful=False)
+
+        trend = compute_useful_rate_trend(
+            project_id="p1", window_size=10, lookback_size=10,
+        )
+        # current 是最近的（useful_rate=0），baseline 是更早的（useful_rate=1）
+        assert trend["current"]["useful_rate"] == 0.0
+        assert trend["baseline"]["useful_rate"] == 1.0
+        assert trend["useful_rate_delta"] == -1.0
+        assert trend["useful_alert"] is True
+        assert any("有用率跌破基线" in m for m in trend["alert_messages"])
+
+    def test_propagate_to_active_observation(self) -> None:
+        """check_useful_alerts_and_propagate 把告警追加到当前观察期。"""
+        from packages.observability import check_useful_alerts_and_propagate
+        from packages.rebuild import (
+            ShadowGraphStore,
+            reset_observations_for_test,
+            reset_shadow_store_for_test,
+            start_observation,
+            get_current_observation,
+        )
+        reset_observations_for_test()
+        reset_shadow_store_for_test()
+        try:
+            for i in range(10):
+                e = record_query(project_id="p1", query_text=f"old_q{i}",
+                                 source_count=1)
+                record_query_feedback(query_id=e.query_id, useful=True)
+            for i in range(10):
+                e = record_query(project_id="p1", query_text=f"new_q{i}",
+                                 source_count=1)
+                record_query_feedback(query_id=e.query_id, useful=False)
+
+            s = ShadowGraphStore()
+            for i in range(3):
+                s.add_entity("p1", "v1", entity_name=f"E{i}",
+                             type_id="equipment", doc_id="d")
+            start_observation("p1", "v1", shadow=s)
+
+            result = check_useful_alerts_and_propagate(
+                project_id="p1", window_size=10, lookback_size=10,
+            )
+            assert result["useful_alert"] is True
+            assert result["propagated"] is True
+            obs = get_current_observation("p1")
+            assert obs.status == "alert"
+            assert any("有用率跌破基线" in a for a in obs.alerts)
+        finally:
+            reset_observations_for_test()
+            reset_shadow_store_for_test()
+
+    def test_propagate_no_observation_returns_false(self) -> None:
+        """无活跃观察期 → propagated=False（不阻断）。"""
+        from packages.observability import check_useful_alerts_and_propagate
+        from packages.rebuild import reset_observations_for_test
+        reset_observations_for_test()
+        for i in range(10):
+            e = record_query(project_id="p1", query_text=f"old_q{i}",
+                             source_count=1)
+            record_query_feedback(query_id=e.query_id, useful=True)
+        for i in range(10):
+            e = record_query(project_id="p1", query_text=f"new_q{i}",
+                             source_count=1)
+            record_query_feedback(query_id=e.query_id, useful=False)
+
+        result = check_useful_alerts_and_propagate(
+            project_id="p1", window_size=10, lookback_size=10,
+        )
+        assert result["useful_alert"] is True
+        assert result["propagated"] is False
