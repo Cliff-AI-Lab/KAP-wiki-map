@@ -86,9 +86,34 @@ async def cron_recommendations() -> dict[str, Any]:
         _DEFAULT_INTERVAL * 12 if gt_count > 0 else _MAX_INTERVAL * 6
     )  # 评估默认 1 小时；无 GT 时 3 小时一次
 
+    # M17 #2 · auto-tune prompt 周度任务（默认 7 天）
+    # 仅当 decisions_total ≥ 50 才推荐（样本不足时 noop 浪费调用）
+    _AUTO_TUNE_WEEKLY = 7 * 24 * 3600
+    auto_tune_jobs: list[dict[str, Any]] = []
+    if decisions_24h >= 50:
+        for ct in [
+            "new_entity_type", "relation_solidification",
+            "relation_split", "standard_upgrade",
+        ]:
+            auto_tune_jobs.append({
+                "name": f"auto_tune_prompt_{ct}",
+                "endpoint": "/api/v1/observability/prompt-versions/auto-tune",
+                "method": "POST",
+                "body": {
+                    "condition_type": ct,
+                    "language": "zh",
+                    "min_samples": 10,
+                },
+                "interval_seconds": _AUTO_TUNE_WEEKLY,
+                "reason": (
+                    f"decisions_total={decisions_24h} ≥ 50；周度自动 tune "
+                    f"{ct} prompt（M16 #2 + M17 #2）"
+                ),
+            })
+
     log.info("cron_recommendations_served",
              active_obs=active_obs, alerting_obs=alerting_obs,
-             gt_count=gt_count)
+             gt_count=gt_count, auto_tune_recommended=len(auto_tune_jobs))
 
     return {
         "kap_status": {
@@ -121,8 +146,9 @@ async def cron_recommendations() -> dict[str, Any]:
                     f"ground_truth={gt_count}; 推荐 {eval_interval}s"
                 ),
             },
+            *auto_tune_jobs,
         ],
-        "version": "1",
+        "version": "2",      # M17 #2 升版（加 auto_tune 推荐）
         "notes": (
             "ISS-Job 调用 KAP HTTP 端点时需带 SME role JWT；"
             "失败重试建议指数退避；详见 docs/integration/iss-job-config.md"

@@ -119,3 +119,41 @@ class TestCronRecommendations:
         body = r.json()
         assert body["kap_status"]["decisions_total"] == 1
         assert body["kap_status"]["queries_total"] == 1
+
+    # M17 #2 · auto-tune 推荐
+    def test_no_auto_tune_when_below_sample_threshold(self, client) -> None:
+        # < 50 decisions → 不推荐 auto-tune
+        for _ in range(10):
+            record_decision(project_id="p1", decision_type="approve_proposal")
+        r = client.get("/api/v1/iss-job/cron-recommendations")
+        body = r.json()
+        names = [j["name"] for j in body["recommended_jobs"]]
+        assert not any(n.startswith("auto_tune_prompt_") for n in names)
+
+    def test_auto_tune_recommended_when_above_threshold(self, client) -> None:
+        # ≥ 50 decisions → 推荐 4 个 auto-tune jobs（每条件一个）
+        for _ in range(60):
+            record_decision(project_id="p1", decision_type="approve_proposal")
+        r = client.get("/api/v1/iss-job/cron-recommendations")
+        body = r.json()
+        auto_tune = [
+            j for j in body["recommended_jobs"]
+            if j["name"].startswith("auto_tune_prompt_")
+        ]
+        assert len(auto_tune) == 4
+        # 全部周度间隔（604800s）
+        for j in auto_tune:
+            assert j["interval_seconds"] == 7 * 24 * 3600
+            assert j["endpoint"] == "/api/v1/observability/prompt-versions/auto-tune"
+            assert j["body"]["min_samples"] == 10
+            assert j["body"]["language"] == "zh"
+        # 4 condition_type 都覆盖
+        condition_types = {j["body"]["condition_type"] for j in auto_tune}
+        assert condition_types == {
+            "new_entity_type", "relation_solidification",
+            "relation_split", "standard_upgrade",
+        }
+
+    def test_response_version_bumped_to_2(self, client) -> None:
+        r = client.get("/api/v1/iss-job/cron-recommendations")
+        assert r.json()["version"] == "2"

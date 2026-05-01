@@ -158,6 +158,39 @@ JWT 中 claims 需含 `roles: ["SME"]`（决策书 §10.4 RBAC）。建议用 IS
 
 ISS-Job 端建议把 `kap_status.alerting_observations > 0` 的事件转发给运维群（钉钉 / 企微 webhook），便于 SME 快速响应观察期告警。
 
+## Auto-tune prompt 周度任务（M17 #2 加入）
+
+KAP 内置自学习闭环（M16 #2 `auto_promote_best_prompt` / `auto_rollback_alerting_prompt`）需要外部触发。`cron-recommendations` 端点会在 `decisions_total ≥ 50` 时自动推荐 4 个 auto-tune jobs（每个 condition_type 一个，周度间隔 7 天）。
+
+### Quartz 配置示例
+
+```xml
+<job>
+  <name>kap-auto-tune-prompt-{condition_type}</name>
+  <group>kap-integration</group>
+  <job-class>com.iss.kap.HttpInvokeJob</job-class>
+  <job-data-map>
+    <entry>
+      <key>endpoint</key>
+      <value>${kap.base.url}/api/v1/observability/prompt-versions/auto-tune</value>
+    </entry>
+    <entry>
+      <key>method</key><value>POST</value>
+    </entry>
+    <entry>
+      <key>body</key>
+      <value>{"condition_type":"{condition_type}","language":"zh","min_samples":10}</value>
+    </entry>
+  </job-data-map>
+</job>
+
+<trigger>
+  <cron-expression>0 0 3 ? * SUN</cron-expression>  <!-- 每周日凌晨 3 点 -->
+</trigger>
+```
+
+调用结果含 `action: promote/rollback/noop`；KAP 侧会自动 deactivate 旧 active + activate best 候选。ISS-Job 仅需调用，无需关心切换逻辑。
+
 ## 月度分区维护（M14 #3 加入）
 
 `decision_events` / `query_events` 改为 PG 月度分区后，需每月初提前创建下月分区。建议 ISS-Job 配一个 **每月 1 号** 触发的运维 job：
