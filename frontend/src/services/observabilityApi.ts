@@ -61,6 +61,10 @@ export interface QueriesAggregate {
   useful_count: number;
   useful_rate: number;
   feedback_coverage: number;
+  /** M16 #3 · 全部反馈原因频次 dict */
+  feedback_reasons?: Record<string, number>;
+  /** M16 #3 · top 5 反馈原因标签 */
+  top_reasons?: string[];
   window: {
     since: string | null;
     until: string | null;

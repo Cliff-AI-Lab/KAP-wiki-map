@@ -41,6 +41,9 @@ vi.mock('@/contexts/LocaleContext', () => ({
         'observ.alert': '告警',
         'observ.empty': '暂无数据',
         'observ.loading': '加载中...',
+        'observ.feedbackReasons.title': '反馈原因 Top 5',
+        'observ.feedbackReasons.empty': '暂无负反馈',
+        'observ.feedbackReasons.totalNegFeedback': '负反馈样本',
       };
       return map[key] || key;
     },
@@ -234,5 +237,45 @@ describe('ObservabilityDashboard', () => {
     expect(screen.getByText('relation_solidification')).toBeInTheDocument();
     expect(screen.getByText('relation_split')).toBeInTheDocument();
     expect(screen.getByText('standard_upgrade')).toBeInTheDocument();
+  });
+
+  // M18 #4 · 反馈原因 top 5 横条
+  it('renders top feedback reasons panel when feedback_reasons present', async () => {
+    vi.mocked(fetchDashboard).mockResolvedValue({
+      ...fakeDashboard,
+      queries: {
+        ...fakeDashboard.queries,
+        feedback_reasons: {
+          wrong_answer: 8,
+          irrelevant: 5,
+          format_issue: 3,
+          outdated: 2,
+          incomplete: 1,
+        },
+        top_reasons: [
+          'wrong_answer', 'irrelevant', 'format_issue',
+          'outdated', 'incomplete',
+        ],
+      },
+    });
+    render(<ObservabilityDashboard />);
+    await waitFor(() => {
+      expect(screen.getByText(/反馈原因 Top 5/)).toBeInTheDocument();
+    });
+    expect(screen.getByText('wrong_answer')).toBeInTheDocument();
+    expect(screen.getByText('irrelevant')).toBeInTheDocument();
+    expect(screen.getByText('format_issue')).toBeInTheDocument();
+    // 各原因都出现（具体计数避免与其他卡冲突）
+    expect(screen.getByText('outdated')).toBeInTheDocument();
+    expect(screen.getByText('incomplete')).toBeInTheDocument();
+  });
+
+  it('hides feedback reasons panel when none present', async () => {
+    // fakeDashboard.queries 没 feedback_reasons → panel 不出现
+    render(<ObservabilityDashboard />);
+    await waitFor(() => {
+      expect(screen.getByText(/查询召回/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/反馈原因 Top 5/)).not.toBeInTheDocument();
   });
 });

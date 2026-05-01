@@ -114,6 +114,49 @@ function PercentBadge({ value }: { value: number }) {
   return <span className="tabular-nums">{pct}%</span>;
 }
 
+// M18 #4 · 反馈原因 Top 5 横条统计
+function FeedbackReasonsPanel({
+  reasons, t,
+}: {
+  reasons: Record<string, number> | undefined;
+  t: (k: string) => string;
+}) {
+  const entries = reasons
+    ? Object.entries(reasons).sort((a, b) => b[1] - a[1]).slice(0, 5)
+    : [];
+  if (entries.length === 0) return null;
+
+  const total = entries.reduce((sum, [, n]) => sum + n, 0);
+  const max = Math.max(...entries.map(([, n]) => n));
+
+  return (
+    <div className="mt-3 pt-3 border-t border-th-border">
+      <div className="flex items-center justify-between mb-2 text-xs text-th-text-muted">
+        <span className="font-mono">{t('observ.feedbackReasons.title')}</span>
+        <span>
+          {t('observ.feedbackReasons.totalNegFeedback')}: {total}
+        </span>
+      </div>
+      <div className="space-y-1">
+        {entries.map(([reason, count]) => (
+          <div key={reason} className="text-xs">
+            <div className="flex justify-between mb-0.5">
+              <span className="font-mono text-th-text-secondary">{reason}</span>
+              <span className="tabular-nums text-th-text-muted">{count}</span>
+            </div>
+            <div className="h-1.5 bg-th-bg-subtle rounded-full overflow-hidden">
+              <div
+                className="h-full bg-accent/70"
+                style={{ width: `${(count / max) * 100}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════════════════
 //  主页面
 // ════════════════════════════════════════════════════════════════════════
@@ -282,6 +325,10 @@ export default function ObservabilityDashboard() {
                     <PercentBadge value={dashboard.queries.useful_rate} />
                   </span>
                 }
+              />
+              <FeedbackReasonsPanel
+                reasons={dashboard.queries.feedback_reasons}
+                t={t}
               />
             </>
           )}

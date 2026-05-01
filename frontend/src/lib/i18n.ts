@@ -162,7 +162,11 @@ export type TranslationKey =
   | 'pv.confirmDeactivate'
   | 'pv.autoTuneAction'
   | 'pv.autoTuneNoop'
-  | 'pv.autoTuneReason';
+  | 'pv.autoTuneReason'
+  // M18 #4 · 反馈原因可视化
+  | 'observ.feedbackReasons.title'
+  | 'observ.feedbackReasons.empty'
+  | 'observ.feedbackReasons.totalNegFeedback';
 
 type Dict = Record<TranslationKey, string>;
 
@@ -321,6 +325,10 @@ const zh: Dict = {
   'pv.autoTuneAction': '动作: {action}',
   'pv.autoTuneNoop': 'auto-tune 完成（无变化）',
   'pv.autoTuneReason': '原因',
+  // M18 #4 · 反馈原因可视化 (zh)
+  'observ.feedbackReasons.title': '反馈原因 Top 5（无用反馈）',
+  'observ.feedbackReasons.empty': '暂无负反馈原因',
+  'observ.feedbackReasons.totalNegFeedback': '负反馈样本数',
 };
 
 const en: Dict = {
@@ -478,6 +486,10 @@ const en: Dict = {
   'pv.autoTuneAction': 'Action: {action}',
   'pv.autoTuneNoop': 'Auto-tune complete (no change)',
   'pv.autoTuneReason': 'Reason',
+  // M18 #4 · Feedback reasons visualization (en)
+  'observ.feedbackReasons.title': 'Top 5 feedback reasons (negative)',
+  'observ.feedbackReasons.empty': 'No negative feedback reasons yet',
+  'observ.feedbackReasons.totalNegFeedback': 'Negative feedback samples',
 };
 
 const DICTS: Record<Locale, Dict> = { zh, en };
