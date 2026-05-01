@@ -36,6 +36,15 @@ from packages.observability.condition_health import (
     analyze_condition_health,
     classify_condition,
 )
+from packages.observability.wiki_quality import (
+    DimensionScore,
+    WikiQualityScore,
+    aggregate_wiki_quality,
+    get_wiki_quality_score,
+    list_wiki_quality_scores,
+    reset_wiki_quality_for_test,
+    score_wiki_page,
+)
 from packages.observability.partitioning import (
     build_migration_ddl,
     build_partition_ddl,
@@ -105,6 +114,8 @@ __all__ = [
     "AutoTuneResult",
     "ConditionHealth",
     "ConditionType",
+    "DimensionScore",
+    "WikiQualityScore",
     "DecisionEvent",
     "DecisionType",
     "GroundTruthCandidate",
@@ -116,6 +127,7 @@ __all__ = [
     "RecallEvalDetail",
     "RecallEvalReport",
     "add_ground_truth",
+    "aggregate_wiki_quality",
     "analyze_condition_health",
     "auto_construct_ground_truth_candidates",
     "auto_promote_best_prompt",
@@ -148,6 +160,10 @@ __all__ = [
     "get_ground_truth",
     "get_latest_report",
     "get_query_event",
+    "get_wiki_quality_score",
+    "list_wiki_quality_scores",
+    "reset_wiki_quality_for_test",
+    "score_wiki_page",
     "initialize_pg_decision_log",
     "initialize_pg_prompt_versions",
     "initialize_pg_query_log",

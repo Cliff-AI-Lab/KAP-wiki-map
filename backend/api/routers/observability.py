@@ -30,7 +30,9 @@ from packages.observability import (
     PromptVersion,
     QueryEvent,
     RecallEvalReport,
+    WikiQualityScore,
     add_ground_truth,
+    aggregate_wiki_quality,
     auto_promote_best_prompt,
     auto_rollback_alerting_prompt,
     aggregate_decisions,
@@ -52,9 +54,11 @@ from packages.observability import (
     list_prompt_versions,
     list_queries,
     list_reports,
+    list_wiki_quality_scores,
     remove_ground_truth,
     run_multi_k_recall_eval,
     run_recall_eval,
+    score_wiki_page,
 )
 from packages.rebuild import list_observations
 
@@ -517,6 +521,64 @@ async def prompt_ab_score_endpoint(
         proposals,
         condition_type=condition_type,    # type: ignore[arg-type]
     )
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M17 #3 · Wiki 编译质量评分
+# ════════════════════════════════════════════════════════════════════════
+
+
+class ScoreWikiPageBody(BaseModel):
+    page_id: str = Field(min_length=1, max_length=64)
+    page_type: str = Field(default="", max_length=32)
+    title: str = Field(default="", max_length=200)
+    content: str = Field(default="", max_length=20000)
+    source_doc_count: int = Field(default=0, ge=0)
+    cross_ref_count: int = Field(default=0, ge=0)
+    version: int = Field(default=1, ge=1)
+    project_id: str = ""
+
+
+@router.post("/wiki-quality/score", response_model=WikiQualityScore)
+async def score_wiki_endpoint(
+    body: ScoreWikiPageBody,
+    user=Depends(RequireRole(ROLE_SME)),
+) -> WikiQualityScore:
+    """SME 触发某 Wiki 页的 6 维质量评分（M17 #3）。
+
+    LLM 失败时返回带 error 字段的 score（不入聚合字典）；调用方仍可看错误详情。
+    """
+    score = await score_wiki_page(
+        page_id=body.page_id,
+        page_type=body.page_type,
+        title=body.title,
+        content=body.content,
+        source_doc_count=body.source_doc_count,
+        cross_ref_count=body.cross_ref_count,
+        version=body.version,
+        project_id=body.project_id,
+    )
+    log.info("wiki_quality_scored_via_api",
+             page_id=body.page_id, overall=score.overall,
+             user=getattr(user, "user_id", "?"))
+    return score
+
+
+@router.get("/wiki-quality", response_model=list[WikiQualityScore])
+async def list_wiki_quality_endpoint(
+    project_id: str | None = Query(default=None),
+    only_alerting: bool = Query(default=False),
+) -> list[WikiQualityScore]:
+    return list_wiki_quality_scores(
+        project_id=project_id, only_alerting=only_alerting,
+    )
+
+
+@router.get("/wiki-quality/aggregate")
+async def aggregate_wiki_quality_endpoint(
+    project_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    return aggregate_wiki_quality(project_id=project_id)
 
 
 @router.get("/condition-health", response_model=dict[str, ConditionHealth])
