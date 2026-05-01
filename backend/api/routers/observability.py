@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from packages.common import get_logger
 from packages.common.roles import ROLE_SME, RequireRole
 from packages.observability import (
+    AutoTuneResult,
     ConditionHealth,
     ConditionType,
     DecisionEvent,
@@ -30,6 +31,8 @@ from packages.observability import (
     QueryEvent,
     RecallEvalReport,
     add_ground_truth,
+    auto_promote_best_prompt,
+    auto_rollback_alerting_prompt,
     aggregate_decisions,
     aggregate_queries,
     analyze_condition_health,
@@ -434,6 +437,61 @@ async def deactivate_prompt_version_endpoint(
             status_code=404, detail="version 不存在或已停用",
         )
     return {"version_id": version_id, "deactivated": True}
+
+
+class AutoTuneBody(BaseModel):
+    condition_type: str
+    language: str = Field(default="zh", max_length=8)
+    project_id: str = ""
+    min_samples: int = Field(default=10, ge=1, le=1000)
+
+
+@router.post("/prompt-versions/auto-tune", response_model=AutoTuneResult)
+async def prompt_auto_tune_endpoint(
+    body: AutoTuneBody,
+    user=Depends(RequireRole(ROLE_SME)),
+) -> AutoTuneResult:
+    """M16 #2 · LLM 自学习自动 promote / rollback。
+
+    流程：
+    1. 先调 auto_rollback_alerting_prompt（active 跌破阈值则 rollback）
+    2. 再调 auto_promote_best_prompt（候选高于当前则 promote）
+    3. 取最终结果（rollback 优先；都不动则返回最后一个 noop）
+    """
+    if body.condition_type not in _VALID_CONDITIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"非法 condition_type；合法：{sorted(_VALID_CONDITIONS)}",
+        )
+    from api.routers.ontology import _proposal_store
+    proposals = list(_proposal_store.values())
+    if body.project_id:
+        proposals = [p for p in proposals if p.project_id == body.project_id]
+
+    rollback_result = auto_rollback_alerting_prompt(
+        proposals,
+        condition_type=body.condition_type,    # type: ignore[arg-type]
+        language=body.language,
+        min_samples=body.min_samples,
+    )
+    if rollback_result.action == "rollback":
+        log.warning("prompt_auto_rollback_via_api",
+                    user=getattr(user, "user_id", "?"),
+                    result=rollback_result.model_dump(),
+                    project_id=body.project_id)
+        return rollback_result
+
+    promote_result = auto_promote_best_prompt(
+        proposals,
+        condition_type=body.condition_type,    # type: ignore[arg-type]
+        language=body.language,
+        min_samples=body.min_samples,
+    )
+    log.info("prompt_auto_tune_via_api",
+             user=getattr(user, "user_id", "?"),
+             result=promote_result.model_dump(),
+             project_id=body.project_id)
+    return promote_result
 
 
 @router.get("/prompt-versions/ab", response_model=list[PromptABScore])

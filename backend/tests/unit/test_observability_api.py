@@ -622,6 +622,93 @@ class TestEvalAllEndpoint:
             ontology._proposal_store.pop("t_a", None)
             reset_prompt_versions_for_test()
 
+    def test_prompt_versions_auto_tune_endpoint(self, client) -> None:
+        from packages.observability import (
+            create_prompt_version, reset_prompt_versions_for_test,
+        )
+        from api.routers import ontology
+        from packages.common.types import (
+            OntologyEntityType, OntologyEvolutionProposal,
+        )
+        from datetime import datetime
+
+        reset_prompt_versions_for_test()
+        v_old = create_prompt_version(condition_type="new_entity_type")
+        v_old.activated_at = datetime(2026, 3, 1)
+        v_old.deactivated_at = datetime(2026, 4, 1)
+        v_new = create_prompt_version(condition_type="new_entity_type")
+        v_new.activated_at = datetime(2026, 4, 1)
+
+        # 当前 v_new active 但 approve_rate=0.1 跌破阈值；v_old 高分
+        for i in range(9):
+            ontology._proposal_store[f"old_a_{i}"] = OntologyEvolutionProposal(
+                proposal_id=f"old_a_{i}", project_id="p1",
+                proposed_entity_type=OntologyEntityType(
+                    type_id="x", type_name="X",
+                ),
+                status="approved",
+                created_at=datetime(2026, 3, 15),
+            )
+        ontology._proposal_store["old_r"] = OntologyEvolutionProposal(
+            proposal_id="old_r", project_id="p1",
+            proposed_entity_type=OntologyEntityType(
+                type_id="x", type_name="X",
+            ),
+            status="rejected",
+            created_at=datetime(2026, 3, 15),
+        )
+        for i in range(9):
+            ontology._proposal_store[f"new_r_{i}"] = OntologyEvolutionProposal(
+                proposal_id=f"new_r_{i}", project_id="p1",
+                proposed_entity_type=OntologyEntityType(
+                    type_id="x", type_name="X",
+                ),
+                status="rejected",
+                created_at=datetime(2026, 4, 10),
+            )
+        ontology._proposal_store["new_a"] = OntologyEvolutionProposal(
+            proposal_id="new_a", project_id="p1",
+            proposed_entity_type=OntologyEntityType(
+                type_id="x", type_name="X",
+            ),
+            status="approved",
+            created_at=datetime(2026, 4, 10),
+        )
+
+        try:
+            r = client.post(
+                "/api/v1/observability/prompt-versions/auto-tune",
+                json={"condition_type": "new_entity_type",
+                      "language": "zh", "project_id": "p1",
+                      "min_samples": 5},
+                headers={"X-Test-Roles": "SME"},
+            )
+            assert r.status_code == 200
+            body = r.json()
+            assert body["action"] == "rollback"
+            assert body["new_active_id"] == v_old.version_id
+        finally:
+            for k in list(ontology._proposal_store):
+                if (k.startswith("old_") or k.startswith("new_")):
+                    ontology._proposal_store.pop(k, None)
+            reset_prompt_versions_for_test()
+
+    def test_prompt_versions_auto_tune_invalid_condition(self, client) -> None:
+        r = client.post(
+            "/api/v1/observability/prompt-versions/auto-tune",
+            json={"condition_type": "bogus"},
+            headers={"X-Test-Roles": "SME"},
+        )
+        assert r.status_code == 400
+
+    def test_prompt_versions_auto_tune_non_sme(self, client) -> None:
+        r = client.post(
+            "/api/v1/observability/prompt-versions/auto-tune",
+            json={"condition_type": "new_entity_type"},
+            headers={"X-Test-Roles": "READER"},
+        )
+        assert r.status_code == 403
+
     def test_prompt_versions_deactivate(self, client) -> None:
         from packages.observability import (
             create_prompt_version,

@@ -48,8 +48,11 @@ from packages.observability.pg_prompt_versions import (
     shutdown_pg_prompt_versions,
 )
 from packages.observability.prompt_versions import (
+    AutoTuneResult,
     PromptABScore,
     PromptVersion,
+    auto_promote_best_prompt,
+    auto_rollback_alerting_prompt,
     compute_prompt_ab_score,
     create_prompt_version,
     deactivate_prompt_version,
@@ -99,6 +102,7 @@ from packages.observability.query_log import (
 )
 
 __all__ = [
+    "AutoTuneResult",
     "ConditionHealth",
     "ConditionType",
     "DecisionEvent",
@@ -114,6 +118,8 @@ __all__ = [
     "add_ground_truth",
     "analyze_condition_health",
     "auto_construct_ground_truth_candidates",
+    "auto_promote_best_prompt",
+    "auto_rollback_alerting_prompt",
     "build_migration_ddl",
     "build_partition_ddl",
     "classify_condition",

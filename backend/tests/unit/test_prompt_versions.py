@@ -12,6 +12,8 @@ from packages.common.types import (
     OntologyRelationType,
 )
 from packages.observability import (
+    auto_promote_best_prompt,
+    auto_rollback_alerting_prompt,
     compute_prompt_ab_score,
     create_prompt_version,
     deactivate_prompt_version,
@@ -381,3 +383,218 @@ class TestMultiLanguage:
         assert all(v.language == "en" for v in en_only)
         assert len(zh_only) == 1
         assert len(en_only) == 1
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M16 #2 · auto_promote / auto_rollback
+# ════════════════════════════════════════════════════════════════════════
+
+
+def _entity_proposal_at(
+    *, status: str, created_at: datetime,
+    condition: str = "new_entity_type",
+) -> OntologyEvolutionProposal:
+    """便捷构造：指定 created_at 的 entity proposal。"""
+    if condition == "new_entity_type":
+        return OntologyEvolutionProposal(
+            proposal_id=f"p_{status}_{created_at.isoformat()}",
+            project_id="p1",
+            proposed_entity_type=OntologyEntityType(type_id="x", type_name="X"),
+            status=status,
+            created_at=created_at,
+        )
+    raise ValueError(condition)
+
+
+class TestAutoPromote:
+    def test_no_candidate_returns_noop(self) -> None:
+        # 仅 1 个 active，无候选
+        v = create_prompt_version(condition_type="new_entity_type")
+        v.activated_at = datetime(2026, 4, 1)
+
+        # 全部 proposal 落 v 区间，无其他候选版本
+        proposals = [
+            _entity_proposal_at(status="approved",
+                                created_at=datetime(2026, 4, 5))
+            for _ in range(15)
+        ]
+        result = auto_promote_best_prompt(
+            proposals, condition_type="new_entity_type", min_samples=10,
+        )
+        assert result.action == "noop"
+        assert result.previous_active_id == v.version_id
+
+    def test_promotes_higher_approval_candidate(self) -> None:
+        # v1 active 但 approve_rate=0.4
+        v1 = create_prompt_version(condition_type="new_entity_type")
+        v1.activated_at = datetime(2026, 4, 1)
+        v1.deactivated_at = datetime(2026, 4, 10)
+        # v2 接 active 但 approve_rate=0.9（更高）
+        v2 = create_prompt_version(condition_type="new_entity_type")
+        v2.activated_at = datetime(2026, 4, 10)
+
+        # v1 区间：4 approved + 6 rejected (0.4)
+        v1_props = (
+            [_entity_proposal_at(status="approved",
+                                  created_at=datetime(2026, 4, 5))
+             for _ in range(4)]
+            + [_entity_proposal_at(status="rejected",
+                                    created_at=datetime(2026, 4, 5))
+               for _ in range(6)]
+        )
+        # v2 区间：9 approved + 1 rejected (0.9)
+        v2_props = (
+            [_entity_proposal_at(status="approved",
+                                  created_at=datetime(2026, 4, 12))
+             for _ in range(9)]
+            + [_entity_proposal_at(status="rejected",
+                                    created_at=datetime(2026, 4, 12))]
+        )
+        # 等等 — v2 是当前 active，所以 v1 是候选；规则要求"最高 + 高于当前"
+        # 但当前 active=v2 且 v2 已是最高 → 应 noop
+        result = auto_promote_best_prompt(
+            v1_props + v2_props,
+            condition_type="new_entity_type", min_samples=5,
+        )
+        # v1 = 0.4 < v2 = 0.9 → noop
+        assert result.action == "noop"
+
+    def test_promotes_when_better_history_overtakes(self) -> None:
+        # v1 (active) 但 approve_rate=0.3
+        v1 = create_prompt_version(condition_type="new_entity_type")
+        v1.activated_at = datetime(2026, 4, 1)
+        # v2 (deactivated) approve_rate=0.85
+        v2 = create_prompt_version(condition_type="new_entity_type")
+        # 创建后 v1 自动 deactivate；纠正状态：v1 才是 active
+        # 把 v2 标停用，v1 标 active
+        v2.deactivated_at = datetime(2026, 4, 5)
+        v1.deactivated_at = None
+
+        v1_props = (
+            [_entity_proposal_at(status="approved",
+                                  created_at=datetime(2026, 4, 6))
+             for _ in range(3)]
+            + [_entity_proposal_at(status="rejected",
+                                    created_at=datetime(2026, 4, 6))
+               for _ in range(7)]
+        )
+        # v2 区间 [v2.activated_at, v2.deactivated_at) — 它的 activated_at 是
+        # create 时的 now，可能晚于 v1 的 activated_at；这里简化：直接给 v2 较早区间
+        v2.activated_at = datetime(2026, 3, 20)
+        # v2 区间：8 approved + 1 rejected = 0.89
+        v2_props = (
+            [_entity_proposal_at(status="approved",
+                                  created_at=datetime(2026, 4, 1))
+             for _ in range(8)]
+            + [_entity_proposal_at(status="rejected",
+                                    created_at=datetime(2026, 4, 1))]
+        )
+        result = auto_promote_best_prompt(
+            v1_props + v2_props,
+            condition_type="new_entity_type", min_samples=5,
+        )
+        assert result.action == "promote"
+        assert result.previous_active_id == v1.version_id
+        assert result.new_active_id == v2.version_id
+
+    def test_promote_skips_below_min_samples(self) -> None:
+        # v1 (active) v2 (history)；都不到 min_samples → noop
+        v1 = create_prompt_version(condition_type="new_entity_type")
+        v1.activated_at = datetime(2026, 4, 1)
+        v2 = create_prompt_version(condition_type="new_entity_type")
+        v2.activated_at = datetime(2026, 3, 1)
+        v2.deactivated_at = datetime(2026, 4, 1)
+        # 第二个 create 已 deactivate 第一个；纠正：让 v1 重新 active
+        v1.deactivated_at = None
+
+        # v1 区间 4 条；v2 区间 3 条（都 < 10）
+        proposals = (
+            [_entity_proposal_at(status="approved",
+                                  created_at=datetime(2026, 4, 5))
+             for _ in range(4)]
+            + [_entity_proposal_at(status="approved",
+                                    created_at=datetime(2026, 3, 15))
+               for _ in range(3)]
+        )
+        result = auto_promote_best_prompt(
+            proposals, condition_type="new_entity_type", min_samples=10,
+        )
+        assert result.action == "noop"
+        assert "无足够样本" in result.reason
+
+
+class TestAutoRollback:
+    def test_no_active_returns_noop(self) -> None:
+        result = auto_rollback_alerting_prompt(
+            [], condition_type="new_entity_type",
+        )
+        assert result.action == "noop"
+        assert "无当前 active" in result.reason
+
+    def test_active_above_threshold_no_rollback(self) -> None:
+        v = create_prompt_version(condition_type="new_entity_type")
+        v.activated_at = datetime(2026, 4, 1)
+        # 10 条 0.7 approve（高于 0.3 阈值）
+        proposals = (
+            [_entity_proposal_at(status="approved",
+                                  created_at=datetime(2026, 4, 5))
+             for _ in range(7)]
+            + [_entity_proposal_at(status="rejected",
+                                    created_at=datetime(2026, 4, 5))
+               for _ in range(3)]
+        )
+        result = auto_rollback_alerting_prompt(
+            proposals, condition_type="new_entity_type", min_samples=5,
+        )
+        assert result.action == "noop"
+
+    def test_active_below_threshold_rollback_to_history(self) -> None:
+        # 历史 v1 高分；当前 v2 跌破
+        v1 = create_prompt_version(condition_type="new_entity_type")
+        v1.activated_at = datetime(2026, 3, 1)
+        v1.deactivated_at = datetime(2026, 4, 1)
+        v2 = create_prompt_version(condition_type="new_entity_type")
+        v2.activated_at = datetime(2026, 4, 1)
+
+        # v1 区间 10 条 0.9 approve
+        v1_props = (
+            [_entity_proposal_at(status="approved",
+                                  created_at=datetime(2026, 3, 15))
+             for _ in range(9)]
+            + [_entity_proposal_at(status="rejected",
+                                    created_at=datetime(2026, 3, 15))]
+        )
+        # v2 区间 10 条 0.1 approve（跌破 0.3）
+        v2_props = (
+            [_entity_proposal_at(status="rejected",
+                                  created_at=datetime(2026, 4, 5))
+             for _ in range(9)]
+            + [_entity_proposal_at(status="approved",
+                                    created_at=datetime(2026, 4, 5))]
+        )
+        result = auto_rollback_alerting_prompt(
+            v1_props + v2_props,
+            condition_type="new_entity_type", min_samples=5,
+        )
+        assert result.action == "rollback"
+        assert result.previous_active_id == v2.version_id
+        assert result.new_active_id == v1.version_id
+        # 状态实际切换
+        assert get_version(v2.version_id).deactivated_at is not None
+        assert get_version(v1.version_id).deactivated_at is None
+
+    def test_no_history_to_rollback_to_returns_noop(self) -> None:
+        v = create_prompt_version(condition_type="new_entity_type")
+        v.activated_at = datetime(2026, 4, 1)
+        proposals = (
+            [_entity_proposal_at(status="rejected",
+                                  created_at=datetime(2026, 4, 5))
+             for _ in range(9)]
+            + [_entity_proposal_at(status="approved",
+                                    created_at=datetime(2026, 4, 5))]
+        )
+        result = auto_rollback_alerting_prompt(
+            proposals, condition_type="new_entity_type", min_samples=5,
+        )
+        assert result.action == "noop"
+        assert "无更优历史" in result.reason

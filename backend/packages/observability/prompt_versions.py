@@ -262,6 +262,218 @@ def _proposal_in_window(
     return True
 
 
+# ════════════════════════════════════════════════════════════════════════
+#  M16 #2 · 自动 promote / rollback
+# ════════════════════════════════════════════════════════════════════════
+
+
+_AUTO_TUNE_MIN_SAMPLES = 10           # 候选版本至少有 10 个 decided proposals 才参与
+_AUTO_TUNE_DELTA_THRESHOLD = 0.05     # 候选 approve_rate 高于当前 ≥ 5pp 才 promote
+_AUTO_ROLLBACK_DROP_THRESHOLD = 0.30  # 当前 active approve_rate < 30% 才考虑 rollback
+
+
+class AutoTuneResult(BaseModel):
+    condition_type: ConditionType
+    language: str
+    action: Literal["promote", "rollback", "noop"] = "noop"
+    reason: str = ""
+    previous_active_id: str = ""    # noop 时 = 原 active；promote/rollback 时 = 旧版本
+    new_active_id: str = ""          # noop 时为空
+
+
+def auto_promote_best_prompt(
+    proposals: list[OntologyEvolutionProposal],
+    *,
+    condition_type: ConditionType,
+    language: str = "zh",
+    min_samples: int = _AUTO_TUNE_MIN_SAMPLES,
+    delta_threshold: float = _AUTO_TUNE_DELTA_THRESHOLD,
+) -> AutoTuneResult:
+    """选最高 approve_rate 版本激活（M16 #2）。
+
+    规则：
+    - 候选必须 sample_size ≥ min_samples（防小样本噪音）
+    - 候选 approve_rate 必须比当前 active 高 ≥ delta_threshold
+    - 候选不能是当前 active
+    - 多候选时取最高（同分则取最近的）
+    """
+    scores = compute_prompt_ab_score(
+        proposals, condition_type=condition_type,
+    )
+    # 仅取该 language 的版本
+    scores = [s for s in scores if get_version(s.version_id)
+              and get_version(s.version_id).language == language]
+
+    current_active = get_active_version(condition_type, language=language)
+    current_id = current_active.version_id if current_active else ""
+
+    # 当前 active 的分数
+    current_score = next(
+        (s for s in scores if s.version_id == current_id), None,
+    )
+    current_rate = (
+        current_score.approve_rate if current_score else 0.0
+    )
+
+    # 候选：非 active + 样本充足
+    candidates = [
+        s for s in scores
+        if s.version_id != current_id
+        and s.sample_size >= min_samples
+    ]
+    if not candidates:
+        return AutoTuneResult(
+            condition_type=condition_type, language=language,
+            action="noop", reason="无足够样本的候选版本",
+            previous_active_id=current_id,
+        )
+
+    best = max(candidates, key=lambda s: (s.approve_rate, s.activated_at))
+    if best.approve_rate < current_rate + delta_threshold:
+        return AutoTuneResult(
+            condition_type=condition_type, language=language,
+            action="noop",
+            reason=(
+                f"最优候选 {best.approve_rate:.0%} 未超过当前 "
+                f"{current_rate:.0%} + {delta_threshold:.0%} 阈值"
+            ),
+            previous_active_id=current_id,
+        )
+
+    # 激活 best：deactivate 当前 + 把 best 的 deactivated_at 清空（如已停用）
+    now = datetime.now(tz=None)
+    if current_active is not None:
+        current_active.deactivated_at = now
+        if _upsert_sink is not None:
+            _fire_and_forget(lambda: _upsert_sink(current_active))
+    best_version = get_version(best.version_id)
+    if best_version is not None and best_version.deactivated_at is not None:
+        best_version.deactivated_at = None
+        best_version.activated_at = now
+        if _upsert_sink is not None:
+            _fire_and_forget(lambda: _upsert_sink(best_version))
+
+    log.info(
+        "prompt_auto_promoted",
+        condition_type=condition_type, language=language,
+        old_id=current_id, new_id=best.version_id,
+        old_rate=current_rate, new_rate=best.approve_rate,
+    )
+    return AutoTuneResult(
+        condition_type=condition_type, language=language,
+        action="promote",
+        reason=(
+            f"候选 approve_rate {best.approve_rate:.0%} > "
+            f"当前 {current_rate:.0%} + {delta_threshold:.0%}"
+        ),
+        previous_active_id=current_id,
+        new_active_id=best.version_id,
+    )
+
+
+def auto_rollback_alerting_prompt(
+    proposals: list[OntologyEvolutionProposal],
+    *,
+    condition_type: ConditionType,
+    language: str = "zh",
+    rollback_threshold: float = _AUTO_ROLLBACK_DROP_THRESHOLD,
+    min_samples: int = _AUTO_TUNE_MIN_SAMPLES,
+) -> AutoTuneResult:
+    """当前 active approve_rate 跌破阈值 → 切回上一个 approve_rate 更高的历史版本。
+
+    规则：
+    - 当前 active 必须有 ≥ min_samples 决策才判断
+    - 当前 approve_rate < rollback_threshold → 寻找历史版本
+    - 选历史中 approve_rate 最高且高于当前的版本
+    - 都不达标 → noop
+    """
+    current_active = get_active_version(condition_type, language=language)
+    if current_active is None:
+        return AutoTuneResult(
+            condition_type=condition_type, language=language,
+            action="noop", reason="无当前 active 版本",
+        )
+
+    scores = compute_prompt_ab_score(
+        proposals, condition_type=condition_type,
+    )
+    scores = [s for s in scores if get_version(s.version_id)
+              and get_version(s.version_id).language == language]
+
+    current_score = next(
+        (s for s in scores if s.version_id == current_active.version_id), None,
+    )
+    if current_score is None or current_score.sample_size < min_samples:
+        return AutoTuneResult(
+            condition_type=condition_type, language=language,
+            action="noop", reason="当前 active 样本不足",
+            previous_active_id=current_active.version_id,
+        )
+
+    if current_score.approve_rate >= rollback_threshold:
+        return AutoTuneResult(
+            condition_type=condition_type, language=language,
+            action="noop",
+            reason=(
+                f"当前 active approve_rate {current_score.approve_rate:.0%} "
+                f"≥ {rollback_threshold:.0%} 阈值，无需 rollback"
+            ),
+            previous_active_id=current_active.version_id,
+        )
+
+    # 候选历史版本（已 deactivated 但 approve_rate 高）
+    history = [
+        s for s in scores
+        if s.version_id != current_active.version_id
+        and s.approve_rate > current_score.approve_rate
+        and s.sample_size >= min_samples
+    ]
+    if not history:
+        return AutoTuneResult(
+            condition_type=condition_type, language=language,
+            action="noop",
+            reason=(
+                f"当前 active 跌破阈值（{current_score.approve_rate:.0%}）"
+                f"但无更优历史版本可回滚"
+            ),
+            previous_active_id=current_active.version_id,
+        )
+
+    best_history = max(
+        history, key=lambda s: (s.approve_rate, s.activated_at),
+    )
+
+    now = datetime.now(tz=None)
+    current_active.deactivated_at = now
+    if _upsert_sink is not None:
+        _fire_and_forget(lambda: _upsert_sink(current_active))
+    target = get_version(best_history.version_id)
+    if target is not None:
+        target.deactivated_at = None
+        target.activated_at = now
+        if _upsert_sink is not None:
+            _fire_and_forget(lambda: _upsert_sink(target))
+
+    log.warning(
+        "prompt_auto_rollback",
+        condition_type=condition_type, language=language,
+        old_id=current_active.version_id, new_id=best_history.version_id,
+        old_rate=current_score.approve_rate,
+        new_rate=best_history.approve_rate,
+    )
+    return AutoTuneResult(
+        condition_type=condition_type, language=language,
+        action="rollback",
+        reason=(
+            f"当前 approve_rate {current_score.approve_rate:.0%} < "
+            f"{rollback_threshold:.0%}；切回历史版本 "
+            f"{best_history.approve_rate:.0%}"
+        ),
+        previous_active_id=current_active.version_id,
+        new_active_id=best_history.version_id,
+    )
+
+
 def compute_prompt_ab_score(
     proposals: list[OntologyEvolutionProposal],
     *,
