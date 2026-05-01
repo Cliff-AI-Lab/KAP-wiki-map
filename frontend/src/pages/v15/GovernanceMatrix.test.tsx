@@ -19,6 +19,29 @@ vi.mock('@/hooks/useActiveProject', () => ({
   }),
 }));
 
+// M17 #1 · mock LocaleContext + LanguageSwitcher 让 i18n 化的页面可测
+vi.mock('@/contexts/LocaleContext', () => ({
+  useLocale: () => ({
+    locale: 'zh', setLocale: vi.fn(),
+    t: (key: string, vars?: Record<string, string | number>) => {
+      const map: Record<string, string> = {
+        'matrix.title': '矩阵审核台',
+        'matrix.subtitle': '4 角色 × 6 工位',
+        'matrix.legendR': 'R = 主审',
+        'matrix.legendC': 'C = 协审',
+        'matrix.legendI': 'I = 知会',
+        'matrix.totalPending': `合计 ${vars?.n ?? 0} 待办`,
+        'observ.refresh': '刷新',
+      };
+      return map[key] || key;
+    },
+  }),
+}));
+
+vi.mock('@/components/v15/LanguageSwitcher', () => ({
+  default: () => null,
+}));
+
 vi.mock('@/services/governanceApi', () => ({
   fetchGovernanceMatrix: vi.fn(),
   fetchGovernanceQueue: vi.fn(),

@@ -12,6 +12,8 @@ import {
 import {
   fetchDashboardMulti, type DashboardMulti, type DashboardMultiRow,
 } from '@/services/observabilityApi';
+import { useLocale } from '@/contexts/LocaleContext';
+import LanguageSwitcher from '@/components/v15/LanguageSwitcher';
 
 
 function pct(n: number): string {
@@ -78,6 +80,7 @@ function ProjectRow({ row }: { row: DashboardMultiRow }) {
 
 
 export default function ObservabilityCompare() {
+  const { t } = useLocale();
   const [data, setData] = useState<DashboardMulti | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,21 +108,24 @@ export default function ObservabilityCompare() {
         <div>
           <h1 className="text-2xl font-semibold text-th-text-primary flex items-center gap-2">
             <Layers size={20} className="text-accent" />
-            多 Project 横评仪表盘
+            {t('compare.title')}
           </h1>
           <p className="text-sm text-th-text-muted mt-1">
-            一次拉所有 project 的 4 维度摘要做横向对比（决策书 §5.3）
+            {t('compare.subtitle')}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-btn border border-th-border px-3 py-1.5 text-sm text-th-text-secondary hover:text-accent hover:border-accent disabled:opacity-40 transition"
-        >
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          刷新
-        </button>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-btn border border-th-border px-3 py-1.5 text-sm text-th-text-secondary hover:text-accent hover:border-accent disabled:opacity-40 transition"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            {t('observ.refresh')}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -136,7 +142,7 @@ export default function ObservabilityCompare() {
 
       {data && data.rows.length === 0 && !loading && (
         <div className="text-xs text-th-text-muted py-8 text-center border border-dashed border-th-border rounded-card">
-          尚无任何 project 有运营数据
+          {t('compare.empty')}
         </div>
       )}
 
@@ -145,14 +151,14 @@ export default function ObservabilityCompare() {
           <table className="min-w-full text-left">
             <thead className="text-xs font-mono text-th-text-muted">
               <tr className="border-b border-th-border">
-                <th className="px-3 py-2">project_id</th>
-                <th className="px-3 py-2">决策数 (批准率)</th>
-                <th className="px-3 py-2">查询数 (命中率)</th>
-                <th className="px-3 py-2">有用率 (反馈数)</th>
-                <th className="px-3 py-2">avg/p95 ms</th>
-                <th className="px-3 py-2">观察期 active/total</th>
-                <th className="px-3 py-2">GT 集</th>
-                <th className="px-3 py-2">最近评估 R/P/F1</th>
+                <th className="px-3 py-2">{t('compare.col.project')}</th>
+                <th className="px-3 py-2">{t('compare.col.decisions')}</th>
+                <th className="px-3 py-2">{t('compare.col.queries')}</th>
+                <th className="px-3 py-2">{t('compare.col.useful')}</th>
+                <th className="px-3 py-2">{t('compare.col.latency')}</th>
+                <th className="px-3 py-2">{t('compare.col.observations')}</th>
+                <th className="px-3 py-2">{t('compare.col.gt')}</th>
+                <th className="px-3 py-2">{t('compare.col.recall')}</th>
               </tr>
             </thead>
             <tbody>

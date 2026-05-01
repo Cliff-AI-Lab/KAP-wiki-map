@@ -17,6 +17,30 @@ vi.mock('@/hooks/useCurrentUser', () => ({
   useCurrentUser: () => ({ userId: 'admin', setUser: vi.fn() }),
 }));
 
+vi.mock('@/contexts/LocaleContext', () => ({
+  useLocale: () => ({
+    locale: 'zh', setLocale: vi.fn(),
+    t: (key: string, vars?: Record<string, string | number>) => {
+      const map: Record<string, string> = {
+        'myclaimed.title': '我认领的工单',
+        'myclaimed.subtitle': '批量决策',
+        'myclaimed.empty': `未找到 ${vars?.user ?? ''} 认领的工单`,
+        'myclaimed.bulkApprove': '批量通过',
+        'myclaimed.bulkReject': '批量打回',
+        'myclaimed.selectAll': '全选',
+        'myclaimed.unselectAll': '取消全选',
+        'myclaimed.selected': `已选 ${vars?.selected ?? 0} / ${vars?.total ?? 0}`,
+        'observ.refresh': '刷新',
+      };
+      return map[key] || key;
+    },
+  }),
+}));
+
+vi.mock('@/components/v15/LanguageSwitcher', () => ({
+  default: () => null,
+}));
+
 vi.mock('@/services/governanceApi', () => ({
   fetchGovernanceQueue: vi.fn(),
   decideGovernanceItem: vi.fn(),

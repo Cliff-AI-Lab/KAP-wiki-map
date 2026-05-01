@@ -19,7 +19,9 @@ import {
 } from 'lucide-react';
 
 import { useActiveProject } from '@/hooks/useActiveProject';
+import { useLocale } from '@/contexts/LocaleContext';
 import SLAOverview from '@/components/v15/SLAOverview';
+import LanguageSwitcher from '@/components/v15/LanguageSwitcher';
 import {
   claimGovernanceItem,
   decideGovernanceItem,
@@ -366,6 +368,7 @@ function SLATag({ due }: { due: string }) {
 
 export default function GovernanceMatrix() {
   const { projectId, loading: projectsLoading } = useActiveProject();
+  const { t } = useLocale();
   const [matrix, setMatrix] = useState<MatrixResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -421,12 +424,13 @@ export default function GovernanceMatrix() {
           <ArrowLeft size={12} /> 治理首页
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight text-th-text-primary">
-          矩阵审核台
+          {t('matrix.title')}
         </h1>
         <span className="text-xs text-th-text-muted font-mono">
-          4 角色 × 6 工位 · 决策书 §5.2 D6
+          {t('matrix.subtitle')}
         </span>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
+          <LanguageSwitcher />
           <button
             type="button"
             onClick={load}
@@ -434,7 +438,7 @@ export default function GovernanceMatrix() {
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-btn border border-th-border text-xs text-th-text-secondary hover:text-th-text-primary hover:bg-hover disabled:opacity-50 transition"
           >
             {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            刷新
+            {t('observ.refresh')}
           </button>
         </div>
       </div>
@@ -501,12 +505,12 @@ export default function GovernanceMatrix() {
         </div>
 
         <div className="mt-4 flex items-center gap-4 text-[11px] text-th-text-muted">
-          <span>R = 主审</span>
-          <span>C = 协审</span>
-          <span>I = 知会（不出工单）</span>
+          <span>{t('matrix.legendR')}</span>
+          <span>{t('matrix.legendC')}</span>
+          <span>{t('matrix.legendI')}</span>
           <span className="ml-auto font-mono">
-            合计 {matrix?.total ?? 0} 待办
-            {matrix?.uncategorized ? ` · ${matrix.uncategorized} 未分类` : ''}
+            {t('matrix.totalPending', { n: matrix?.total ?? 0 })}
+            {matrix?.uncategorized ? ` · ${matrix.uncategorized}` : ''}
           </span>
         </div>
       </div>

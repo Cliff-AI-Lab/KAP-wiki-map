@@ -22,6 +22,8 @@ import {
   type GroundTruthQuery,
 } from '@/services/observabilityApi';
 import { useActiveProject } from '@/hooks/useActiveProject';
+import { useLocale } from '@/contexts/LocaleContext';
+import LanguageSwitcher from '@/components/v15/LanguageSwitcher';
 
 interface DraftCandidate extends GroundTruthCandidate {
   draftDocIds: string;   // 文本框内容（逗号分隔），允许 SME 修改
@@ -147,6 +149,7 @@ function ExistingGtRow({
 
 export default function GroundTruthReview() {
   const { projectId: activeProjectId } = useActiveProject();
+  const { t } = useLocale();
   const projectId = activeProjectId || undefined;
 
   const [drafts, setDrafts] = useState<DraftCandidate[]>([]);
@@ -239,10 +242,10 @@ export default function GroundTruthReview() {
         <div>
           <h1 className="text-2xl font-semibold text-th-text-primary flex items-center gap-2">
             <Sparkles size={20} className="text-accent" />
-            Ground Truth 候选审批
+            {t('gtreview.title')}
           </h1>
           <p className="text-sm text-th-text-muted mt-1">
-            决策书 §5.3 · 从高 useful_rate 查询反向构造 ground truth
+            {t('gtreview.subtitle')}
             {projectId && (
               <span className="ml-2 px-2 py-0.5 rounded-full bg-accent/10 text-accent text-xs font-mono">
                 {projectId}
@@ -250,15 +253,18 @@ export default function GroundTruthReview() {
             )}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={loadAll}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-btn border border-th-border px-3 py-1.5 text-sm text-th-text-secondary hover:text-accent hover:border-accent disabled:opacity-40 transition"
-        >
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          刷新
-        </button>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          <button
+            type="button"
+            onClick={loadAll}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-btn border border-th-border px-3 py-1.5 text-sm text-th-text-secondary hover:text-accent hover:border-accent disabled:opacity-40 transition"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            {t('observ.refresh')}
+          </button>
+        </div>
       </div>
 
       {/* 阈值控件 */}
@@ -303,16 +309,16 @@ export default function GroundTruthReview() {
         {/* 左 2/3：候选列表 */}
         <div className="lg:col-span-2 space-y-3">
           <h2 className="text-sm font-mono text-th-text-muted flex items-center gap-2">
-            <Plus size={14} /> 待审批候选
+            <Plus size={14} /> {t('gtreview.candidates')}
           </h2>
           {loading && drafts.length === 0 && (
             <div className="text-xs text-th-text-muted py-6 text-center">
-              <Loader2 size={14} className="inline animate-spin mr-2" /> 加载中...
+              <Loader2 size={14} className="inline animate-spin mr-2" /> {t('observ.loading')}
             </div>
           )}
           {!loading && visibleDrafts.length === 0 && (
             <div className="text-xs text-th-text-muted py-6 text-center border border-dashed border-th-border rounded-card">
-              暂无候选（条件：useful_rate ≥ {minUseful}, samples ≥ {minSamples}）
+              {t('gtreview.empty')}（useful_rate ≥ {minUseful}, samples ≥ {minSamples}）
             </div>
           )}
           {visibleDrafts.map((draft, vIdx) => {

@@ -9,6 +9,33 @@ vi.mock('@/services/observabilityApi', () => ({
   fetchDashboardMulti: vi.fn(),
 }));
 
+vi.mock('@/contexts/LocaleContext', () => ({
+  useLocale: () => ({
+    locale: 'zh', setLocale: vi.fn(),
+    t: (key: string) => {
+      const map: Record<string, string> = {
+        'compare.title': '多 Project 横评仪表盘',
+        'compare.subtitle': '4 维度对比',
+        'compare.empty': '尚无任何 project',
+        'compare.col.project': 'project_id',
+        'compare.col.decisions': '决策数',
+        'compare.col.queries': '查询数',
+        'compare.col.useful': '有用率',
+        'compare.col.latency': 'avg/p95',
+        'compare.col.observations': '观察期',
+        'compare.col.gt': 'GT',
+        'compare.col.recall': 'R/P/F1',
+        'observ.refresh': '刷新',
+      };
+      return map[key] || key;
+    },
+  }),
+}));
+
+vi.mock('@/components/v15/LanguageSwitcher', () => ({
+  default: () => null,
+}));
+
 import { fetchDashboardMulti } from '@/services/observabilityApi';
 
 

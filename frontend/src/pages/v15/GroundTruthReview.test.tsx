@@ -19,6 +19,30 @@ vi.mock('@/services/observabilityApi', () => ({
   deleteGroundTruth: vi.fn(),
 }));
 
+vi.mock('@/contexts/LocaleContext', () => ({
+  useLocale: () => ({
+    locale: 'zh', setLocale: vi.fn(),
+    t: (key: string) => {
+      const map: Record<string, string> = {
+        'gtreview.title': 'Ground Truth 候选审批',
+        'gtreview.subtitle': '从高 useful_rate 反向构造',
+        'gtreview.candidates': '待审批候选',
+        'gtreview.existing': '已入库',
+        'gtreview.confirm': '确认入库',
+        'gtreview.skip': '跳过',
+        'gtreview.empty': '暂无候选',
+        'observ.refresh': '刷新',
+        'observ.loading': '加载中...',
+      };
+      return map[key] || key;
+    },
+  }),
+}));
+
+vi.mock('@/components/v15/LanguageSwitcher', () => ({
+  default: () => null,
+}));
+
 import {
   fetchGroundTruthCandidates,
   fetchGroundTruthList,

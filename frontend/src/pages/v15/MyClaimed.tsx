@@ -18,6 +18,8 @@ import {
 
 import { useActiveProject } from '@/hooks/useActiveProject';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useLocale } from '@/contexts/LocaleContext';
+import LanguageSwitcher from '@/components/v15/LanguageSwitcher';
 import {
   decideGovernanceItem,
   fetchGovernanceQueue,
@@ -27,6 +29,7 @@ import {
 export default function MyClaimed() {
   const { projectId, loading: projectsLoading } = useActiveProject();
   const { userId, setUser } = useCurrentUser();
+  const { t } = useLocale();
 
   const [items, setItems] = useState<GovernanceQueueItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -136,13 +139,14 @@ export default function MyClaimed() {
           <ArrowLeft size={12} /> 治理首页
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight text-th-text-primary">
-          我认领的工单
+          {t('myclaimed.title')}
         </h1>
         <span className="text-xs text-th-text-muted font-mono">
-          claimed_by · 批量决策
+          {t('myclaimed.subtitle')}
         </span>
 
         <div className="ml-auto flex items-center gap-3">
+          <LanguageSwitcher />
           <UserCircle size={14} className="text-th-text-muted" />
           <input
             type="text"
@@ -158,7 +162,7 @@ export default function MyClaimed() {
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-btn border border-th-border text-xs text-th-text-secondary hover:text-th-text-primary hover:bg-hover disabled:opacity-50 transition"
           >
             {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            刷新
+            {t('observ.refresh')}
           </button>
         </div>
       </div>
@@ -183,10 +187,10 @@ export default function MyClaimed() {
           disabled={items.length === 0}
         >
           {allSelected ? <CheckSquare size={12} /> : <Square size={12} />}
-          {allSelected ? '取消全选' : '全选'}
+          {allSelected ? t('myclaimed.unselectAll') : t('myclaimed.selectAll')}
         </button>
         <span className="text-xs text-th-text-muted">
-          已选 {selected.size} / {items.length}
+          {t('myclaimed.selected', { selected: selected.size, total: items.length })}
         </span>
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -196,7 +200,7 @@ export default function MyClaimed() {
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-btn border border-emerald-500/40 text-xs text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-40"
           >
             {busyAll ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
-            批量通过
+            {t('myclaimed.bulkApprove')}
           </button>
           <button
             type="button"
@@ -205,7 +209,7 @@ export default function MyClaimed() {
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-btn border border-rose-500/40 text-xs text-rose-700 hover:bg-rose-500/10 disabled:opacity-40"
           >
             {busyAll ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
-            批量打回
+            {t('myclaimed.bulkReject')}
           </button>
         </div>
       </div>
@@ -219,7 +223,7 @@ export default function MyClaimed() {
         ) : items.length === 0 ? (
           <div className="p-8 text-center text-sm text-th-text-muted">
             <Inbox className="inline mr-2" size={16} />
-            未找到 {userId} 认领的工单（{projectId}）
+            {t('myclaimed.empty', { user: userId, project: projectId })}
           </div>
         ) : (
           <ul className="divide-y divide-th-border">

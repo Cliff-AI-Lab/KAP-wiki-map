@@ -81,7 +81,40 @@ export type TranslationKey =
   | 'observ.card.conditionHealth'
   | 'observ.alert'
   | 'observ.empty'
-  | 'observ.loading';
+  | 'observ.loading'
+  // M17 #1 · 矩阵审核台 / 我认领的 / GT 审批 / 横评
+  | 'matrix.title'
+  | 'matrix.subtitle'
+  | 'matrix.legendR'
+  | 'matrix.legendC'
+  | 'matrix.legendI'
+  | 'matrix.totalPending'
+  | 'myclaimed.title'
+  | 'myclaimed.subtitle'
+  | 'myclaimed.empty'
+  | 'myclaimed.bulkApprove'
+  | 'myclaimed.bulkReject'
+  | 'myclaimed.selectAll'
+  | 'myclaimed.unselectAll'
+  | 'myclaimed.selected'
+  | 'gtreview.title'
+  | 'gtreview.subtitle'
+  | 'gtreview.candidates'
+  | 'gtreview.existing'
+  | 'gtreview.confirm'
+  | 'gtreview.skip'
+  | 'gtreview.empty'
+  | 'compare.title'
+  | 'compare.subtitle'
+  | 'compare.empty'
+  | 'compare.col.project'
+  | 'compare.col.decisions'
+  | 'compare.col.queries'
+  | 'compare.col.useful'
+  | 'compare.col.latency'
+  | 'compare.col.observations'
+  | 'compare.col.gt'
+  | 'compare.col.recall';
 
 type Dict = Record<TranslationKey, string>;
 
@@ -159,6 +192,39 @@ const zh: Dict = {
   'observ.alert': '告警',
   'observ.empty': '暂无数据',
   'observ.loading': '加载中...',
+  // M17 #1 · 矩阵 / 我认领 / GT / 横评 (zh)
+  'matrix.title': '矩阵审核台',
+  'matrix.subtitle': '4 角色 × 6 工位 · 决策书 §5.2 D6',
+  'matrix.legendR': 'R = 主审',
+  'matrix.legendC': 'C = 协审',
+  'matrix.legendI': 'I = 知会（不出工单）',
+  'matrix.totalPending': '合计 {n} 待办',
+  'myclaimed.title': '我认领的工单',
+  'myclaimed.subtitle': 'claimed_by · 批量决策',
+  'myclaimed.empty': '未找到 {user} 认领的工单（{project}）',
+  'myclaimed.bulkApprove': '批量通过',
+  'myclaimed.bulkReject': '批量打回',
+  'myclaimed.selectAll': '全选',
+  'myclaimed.unselectAll': '取消全选',
+  'myclaimed.selected': '已选 {selected} / {total}',
+  'gtreview.title': 'Ground Truth 候选审批',
+  'gtreview.subtitle': '决策书 §5.3 · 从高 useful_rate 查询反向构造 ground truth',
+  'gtreview.candidates': '待审批候选',
+  'gtreview.existing': '已入库',
+  'gtreview.confirm': '确认入库',
+  'gtreview.skip': '跳过',
+  'gtreview.empty': '暂无候选',
+  'compare.title': '多 Project 横评仪表盘',
+  'compare.subtitle': '一次拉所有 project 的 4 维度摘要做横向对比（决策书 §5.3）',
+  'compare.empty': '尚无任何 project 有运营数据',
+  'compare.col.project': 'project_id',
+  'compare.col.decisions': '决策数 (批准率)',
+  'compare.col.queries': '查询数 (命中率)',
+  'compare.col.useful': '有用率 (反馈数)',
+  'compare.col.latency': 'avg/p95 ms',
+  'compare.col.observations': '观察期 active/total',
+  'compare.col.gt': 'GT 集',
+  'compare.col.recall': '最近评估 R/P/F1',
 };
 
 const en: Dict = {
@@ -235,6 +301,39 @@ const en: Dict = {
   'observ.alert': 'Alert',
   'observ.empty': 'No data',
   'observ.loading': 'Loading...',
+  // M17 #1 · matrix / my-claimed / gt / compare (en)
+  'matrix.title': 'Governance Matrix',
+  'matrix.subtitle': '4 roles × 6 workstations · Decision book §5.2 D6',
+  'matrix.legendR': 'R = primary',
+  'matrix.legendC': 'C = consulted',
+  'matrix.legendI': 'I = informed (no ticket)',
+  'matrix.totalPending': '{n} pending in total',
+  'myclaimed.title': 'My claimed tickets',
+  'myclaimed.subtitle': 'claimed_by · bulk decisions',
+  'myclaimed.empty': 'No tickets claimed by {user} ({project})',
+  'myclaimed.bulkApprove': 'Bulk approve',
+  'myclaimed.bulkReject': 'Bulk reject',
+  'myclaimed.selectAll': 'Select all',
+  'myclaimed.unselectAll': 'Unselect all',
+  'myclaimed.selected': 'Selected {selected} / {total}',
+  'gtreview.title': 'Ground truth review',
+  'gtreview.subtitle': 'Decision book §5.3 · Build ground truth from high useful_rate queries',
+  'gtreview.candidates': 'Pending candidates',
+  'gtreview.existing': 'Already in store',
+  'gtreview.confirm': 'Confirm',
+  'gtreview.skip': 'Skip',
+  'gtreview.empty': 'No candidates',
+  'compare.title': 'Multi-project comparison',
+  'compare.subtitle': 'Pull all-project 4-dimension summaries for side-by-side comparison',
+  'compare.empty': 'No project has operational data yet',
+  'compare.col.project': 'project_id',
+  'compare.col.decisions': 'Decisions (approval rate)',
+  'compare.col.queries': 'Queries (hit rate)',
+  'compare.col.useful': 'Useful rate (feedback count)',
+  'compare.col.latency': 'avg/p95 ms',
+  'compare.col.observations': 'Observations active/total',
+  'compare.col.gt': 'GT set',
+  'compare.col.recall': 'Latest R/P/F1',
 };
 
 const DICTS: Record<Locale, Dict> = { zh, en };
