@@ -135,7 +135,34 @@ export type TranslationKey =
   | 'wq.col.type'
   | 'wq.col.overall'
   | 'wq.col.scoredAt'
-  | 'wq.filterAlerting';
+  | 'wq.filterAlerting'
+  // M18 #3 · PromptVersion 管理
+  | 'pv.title'
+  | 'pv.subtitle'
+  | 'pv.tabList'
+  | 'pv.tabAB'
+  | 'pv.create'
+  | 'pv.deactivate'
+  | 'pv.autoTune'
+  | 'pv.col.versionId'
+  | 'pv.col.condition'
+  | 'pv.col.language'
+  | 'pv.col.activatedAt'
+  | 'pv.col.status'
+  | 'pv.col.note'
+  | 'pv.col.actions'
+  | 'pv.col.sampleSize'
+  | 'pv.col.approveRate'
+  | 'pv.statusActive'
+  | 'pv.statusInactive'
+  | 'pv.empty'
+  | 'pv.filterCondition'
+  | 'pv.filterLanguage'
+  | 'pv.filterAll'
+  | 'pv.confirmDeactivate'
+  | 'pv.autoTuneAction'
+  | 'pv.autoTuneNoop'
+  | 'pv.autoTuneReason';
 
 type Dict = Record<TranslationKey, string>;
 
@@ -267,6 +294,33 @@ const zh: Dict = {
   'wq.col.overall': '总分',
   'wq.col.scoredAt': '评分时间',
   'wq.filterAlerting': '只看告警',
+  // M18 #3 · PromptVersion 管理 (zh)
+  'pv.title': 'Prompt 版本管理',
+  'pv.subtitle': 'M11 #4 / M12 / M16 · LLM 自学习闭环',
+  'pv.tabList': '版本列表',
+  'pv.tabAB': 'AB 比较',
+  'pv.create': '新建版本',
+  'pv.deactivate': '停用',
+  'pv.autoTune': '触发 auto-tune',
+  'pv.col.versionId': '版本 ID',
+  'pv.col.condition': '监测条件',
+  'pv.col.language': '语言',
+  'pv.col.activatedAt': '激活时间',
+  'pv.col.status': '状态',
+  'pv.col.note': '备注',
+  'pv.col.actions': '操作',
+  'pv.col.sampleSize': '样本数',
+  'pv.col.approveRate': '批准率',
+  'pv.statusActive': '激活中',
+  'pv.statusInactive': '已停用',
+  'pv.empty': '暂无版本（先点 "新建版本"）',
+  'pv.filterCondition': '监测条件',
+  'pv.filterLanguage': '语言',
+  'pv.filterAll': '全部',
+  'pv.confirmDeactivate': '确认停用版本 {id}？',
+  'pv.autoTuneAction': '动作: {action}',
+  'pv.autoTuneNoop': 'auto-tune 完成（无变化）',
+  'pv.autoTuneReason': '原因',
 };
 
 const en: Dict = {
@@ -397,6 +451,33 @@ const en: Dict = {
   'wq.col.overall': 'Overall',
   'wq.col.scoredAt': 'Scored at',
   'wq.filterAlerting': 'Alerting only',
+  // M18 #3 · PromptVersion management (en)
+  'pv.title': 'Prompt Version Manager',
+  'pv.subtitle': 'M11 #4 / M12 / M16 · LLM self-learning loop',
+  'pv.tabList': 'Versions',
+  'pv.tabAB': 'AB Comparison',
+  'pv.create': 'New version',
+  'pv.deactivate': 'Deactivate',
+  'pv.autoTune': 'Run auto-tune',
+  'pv.col.versionId': 'Version ID',
+  'pv.col.condition': 'Condition',
+  'pv.col.language': 'Lang',
+  'pv.col.activatedAt': 'Activated at',
+  'pv.col.status': 'Status',
+  'pv.col.note': 'Note',
+  'pv.col.actions': 'Actions',
+  'pv.col.sampleSize': 'Samples',
+  'pv.col.approveRate': 'Approve rate',
+  'pv.statusActive': 'Active',
+  'pv.statusInactive': 'Inactive',
+  'pv.empty': 'No versions yet (click "New version")',
+  'pv.filterCondition': 'Condition',
+  'pv.filterLanguage': 'Language',
+  'pv.filterAll': 'All',
+  'pv.confirmDeactivate': 'Deactivate version {id}?',
+  'pv.autoTuneAction': 'Action: {action}',
+  'pv.autoTuneNoop': 'Auto-tune complete (no change)',
+  'pv.autoTuneReason': 'Reason',
 };
 
 const DICTS: Record<Locale, Dict> = { zh, en };

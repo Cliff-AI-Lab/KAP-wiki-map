@@ -335,6 +335,119 @@ export function fetchDashboardMulti(
 }
 
 // ════════════════════════════════════════════════════════════════════════
+//  M11 #4 + M12 #1 + M16 #2 / M18 #3 · PromptVersion 管理
+// ════════════════════════════════════════════════════════════════════════
+
+export type ConditionType =
+  | 'new_entity_type'
+  | 'relation_solidification'
+  | 'relation_split'
+  | 'standard_upgrade';
+
+export interface PromptVersion {
+  version_id: string;
+  condition_type: ConditionType;
+  language: string;
+  prompt_text_excerpt: string;
+  system_prompt: string;
+  created_by: string;
+  activated_at: string;
+  deactivated_at: string | null;
+  note: string;
+}
+
+export interface PromptABScore {
+  version_id: string;
+  condition_type: ConditionType;
+  activated_at: string;
+  deactivated_at: string | null;
+  is_active: boolean;
+  sample_size: number;
+  approved: number;
+  rejected: number;
+  pending: number;
+  approve_rate: number;
+}
+
+export interface AutoTuneResult {
+  condition_type: ConditionType;
+  language: string;
+  action: 'promote' | 'rollback' | 'noop';
+  reason: string;
+  previous_active_id: string;
+  new_active_id: string;
+}
+
+export function fetchPromptVersions(params: {
+  conditionType?: ConditionType;
+  language?: string;
+  onlyActive?: boolean;
+}): Promise<PromptVersion[]> {
+  const qs = buildQuery({
+    condition_type: params.conditionType,
+    language: params.language,
+    only_active: params.onlyActive ? 'true' : undefined,
+  });
+  return request(`/api/v1/observability/prompt-versions${qs}`);
+}
+
+export function createPromptVersion(body: {
+  condition_type: ConditionType;
+  prompt_text_excerpt?: string;
+  system_prompt?: string;
+  language?: string;
+  note?: string;
+}): Promise<PromptVersion> {
+  return request('/api/v1/observability/prompt-versions', {
+    method: 'POST',
+    body: JSON.stringify({
+      prompt_text_excerpt: '',
+      system_prompt: '',
+      language: 'zh',
+      note: '',
+      ...body,
+    }),
+  });
+}
+
+export function deactivatePromptVersion(
+  versionId: string,
+): Promise<{ version_id: string; deactivated: boolean }> {
+  return request(
+    `/api/v1/observability/prompt-versions/${encodeURIComponent(versionId)}/deactivate`,
+    { method: 'POST' },
+  );
+}
+
+export function fetchPromptABScores(params: {
+  conditionType?: ConditionType;
+  projectId?: string;
+}): Promise<PromptABScore[]> {
+  const qs = buildQuery({
+    condition_type: params.conditionType,
+    project_id: params.projectId,
+  });
+  return request(`/api/v1/observability/prompt-versions/ab${qs}`);
+}
+
+export function autoTunePrompt(body: {
+  condition_type: ConditionType;
+  language?: string;
+  project_id?: string;
+  min_samples?: number;
+}): Promise<AutoTuneResult> {
+  return request('/api/v1/observability/prompt-versions/auto-tune', {
+    method: 'POST',
+    body: JSON.stringify({
+      language: 'zh',
+      project_id: '',
+      min_samples: 10,
+      ...body,
+    }),
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
 //  M17 #3 / M18 #2 · Wiki 编译质量评分
 // ════════════════════════════════════════════════════════════════════════
 
