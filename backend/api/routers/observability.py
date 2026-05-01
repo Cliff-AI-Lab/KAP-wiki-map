@@ -127,6 +127,9 @@ async def aggregate_query_events(
 class QueryFeedbackBody(BaseModel):
     useful: bool
     note: str = Field(default="", max_length=200)
+    # M16 #3 · 多选标签（建议值: wrong_answer / irrelevant / format_issue /
+    # outdated / incomplete）；最多 8 个，每项最长 32 字符
+    reasons: list[str] = Field(default_factory=list, max_length=8)
 
 
 @router.post("/queries/{query_id}/feedback", response_model=QueryEvent)
@@ -139,6 +142,7 @@ async def submit_query_feedback(
     """
     event = await arecord_query_feedback(
         query_id=query_id, useful=body.useful, note=body.note,
+        reasons=body.reasons,
     )
     if event is None:
         raise HTTPException(status_code=404, detail=f"query_id={query_id} 不存在")

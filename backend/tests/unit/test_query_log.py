@@ -195,6 +195,54 @@ class TestFeedback:
         assert updated.useful is False
         assert updated.feedback_note == "还是无用"
 
+    # M16 #3 · 反馈细分原因
+    def test_feedback_reasons_stored(self) -> None:
+        e = record_query(query_text="x", source_count=1)
+        updated = record_query_feedback(
+            query_id=e.query_id, useful=False,
+            reasons=["wrong_answer", "outdated"],
+        )
+        assert updated.feedback_reasons == ["wrong_answer", "outdated"]
+
+    def test_feedback_reasons_capped_at_8(self) -> None:
+        e = record_query(query_text="x", source_count=1)
+        many = [f"reason_{i}" for i in range(15)]
+        updated = record_query_feedback(
+            query_id=e.query_id, useful=False, reasons=many,
+        )
+        assert len(updated.feedback_reasons) == 8
+
+    def test_feedback_reasons_filters_empty(self) -> None:
+        e = record_query(query_text="x", source_count=1)
+        updated = record_query_feedback(
+            query_id=e.query_id, useful=False,
+            reasons=["wrong_answer", "", "  ", "outdated"],
+        )
+        assert updated.feedback_reasons == ["wrong_answer", "outdated"]
+
+    def test_aggregate_reason_freq(self) -> None:
+        # 3 个 useful=False 各带不同 reasons
+        for _ in range(3):
+            e = record_query(query_text="x", source_count=1)
+            record_query_feedback(
+                query_id=e.query_id, useful=False,
+                reasons=["wrong_answer", "outdated"],
+            )
+        e = record_query(query_text="x", source_count=1)
+        record_query_feedback(
+            query_id=e.query_id, useful=False, reasons=["wrong_answer"],
+        )
+        # useful=True 无 reasons
+        e = record_query(query_text="x", source_count=1)
+        record_query_feedback(query_id=e.query_id, useful=True)
+
+        agg = aggregate_queries()
+        # wrong_answer 4; outdated 3
+        assert agg["feedback_reasons"]["wrong_answer"] == 4
+        assert agg["feedback_reasons"]["outdated"] == 3
+        # top_reasons 按频次降序
+        assert agg["top_reasons"][0] == "wrong_answer"
+
 
 # ════════════════════════════════════════════════════════════════════════
 #  M15 #2 · useful_rate 趋势 + 告警

@@ -38,12 +38,13 @@ CREATE TABLE IF NOT EXISTS query_events (
 )
 """
 
-# 兼容老库：ALTER 加 M8/M11 字段（已存在则忽略）
+# 兼容老库：ALTER 加 M8/M11/M16 字段（已存在则忽略）
 _ALTER_DDL = [
     "ALTER TABLE query_events ADD COLUMN IF NOT EXISTS useful BOOLEAN",
     "ALTER TABLE query_events ADD COLUMN IF NOT EXISTS feedback_note TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE query_events ADD COLUMN IF NOT EXISTS feedback_at TIMESTAMPTZ",
     "ALTER TABLE query_events ADD COLUMN IF NOT EXISTS retrieved_doc_ids JSONB NOT NULL DEFAULT '[]'::jsonb",
+    "ALTER TABLE query_events ADD COLUMN IF NOT EXISTS feedback_reasons JSONB NOT NULL DEFAULT '[]'::jsonb",
 ]
 
 _INDEX_DDL = """
@@ -80,7 +81,7 @@ async def initialize_pg_query_log(
         await cur.execute(
             "SELECT query_id, project_id, user_id, query_text, source_count, "
             "retrieved_doc_ids, hit, latency_ms, useful, feedback_note, "
-            "feedback_at, occurred_at "
+            "feedback_reasons, feedback_at, occurred_at "
             "FROM query_events ORDER BY occurred_at DESC LIMIT %s",
             (load_limit,),
         )
@@ -89,6 +90,7 @@ async def initialize_pg_query_log(
     for row in reversed(rows):
         import json as _json
         retrieved = row[5] if isinstance(row[5], list) else _json.loads(row[5] or "[]")
+        reasons = row[10] if isinstance(row[10], list) else _json.loads(row[10] or "[]")
         _queries.append(QueryEvent(
             query_id=row[0], project_id=row[1] or "", user_id=row[2] or "",
             query_text=row[3] or "", source_count=row[4] or 0,
@@ -96,8 +98,9 @@ async def initialize_pg_query_log(
             hit=bool(row[6]), latency_ms=row[7] or 0,
             useful=row[8],
             feedback_note=row[9] or "",
-            feedback_at=row[10],
-            occurred_at=row[11],
+            feedback_reasons=[str(x) for x in reasons],
+            feedback_at=row[11],
+            occurred_at=row[12],
         ))
 
     set_query_pg_sink(_pg_append)
@@ -133,9 +136,10 @@ async def _pg_append(event: QueryEvent) -> None:
 
 
 async def _pg_update_feedback(event: QueryEvent) -> None:
-    """更新已存在 query_events 行的 feedback 字段（M8 #1）。"""
+    """更新已存在 query_events 行的 feedback 字段（M8 #1 + M16 #3）。"""
     if _conn is None or _lock is None:
         return
+    import json as _json
     async with _lock:
         async with _conn.cursor() as cur:
             await cur.execute(
@@ -143,11 +147,13 @@ async def _pg_update_feedback(event: QueryEvent) -> None:
                 UPDATE query_events
                 SET useful = %s,
                     feedback_note = %s,
+                    feedback_reasons = %s::jsonb,
                     feedback_at = %s
                 WHERE query_id = %s
                 """,
                 (
                     event.useful, event.feedback_note,
+                    _json.dumps(event.feedback_reasons, ensure_ascii=False),
                     event.feedback_at, event.query_id,
                 ),
             )

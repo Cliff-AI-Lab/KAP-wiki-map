@@ -257,13 +257,16 @@ export function deleteGroundTruth(gtId: string): Promise<{ gt_id: string; remove
 // ════════════════════════════════════════════════════════════════════════
 
 export function submitQueryFeedback(
-  queryId: string, useful: boolean, note = '',
+  queryId: string,
+  useful: boolean,
+  note = '',
+  reasons: string[] = [],
 ): Promise<{ query_id: string; useful: boolean }> {
   return request(
     `/api/v1/observability/queries/${encodeURIComponent(queryId)}/feedback`,
     {
       method: 'POST',
-      body: JSON.stringify({ useful, note }),
+      body: JSON.stringify({ useful, note, reasons }),
     },
   );
 }

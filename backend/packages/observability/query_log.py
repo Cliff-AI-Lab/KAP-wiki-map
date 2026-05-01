@@ -41,6 +41,9 @@ class QueryEvent(BaseModel):
     # M8 #1 用户反馈（None = 未表态；True = 有用；False = 无用）
     useful: bool | None = None
     feedback_note: str = ""     # SME / 用户的反馈说明（截断 200 字）
+    # M16 #3 反馈细分原因（多选标签，仅 useful=False 时有意义）
+    # 推荐标签：wrong_answer / irrelevant / format_issue / outdated / incomplete
+    feedback_reasons: list[str] = Field(default_factory=list)
     feedback_at: datetime | None = None
     occurred_at: datetime = Field(default_factory=lambda: datetime.now(tz=None))
 
@@ -163,21 +166,30 @@ async def arecord_query(
 
 
 def _apply_feedback(
-    event: QueryEvent, *, useful: bool, note: str,
+    event: QueryEvent, *,
+    useful: bool, note: str,
+    reasons: list[str] | None = None,
 ) -> QueryEvent:
     event.useful = useful
     event.feedback_note = note[:200]
+    # M16 #3 · 标签清洗：去空 / 截断每项 32 字 / 最多 8 个标签
+    if reasons is not None:
+        event.feedback_reasons = [
+            str(r).strip()[:32] for r in reasons[:8] if str(r).strip()
+        ]
     event.feedback_at = datetime.now(tz=None)
     log.info(
         "query_feedback_recorded",
         query_id=event.query_id, useful=useful,
         has_note=bool(event.feedback_note),
+        reason_count=len(event.feedback_reasons),
     )
     return event
 
 
 def record_query_feedback(
     *, query_id: str, useful: bool, note: str = "",
+    reasons: list[str] | None = None,
 ) -> QueryEvent | None:
     """同步打用户反馈到已存在的 QueryEvent；返回更新后的事件，不存在返回 None。
 
@@ -187,7 +199,7 @@ def record_query_feedback(
     if event is None:
         log.warning("query_feedback_unknown_id", query_id=query_id)
         return None
-    _apply_feedback(event, useful=useful, note=note)
+    _apply_feedback(event, useful=useful, note=note, reasons=reasons)
     if _pg_feedback_sink is not None:
         try:
             loop = asyncio.get_running_loop()
@@ -199,13 +211,14 @@ def record_query_feedback(
 
 async def arecord_query_feedback(
     *, query_id: str, useful: bool, note: str = "",
+    reasons: list[str] | None = None,
 ) -> QueryEvent | None:
     """异步打用户反馈（await PG UPDATE）。"""
     event = get_query_event(query_id)
     if event is None:
         log.warning("query_feedback_unknown_id", query_id=query_id)
         return None
-    _apply_feedback(event, useful=useful, note=note)
+    _apply_feedback(event, useful=useful, note=note, reasons=reasons)
     if _pg_feedback_sink is not None:
         try:
             await _pg_feedback_sink(event)
@@ -397,6 +410,17 @@ def aggregate_queries(
         round(useful_count / feedback_total, 4) if feedback_total > 0 else 0.0
     )
 
+    # M16 #3 · 反馈原因频次（仅 useful=False 时收集；其他为空）
+    reason_freq: dict[str, int] = {}
+    for q in events:
+        if q.useful is False and q.feedback_reasons:
+            for r in q.feedback_reasons:
+                reason_freq[r] = reason_freq.get(r, 0) + 1
+    # 按频次降序
+    top_reasons = sorted(
+        reason_freq.items(), key=lambda kv: kv[1], reverse=True,
+    )
+
     return {
         "total": total,
         "hits": hits,
@@ -407,6 +431,8 @@ def aggregate_queries(
         "useful_count": useful_count,
         "useful_rate": useful_rate,
         "feedback_coverage": feedback_coverage,
+        "feedback_reasons": dict(top_reasons),    # 完整 dict 给前端显示
+        "top_reasons": [r for r, _ in top_reasons[:5]],  # top 5 标签列表
         "window": {
             "since": since.isoformat() if since else None,
             "until": until.isoformat() if until else None,
