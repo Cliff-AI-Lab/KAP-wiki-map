@@ -114,7 +114,28 @@ export type TranslationKey =
   | 'compare.col.latency'
   | 'compare.col.observations'
   | 'compare.col.gt'
-  | 'compare.col.recall';
+  | 'compare.col.recall'
+  // M18 #2 · Wiki 质量看板
+  | 'wq.title'
+  | 'wq.subtitle'
+  | 'wq.aggCard'
+  | 'wq.totalScored'
+  | 'wq.alertingCount'
+  | 'wq.avgOverall'
+  | 'wq.radar'
+  | 'wq.alertList'
+  | 'wq.empty'
+  | 'wq.dim.consistency'
+  | 'wq.dim.completeness'
+  | 'wq.dim.evidence'
+  | 'wq.dim.repetition'
+  | 'wq.dim.freshness'
+  | 'wq.dim.cross_domain'
+  | 'wq.col.page'
+  | 'wq.col.type'
+  | 'wq.col.overall'
+  | 'wq.col.scoredAt'
+  | 'wq.filterAlerting';
 
 type Dict = Record<TranslationKey, string>;
 
@@ -225,6 +246,27 @@ const zh: Dict = {
   'compare.col.observations': '观察期 active/total',
   'compare.col.gt': 'GT 集',
   'compare.col.recall': '最近评估 R/P/F1',
+  // M18 #2 · Wiki 质量看板 (zh)
+  'wq.title': 'Wiki 质量看板',
+  'wq.subtitle': '决策书 §6 · 6 维 LLM-Critic（M17 #3）',
+  'wq.aggCard': '聚合摘要',
+  'wq.totalScored': '已评分页数',
+  'wq.alertingCount': '低分告警',
+  'wq.avgOverall': '加权平均分',
+  'wq.radar': '6 维维度雷达',
+  'wq.alertList': '告警页清单',
+  'wq.empty': '暂无评分数据（先在 wiki_compiler 编译几次）',
+  'wq.dim.consistency': '一致性',
+  'wq.dim.completeness': '完整性',
+  'wq.dim.evidence': '证据',
+  'wq.dim.repetition': '去重',
+  'wq.dim.freshness': '时效',
+  'wq.dim.cross_domain': '跨域',
+  'wq.col.page': '页面',
+  'wq.col.type': '类型',
+  'wq.col.overall': '总分',
+  'wq.col.scoredAt': '评分时间',
+  'wq.filterAlerting': '只看告警',
 };
 
 const en: Dict = {
@@ -334,6 +376,27 @@ const en: Dict = {
   'compare.col.observations': 'Observations active/total',
   'compare.col.gt': 'GT set',
   'compare.col.recall': 'Latest R/P/F1',
+  // M18 #2 · Wiki quality dashboard (en)
+  'wq.title': 'Wiki Quality Dashboard',
+  'wq.subtitle': 'Decision book §6 · 6-dim LLM-Critic (M17 #3)',
+  'wq.aggCard': 'Aggregate summary',
+  'wq.totalScored': 'Pages scored',
+  'wq.alertingCount': 'Low-score alerts',
+  'wq.avgOverall': 'Avg weighted score',
+  'wq.radar': '6-dimension radar',
+  'wq.alertList': 'Alerting pages',
+  'wq.empty': 'No quality scores yet (run wiki_compiler first)',
+  'wq.dim.consistency': 'Consistency',
+  'wq.dim.completeness': 'Completeness',
+  'wq.dim.evidence': 'Evidence',
+  'wq.dim.repetition': 'Repetition',
+  'wq.dim.freshness': 'Freshness',
+  'wq.dim.cross_domain': 'Cross-domain',
+  'wq.col.page': 'Page',
+  'wq.col.type': 'Type',
+  'wq.col.overall': 'Overall',
+  'wq.col.scoredAt': 'Scored at',
+  'wq.filterAlerting': 'Alerting only',
 };
 
 const DICTS: Record<Locale, Dict> = { zh, en };

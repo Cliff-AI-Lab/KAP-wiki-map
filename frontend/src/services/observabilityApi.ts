@@ -333,3 +333,60 @@ export function fetchDashboardMulti(
   });
   return request(`/api/v1/observability/dashboard/multi${qs}`);
 }
+
+// ════════════════════════════════════════════════════════════════════════
+//  M17 #3 / M18 #2 · Wiki 编译质量评分
+// ════════════════════════════════════════════════════════════════════════
+
+export interface WikiDimensionScore {
+  score: number;
+  reason: string;
+}
+
+export interface WikiQualityScore {
+  page_id: string;
+  page_type: string;
+  project_id: string;
+  consistency: WikiDimensionScore;
+  completeness: WikiDimensionScore;
+  evidence: WikiDimensionScore;
+  repetition: WikiDimensionScore;
+  freshness: WikiDimensionScore;
+  cross_domain: WikiDimensionScore;
+  overall: number;
+  quality_alert: boolean;
+  error: string;
+  scored_at: string;
+}
+
+export interface WikiQualityAggregate {
+  total_scored: number;
+  alerting_count: number;
+  avg_overall: number;
+  avg_dimensions: {
+    consistency: number;
+    completeness: number;
+    evidence: number;
+    repetition: number;
+    freshness: number;
+    cross_domain: number;
+  };
+}
+
+export function fetchWikiQualityList(params: {
+  projectId?: string;
+  onlyAlerting?: boolean;
+}): Promise<WikiQualityScore[]> {
+  const qs = buildQuery({
+    project_id: params.projectId,
+    only_alerting: params.onlyAlerting ? 'true' : undefined,
+  });
+  return request(`/api/v1/observability/wiki-quality${qs}`);
+}
+
+export function fetchWikiQualityAggregate(
+  projectId?: string,
+): Promise<WikiQualityAggregate> {
+  const qs = buildQuery({ project_id: projectId });
+  return request(`/api/v1/observability/wiki-quality/aggregate${qs}`);
+}

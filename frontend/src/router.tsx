@@ -23,6 +23,7 @@ const ObservabilityCompare = lazy(() => import('@/pages/v15/ObservabilityCompare
 const GroundTruthReview = lazy(() => import('@/pages/v15/GroundTruthReview'));
 const MyClaimed = lazy(() => import('@/pages/v15/MyClaimed'));
 const WikiTree = lazy(() => import('@/pages/v15/WikiTree'));
+const WikiQualityDashboard = lazy(() => import('@/pages/v15/WikiQualityDashboard'));
 const ImportLayout = lazy(() => import('@/pages/v15/import/ImportLayout'));
 const UploadStep = lazy(() => import('@/pages/v15/import/UploadStep'));
 const ReviewStep = lazy(() => import('@/pages/v15/import/ReviewStep'));
@@ -67,6 +68,7 @@ export const router = createBrowserRouter([
       { path: 'manage/matrix', element: <L><GovernanceMatrix /></L> },  // M1 4×6 矩阵审核台
       { path: 'manage/observability', element: <L><ObservabilityDashboard /></L> },  // M10 #3 运营观察仪表盘
       { path: 'manage/observability/compare', element: <L><ObservabilityCompare /></L> },  // M13 #3 多 project 横评
+      { path: 'manage/observability/wiki-quality', element: <L><WikiQualityDashboard /></L> },  // M18 #2 Wiki 质量看板
       { path: 'manage/ground-truth',  element: <L><GroundTruthReview /></L> },        // M11 #3 GT 候选审批
       { path: 'manage/my-claimed',    element: <L><MyClaimed /></L> },                // M13 #2 我认领的工单 + 批量决策
       {
