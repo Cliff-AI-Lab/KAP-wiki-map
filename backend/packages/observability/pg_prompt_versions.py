@@ -25,6 +25,7 @@ _DDL = """
 CREATE TABLE IF NOT EXISTS prompt_versions (
     version_id           VARCHAR(32)  PRIMARY KEY,
     condition_type       VARCHAR(32)  NOT NULL,
+    language             VARCHAR(8)   NOT NULL DEFAULT 'zh',
     prompt_text_excerpt  TEXT         NOT NULL DEFAULT '',
     system_prompt        TEXT         NOT NULL DEFAULT '',
     created_by           VARCHAR(64)  NOT NULL DEFAULT '',
@@ -34,9 +35,14 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
 )
 """
 
+# 兼容老库：ALTER 加 M15 #3 language 字段
+_ALTER_DDL = [
+    "ALTER TABLE prompt_versions ADD COLUMN IF NOT EXISTS language VARCHAR(8) NOT NULL DEFAULT 'zh'",
+]
+
 _INDEX_DDL = """
 CREATE INDEX IF NOT EXISTS prompt_versions_condition_idx
-ON prompt_versions(condition_type, activated_at DESC)
+ON prompt_versions(condition_type, language, activated_at DESC)
 """
 
 
@@ -59,10 +65,12 @@ async def initialize_pg_prompt_versions(dsn: str) -> bool:
 
     async with _conn.cursor() as cur:
         await cur.execute(_DDL)
+        for stmt in _ALTER_DDL:
+            await cur.execute(stmt)
         await cur.execute(_INDEX_DDL)
         await _conn.commit()
         await cur.execute(
-            "SELECT version_id, condition_type, prompt_text_excerpt, "
+            "SELECT version_id, condition_type, language, prompt_text_excerpt, "
             "system_prompt, created_by, activated_at, deactivated_at, note "
             "FROM prompt_versions"
         )
@@ -72,12 +80,13 @@ async def initialize_pg_prompt_versions(dsn: str) -> bool:
         _versions[row[0]] = PromptVersion(
             version_id=row[0],
             condition_type=row[1],         # type: ignore[arg-type]
-            prompt_text_excerpt=row[2] or "",
-            system_prompt=row[3] or "",
-            created_by=row[4] or "",
-            activated_at=row[5],
-            deactivated_at=row[6],
-            note=row[7] or "",
+            language=row[2] or "zh",
+            prompt_text_excerpt=row[3] or "",
+            system_prompt=row[4] or "",
+            created_by=row[5] or "",
+            activated_at=row[6],
+            deactivated_at=row[7],
+            note=row[8] or "",
         )
 
     set_prompt_version_pg_sinks(
@@ -96,11 +105,12 @@ async def _pg_upsert(version: PromptVersion) -> None:
             await cur.execute(
                 """
                 INSERT INTO prompt_versions
-                  (version_id, condition_type, prompt_text_excerpt,
+                  (version_id, condition_type, language, prompt_text_excerpt,
                    system_prompt, created_by, activated_at, deactivated_at, note)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (version_id) DO UPDATE SET
                     condition_type = EXCLUDED.condition_type,
+                    language = EXCLUDED.language,
                     prompt_text_excerpt = EXCLUDED.prompt_text_excerpt,
                     system_prompt = EXCLUDED.system_prompt,
                     created_by = EXCLUDED.created_by,
@@ -110,6 +120,7 @@ async def _pg_upsert(version: PromptVersion) -> None:
                 """,
                 (
                     version.version_id, version.condition_type,
+                    version.language,
                     version.prompt_text_excerpt, version.system_prompt,
                     version.created_by, version.activated_at,
                     version.deactivated_at, version.note,

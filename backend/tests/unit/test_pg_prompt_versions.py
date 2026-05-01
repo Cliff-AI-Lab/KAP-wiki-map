@@ -38,10 +38,12 @@ class _FakeCursor:
         op = sql_norm.split()[0].upper()
         self._conn.executed.append((op, sql_norm, params))
         if op == "INSERT":
-            (vid, ct, excerpt, sysprompt, by_user,
+            # M15 #3: INSERT 9 列（加 language）
+            (vid, ct, lang, excerpt, sysprompt, by_user,
              act, deact, note) = params
             self._conn.rows[vid] = {
                 "version_id": vid, "condition_type": ct,
+                "language": lang,
                 "prompt_text_excerpt": excerpt, "system_prompt": sysprompt,
                 "created_by": by_user, "activated_at": act,
                 "deactivated_at": deact, "note": note,
@@ -50,12 +52,13 @@ class _FakeCursor:
             deact, vid = params
             if vid in self._conn.rows:
                 self._conn.rows[vid]["deactivated_at"] = deact
-        # SELECT 触发 fetchall 时再返回
+        # SELECT / ALTER 触发 fetchall 时再返回
 
     async def fetchall(self):
         return [
             (
                 r["version_id"], r["condition_type"],
+                r.get("language", "zh"),
                 r["prompt_text_excerpt"], r["system_prompt"],
                 r["created_by"], r["activated_at"],
                 r["deactivated_at"], r["note"],

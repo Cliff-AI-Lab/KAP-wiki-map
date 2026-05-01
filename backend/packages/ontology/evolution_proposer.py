@@ -25,8 +25,15 @@ from packages.common.types import (
     OntologyRelationType,
     OntologyVersion,
 )
+import os
+
 from packages.distillation.llm_client import acall_llm_json
 from packages.observability.prompt_versions import resolve_active_system_prompt
+
+
+def _current_llm_language() -> str:
+    """M15 #3：读 KAP_LLM_LANG 环境变量；默认 zh。"""
+    return (os.environ.get("KAP_LLM_LANG") or "zh").strip() or "zh"
 from packages.ontology.base import get_current_l1, get_current_l2
 from packages.ontology.prompts import (
     ENTITY_TYPE_PROPOSE_SYSTEM,
@@ -146,8 +153,10 @@ async def propose_new_entity_type(
 
     try:
         # M12 #1 · LLM 自学习闭环：active PromptVersion 优先；无则 fallback 硬编码
+        # M15 #3 · 按 KAP_LLM_LANG 选语言版本
         sys_prompt = resolve_active_system_prompt(
             "new_entity_type", ENTITY_TYPE_PROPOSE_SYSTEM,
+            language=_current_llm_language(),
         )
         data = await acall_llm_json(sys_prompt, user_prompt)
     except Exception as e:
@@ -323,6 +332,7 @@ async def propose_relation_solidification(
     try:
         sys_prompt = resolve_active_system_prompt(
             "relation_solidification", RELATION_SOLIDIFY_SYSTEM,
+            language=_current_llm_language(),
         )
         data = await acall_llm_json(sys_prompt, user_prompt)
     except Exception as e:
@@ -441,6 +451,7 @@ async def propose_relation_split_for_drift(
     try:
         sys_prompt = resolve_active_system_prompt(
             "relation_split", RELATION_SPLIT_SYSTEM,
+            language=_current_llm_language(),
         )
         data = await acall_llm_json(sys_prompt, user_prompt)
     except Exception as e:
@@ -572,6 +583,7 @@ async def propose_standard_upgrade(
     try:
         sys_prompt = resolve_active_system_prompt(
             "standard_upgrade", STANDARD_UPGRADE_SYSTEM,
+            language=_current_llm_language(),
         )
         data = await acall_llm_json(sys_prompt, user_prompt)
     except Exception as e:

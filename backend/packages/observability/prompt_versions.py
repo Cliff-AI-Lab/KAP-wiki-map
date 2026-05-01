@@ -36,14 +36,17 @@ log = get_logger("observability.prompt_versions")
 
 
 class PromptVersion(BaseModel):
-    """监测条件 prompt 版本元数据（M11 #4 + M12 #1）。
+    """监测条件 prompt 版本元数据（M11 #4 + M12 #1 + M15 #3）。
 
     M11 #4：仅元数据 + 时间窗 AB 比较；不改实际 prompt。
     M12 #1：增加 ``system_prompt`` 全文字段，evolution_proposer 在调 LLM 时
     按 active 版本动态选用（非空时覆盖硬编码，空则 fallback）。
+    M15 #3：增加 ``language`` 字段；同 (condition_type, language) 同时最多
+    一个 active；resolve 时按 caller 偏好语言匹配。
     """
     version_id: str
     condition_type: ConditionType
+    language: str = "zh"                        # M15 #3：zh / en / ...，默认 zh
     prompt_text_excerpt: str = ""              # 200 字摘要（兼容 M11 #4 老字段）
     system_prompt: str = ""                     # M12 #1：完整 system prompt 覆盖
     created_by: str = ""                        # SME user_id
@@ -106,11 +109,14 @@ def _fire_and_forget(coro_factory) -> None:
 def list_prompt_versions(
     *,
     condition_type: ConditionType | None = None,
+    language: str | None = None,
     only_active: bool = False,
 ) -> list[PromptVersion]:
     out = list(_versions.values())
     if condition_type is not None:
         out = [v for v in out if v.condition_type == condition_type]
+    if language is not None:
+        out = [v for v in out if v.language == language]
     if only_active:
         out = [v for v in out if v.deactivated_at is None]
     out.sort(key=lambda v: v.activated_at, reverse=True)
@@ -119,10 +125,26 @@ def list_prompt_versions(
 
 def get_active_version(
     condition_type: ConditionType,
+    language: str = "zh",
 ) -> PromptVersion | None:
+    """M15 #3：按 (condition_type, language) 取 active 版本。
+
+    向后兼容：language 默认 zh；若该语言无 active，回退到 zh active；
+    都没有 → 返回 None。
+    """
+    # 优先精确匹配（condition_type, language）
     for v in _versions.values():
-        if v.condition_type == condition_type and v.deactivated_at is None:
+        if (v.condition_type == condition_type
+                and v.language == language
+                and v.deactivated_at is None):
             return v
+    # 回退到 zh（如果当前不是 zh 则尝试）
+    if language != "zh":
+        for v in _versions.values():
+            if (v.condition_type == condition_type
+                    and v.language == "zh"
+                    and v.deactivated_at is None):
+                return v
     return None
 
 
@@ -135,25 +157,36 @@ def create_prompt_version(
     condition_type: ConditionType,
     prompt_text_excerpt: str = "",
     system_prompt: str = "",
+    language: str = "zh",
     created_by: str = "",
     note: str = "",
 ) -> PromptVersion:
-    """创建新 prompt 版本并激活（自动停用同 condition_type 的旧 active）。
+    """创建新 prompt 版本并激活（自动停用同 (condition_type, language) 的旧 active）。
 
     Args:
         prompt_text_excerpt: 200 字摘要（M11 #4 兼容）
         system_prompt: M12 #1 完整 system prompt（非空 → evolution_proposer
                        在调 LLM 时优先使用此值；为空则 fallback 硬编码）
+        language: M15 #3 语言标识（zh/en/...，默认 zh）；不同语言独立 active
     """
     now = datetime.now(tz=None)
 
-    # 自动停用同 condition_type 的当前 active
-    old = get_active_version(condition_type)
+    # 自动停用同 (condition_type, language) 的当前 active
+    # 注意：用精确匹配，不走 get_active_version 的 fallback 路径
+    old = None
+    for v in _versions.values():
+        if (v.condition_type == condition_type
+                and v.language == language
+                and v.deactivated_at is None):
+            old = v
+            break
     if old is not None:
         old.deactivated_at = now
         log.info(
             "prompt_version_auto_deactivated",
-            old_id=old.version_id, condition_type=condition_type,
+            old_id=old.version_id,
+            condition_type=condition_type,
+            language=language,
         )
         if _upsert_sink is not None:
             _fire_and_forget(lambda: _upsert_sink(old))
@@ -161,6 +194,7 @@ def create_prompt_version(
     new = PromptVersion(
         version_id=f"pver_{uuid.uuid4().hex[:10]}",
         condition_type=condition_type,
+        language=language,
         prompt_text_excerpt=prompt_text_excerpt[:200],
         system_prompt=system_prompt,                # 不截断，完整存
         created_by=created_by,
@@ -182,9 +216,14 @@ def create_prompt_version(
 
 def resolve_active_system_prompt(
     condition_type: ConditionType, fallback: str,
+    language: str = "zh",
 ) -> str:
-    """供 evolution_proposer 使用：取 active 版本的 system_prompt（非空时），否则 fallback。"""
-    active = get_active_version(condition_type)
+    """供 evolution_proposer 使用：按 (condition_type, language) 取 active 版本
+    的 system_prompt（非空时），否则 fallback。
+
+    M15 #3：language 不存在时回退 zh active；都没有 → fallback。
+    """
+    active = get_active_version(condition_type, language=language)
     if active is not None and active.system_prompt:
         return active.system_prompt
     return fallback

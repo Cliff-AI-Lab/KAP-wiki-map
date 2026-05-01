@@ -290,3 +290,94 @@ class TestResolveActiveSystemPrompt:
             system_prompt="A" * 1000,    # 不截断 system_prompt
         )
         assert len(v.system_prompt) == 1000
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M15 #3 · 多语言 prompt
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestMultiLanguage:
+    def test_default_language_is_zh(self) -> None:
+        v = create_prompt_version(condition_type="new_entity_type")
+        assert v.language == "zh"
+
+    def test_zh_and_en_active_independently(self) -> None:
+        v_zh = create_prompt_version(
+            condition_type="new_entity_type",
+            system_prompt="ZH_PROMPT",
+            language="zh",
+        )
+        v_en = create_prompt_version(
+            condition_type="new_entity_type",
+            system_prompt="EN_PROMPT",
+            language="en",
+        )
+        # 两者都 active（不同语言独立）
+        assert v_zh.deactivated_at is None
+        assert v_en.deactivated_at is None
+        assert get_active_version("new_entity_type", "zh").version_id == v_zh.version_id
+        assert get_active_version("new_entity_type", "en").version_id == v_en.version_id
+
+    def test_create_zh_then_zh_deactivates_old_zh_only(self) -> None:
+        v_zh1 = create_prompt_version(
+            condition_type="new_entity_type", language="zh",
+        )
+        v_en = create_prompt_version(
+            condition_type="new_entity_type", language="en",
+        )
+        v_zh2 = create_prompt_version(
+            condition_type="new_entity_type", language="zh",
+        )
+        # 第一个 zh 被停用
+        assert get_version(v_zh1.version_id).deactivated_at is not None
+        # en 不受影响
+        assert get_version(v_en.version_id).deactivated_at is None
+        # 新 zh 是 active
+        assert get_active_version("new_entity_type", "zh").version_id == v_zh2.version_id
+
+    def test_resolve_picks_language_specific(self) -> None:
+        create_prompt_version(
+            condition_type="standard_upgrade",
+            system_prompt="ZH_OVERRIDE", language="zh",
+        )
+        create_prompt_version(
+            condition_type="standard_upgrade",
+            system_prompt="EN_OVERRIDE", language="en",
+        )
+        assert resolve_active_system_prompt(
+            "standard_upgrade", "FALLBACK", language="zh",
+        ) == "ZH_OVERRIDE"
+        assert resolve_active_system_prompt(
+            "standard_upgrade", "FALLBACK", language="en",
+        ) == "EN_OVERRIDE"
+
+    def test_resolve_fallback_to_zh_when_lang_missing(self) -> None:
+        create_prompt_version(
+            condition_type="relation_split",
+            system_prompt="ZH_ONLY", language="zh",
+        )
+        # 请求 en，但只有 zh active → 回退到 zh
+        assert resolve_active_system_prompt(
+            "relation_split", "FB", language="en",
+        ) == "ZH_ONLY"
+
+    def test_resolve_falls_back_to_default_when_no_active(self) -> None:
+        # 没创建任何版本 → fallback
+        assert resolve_active_system_prompt(
+            "relation_solidification", "DEFAULT_PROMPT", language="ja",
+        ) == "DEFAULT_PROMPT"
+
+    def test_list_filter_by_language(self) -> None:
+        create_prompt_version(
+            condition_type="new_entity_type", language="zh",
+        )
+        create_prompt_version(
+            condition_type="new_entity_type", language="en",
+        )
+        zh_only = list_prompt_versions(language="zh")
+        en_only = list_prompt_versions(language="en")
+        assert all(v.language == "zh" for v in zh_only)
+        assert all(v.language == "en" for v in en_only)
+        assert len(zh_only) == 1
+        assert len(en_only) == 1

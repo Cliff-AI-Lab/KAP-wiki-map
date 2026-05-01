@@ -370,6 +370,7 @@ class CreatePromptVersionBody(BaseModel):
     condition_type: str
     prompt_text_excerpt: str = Field(default="", max_length=200)
     system_prompt: str = Field(default="", max_length=8000)   # M12 #1
+    language: str = Field(default="zh", max_length=8)         # M15 #3
     note: str = Field(default="", max_length=200)
 
 
@@ -384,6 +385,7 @@ _VALID_CONDITIONS = {
 @router.get("/prompt-versions", response_model=list[PromptVersion])
 async def list_prompt_versions_endpoint(
     condition_type: str | None = Query(default=None),
+    language: str | None = Query(default=None),
     only_active: bool = Query(default=False),
 ) -> list[PromptVersion]:
     if condition_type and condition_type not in _VALID_CONDITIONS:
@@ -393,6 +395,7 @@ async def list_prompt_versions_endpoint(
         )
     return list_prompt_versions(
         condition_type=condition_type,    # type: ignore[arg-type]
+        language=language,
         only_active=only_active,
     )
 
@@ -411,6 +414,7 @@ async def create_prompt_version_endpoint(
         condition_type=body.condition_type,    # type: ignore[arg-type]
         prompt_text_excerpt=body.prompt_text_excerpt,
         system_prompt=body.system_prompt,
+        language=body.language,
         created_by=getattr(user, "user_id", "") or "",
         note=body.note,
     )
