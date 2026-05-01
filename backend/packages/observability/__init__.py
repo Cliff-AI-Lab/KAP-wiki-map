@@ -40,10 +40,16 @@ from packages.observability.wiki_quality import (
     DimensionScore,
     WikiQualityScore,
     aggregate_wiki_quality,
+    compute_wiki_quality_trend,
     get_wiki_quality_score,
     list_wiki_quality_scores,
     reset_wiki_quality_for_test,
     score_wiki_page,
+    set_wiki_quality_pg_sink,
+)
+from packages.observability.pg_wiki_quality import (
+    initialize_pg_wiki_quality,
+    shutdown_pg_wiki_quality,
 )
 from packages.observability.partitioning import (
     build_migration_ddl,
@@ -128,6 +134,10 @@ __all__ = [
     "RecallEvalReport",
     "add_ground_truth",
     "aggregate_wiki_quality",
+    "compute_wiki_quality_trend",
+    "set_wiki_quality_pg_sink",
+    "initialize_pg_wiki_quality",
+    "shutdown_pg_wiki_quality",
     "analyze_condition_health",
     "auto_construct_ground_truth_candidates",
     "auto_promote_best_prompt",

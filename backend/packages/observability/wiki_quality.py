@@ -14,8 +14,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
-from typing import Literal
+from typing import Awaitable, Callable, Literal
 
 from pydantic import BaseModel, Field
 
@@ -115,10 +116,34 @@ class WikiQualityScore(BaseModel):
 # ════════════════════════════════════════════════════════════════════════
 
 _scores: dict[str, WikiQualityScore] = {}    # page_id → 最新评分
+# M19 #1 · 历史评分序列（按 scored_at 升序追加；用于趋势图）
+_history: list[WikiQualityScore] = []
+_HISTORY_MAX = 5000
+
+# M19 #1 · PG sink（write-through）
+_pg_sink: Callable[[WikiQualityScore], Awaitable[None]] | None = None
 
 
 def reset_wiki_quality_for_test() -> None:
+    global _pg_sink
     _scores.clear()
+    _history.clear()
+    _pg_sink = None
+
+
+def set_wiki_quality_pg_sink(
+    sink: Callable[[WikiQualityScore], Awaitable[None]] | None,
+) -> None:
+    global _pg_sink
+    _pg_sink = sink
+
+
+def _fire_and_forget(coro_factory) -> None:
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(coro_factory())
+    except RuntimeError:
+        pass
 
 
 def get_wiki_quality_score(page_id: str) -> WikiQualityScore | None:
@@ -220,12 +245,82 @@ async def score_wiki_page(
     score.quality_alert = score.overall < _QUALITY_ALERT_THRESHOLD
 
     _scores[page_id] = score
+    _history.append(score)
+    if len(_history) > _HISTORY_MAX:
+        _history.pop(0)
+
+    if _pg_sink is not None:
+        _fire_and_forget(lambda: _pg_sink(score))
+
     log.info(
         "wiki_quality_scored",
         page_id=page_id, page_type=page_type,
         overall=score.overall, alert=score.quality_alert,
     )
     return score
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M19 #1 · 趋势 API（时间序列）
+# ════════════════════════════════════════════════════════════════════════
+
+
+def compute_wiki_quality_trend(
+    *,
+    project_id: str | None = None,
+    bucket_size: int = 10,
+    max_buckets: int = 30,
+) -> dict:
+    """按时间桶聚合 _history → 时间序列趋势。
+
+    bucket_size: 每桶纳入的评分数（按 scored_at 升序）
+    max_buckets: 取最近 N 桶
+    """
+    history = list(_history)
+    if project_id is not None:
+        history = [h for h in history if h.project_id == project_id]
+    history.sort(key=lambda s: s.scored_at)
+    n = len(history)
+    if n == 0:
+        return {
+            "samples": 0,
+            "buckets": [],
+            "current_avg_overall": 0.0,
+            "earliest_avg_overall": 0.0,
+            "delta": 0.0,
+            "trend_alert": False,
+        }
+
+    buckets: list[dict] = []
+    for i in range(0, n, bucket_size):
+        chunk = history[i : i + bucket_size]
+        avg = sum(s.overall for s in chunk) / len(chunk)
+        alerting = sum(1 for s in chunk if s.quality_alert)
+        buckets.append({
+            "first_at": chunk[0].scored_at.isoformat(),
+            "last_at": chunk[-1].scored_at.isoformat(),
+            "count": len(chunk),
+            "avg_overall": round(avg, 4),
+            "alerting": alerting,
+        })
+
+    if len(buckets) > max_buckets:
+        buckets = buckets[-max_buckets:]
+
+    current = buckets[-1]["avg_overall"]
+    earliest = buckets[0]["avg_overall"]
+    delta = round(current - earliest, 4)
+    # 跌幅 > 10pp 触发告警
+    trend_alert = delta < -0.10
+
+    return {
+        "samples": n,
+        "buckets": buckets,
+        "current_avg_overall": current,
+        "earliest_avg_overall": earliest,
+        "delta": delta,
+        "trend_alert": trend_alert,
+    }
 
 
 def aggregate_wiki_quality(

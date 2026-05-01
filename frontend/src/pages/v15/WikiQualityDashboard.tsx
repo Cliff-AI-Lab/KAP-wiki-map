@@ -10,16 +10,16 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
-  AlertTriangle, BarChart3, Loader2, RefreshCw, Target,
+  AlertTriangle, BarChart3, Loader2, RefreshCw, Target, TrendingDown, TrendingUp,
 } from 'lucide-react';
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, Tooltip,
+  ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 
 import {
-  fetchWikiQualityAggregate, fetchWikiQualityList,
-  type WikiQualityAggregate, type WikiQualityScore,
+  fetchWikiQualityAggregate, fetchWikiQualityList, fetchWikiQualityTrend,
+  type WikiQualityAggregate, type WikiQualityScore, type WikiQualityTrend,
 } from '@/services/observabilityApi';
 import { useActiveProject } from '@/hooks/useActiveProject';
 import { useLocale } from '@/contexts/LocaleContext';
@@ -38,6 +38,7 @@ export default function WikiQualityDashboard() {
 
   const [agg, setAgg] = useState<WikiQualityAggregate | null>(null);
   const [scores, setScores] = useState<WikiQualityScore[]>([]);
+  const [trend, setTrend] = useState<WikiQualityTrend | null>(null);
   const [onlyAlerting, setOnlyAlerting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,12 +46,14 @@ export default function WikiQualityDashboard() {
   const loadAll = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [aggRes, listRes] = await Promise.all([
+      const [aggRes, listRes, trendRes] = await Promise.all([
         fetchWikiQualityAggregate(projectId),
         fetchWikiQualityList({ projectId, onlyAlerting }),
+        fetchWikiQualityTrend({ projectId, bucketSize: 10, maxBuckets: 30 }),
       ]);
       setAgg(aggRes);
       setScores(listRes);
+      setTrend(trendRes);
     } catch (e) {
       setError((e as Error).message || 'load failed');
     } finally {
@@ -159,6 +162,61 @@ export default function WikiQualityDashboard() {
           )}
         </div>
       </div>
+
+      {/* M19 #1 · 历史趋势线图 */}
+      {trend && trend.samples > 0 && (
+        <div className="mb-6 rounded-card border border-th-border p-4 bg-elevated">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              {trend.trend_alert ? (
+                <TrendingDown size={16} className="text-rose-600" />
+              ) : (
+                <TrendingUp size={16} className="text-emerald-600" />
+              )}
+              <h3 className="text-sm font-mono text-th-text-muted">
+                {t('wq.trend')}
+              </h3>
+              {trend.trend_alert && (
+                <span className="text-xs text-rose-600 font-medium">
+                  {t('wq.trendAlert')}
+                </span>
+              )}
+            </div>
+            <span className="text-xs text-th-text-muted">
+              {t('wq.trendDelta')}:{' '}
+              <span
+                className={`tabular-nums ${
+                  trend.delta < 0 ? 'text-rose-600' : 'text-emerald-700'
+                }`}
+              >
+                {(trend.delta * 100).toFixed(2)}pp
+              </span>
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart
+              data={trend.buckets.map((b, i) => ({
+                idx: i,
+                avg: Number((b.avg_overall * 100).toFixed(2)),
+                count: b.count,
+                alerting: b.alerting,
+              }))}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="idx" tick={{ fontSize: 11 }} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Line
+                type="monotone"
+                dataKey="avg"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* 告警 / 全量列表 */}
       <div className="rounded-card border border-th-border bg-elevated">

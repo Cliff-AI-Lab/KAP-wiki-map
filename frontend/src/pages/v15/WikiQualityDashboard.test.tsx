@@ -8,6 +8,7 @@ import WikiQualityDashboard from './WikiQualityDashboard';
 vi.mock('@/services/observabilityApi', () => ({
   fetchWikiQualityAggregate: vi.fn(),
   fetchWikiQualityList: vi.fn(),
+  fetchWikiQualityTrend: vi.fn(),
 }));
 
 vi.mock('@/contexts/LocaleContext', () => ({
@@ -35,6 +36,9 @@ vi.mock('@/contexts/LocaleContext', () => ({
         'wq.col.overall': '总分',
         'wq.col.scoredAt': '时间',
         'wq.filterAlerting': '只看告警',
+        'wq.trend': '历史趋势',
+        'wq.trendDelta': 'delta',
+        'wq.trendAlert': '趋势告警',
         'observ.refresh': '刷新',
         'observ.empty': '暂无数据',
       };
@@ -64,6 +68,7 @@ vi.mock('recharts', async (orig) => {
 
 import {
   fetchWikiQualityAggregate, fetchWikiQualityList,
+  fetchWikiQualityTrend,
 } from '@/services/observabilityApi';
 
 
@@ -112,6 +117,11 @@ describe('WikiQualityDashboard', () => {
     vi.clearAllMocks();
     vi.mocked(fetchWikiQualityAggregate).mockResolvedValue(fakeAgg);
     vi.mocked(fetchWikiQualityList).mockResolvedValue(fakeList);
+    vi.mocked(fetchWikiQualityTrend).mockResolvedValue({
+      samples: 0, buckets: [],
+      current_avg_overall: 0, earliest_avg_overall: 0,
+      delta: 0, trend_alert: false,
+    });
   });
 
   it('renders aggregate stats and list rows', async () => {
@@ -146,5 +156,35 @@ describe('WikiQualityDashboard', () => {
     await waitFor(() => {
       expect(screen.getByText(/PG down/)).toBeInTheDocument();
     });
+  });
+
+  it('renders trend chart when buckets exist', async () => {
+    vi.mocked(fetchWikiQualityTrend).mockResolvedValue({
+      samples: 30,
+      buckets: [
+        {
+          first_at: '2026-04-01T00:00:00', last_at: '2026-04-02T00:00:00',
+          count: 10, avg_overall: 0.85, alerting: 0,
+        },
+        {
+          first_at: '2026-04-03T00:00:00', last_at: '2026-04-04T00:00:00',
+          count: 10, avg_overall: 0.75, alerting: 1,
+        },
+        {
+          first_at: '2026-04-05T00:00:00', last_at: '2026-04-06T00:00:00',
+          count: 10, avg_overall: 0.65, alerting: 3,
+        },
+      ],
+      current_avg_overall: 0.65,
+      earliest_avg_overall: 0.85,
+      delta: -0.20,
+      trend_alert: true,
+    });
+    render(<WikiQualityDashboard />);
+    await waitFor(() => {
+      expect(screen.getByText('历史趋势')).toBeInTheDocument();
+    });
+    expect(screen.getByText(/趋势告警/)).toBeInTheDocument();
+    expect(screen.getByText(/-20\.00pp/)).toBeInTheDocument();
   });
 });

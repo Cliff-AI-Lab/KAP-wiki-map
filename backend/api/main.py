@@ -79,6 +79,9 @@ async def lifespan(app: FastAPI):
     if os.environ.get("KAP_PROMPT_VER_PG") == "1":
         from packages.observability import initialize_pg_prompt_versions
         await initialize_pg_prompt_versions(app_settings.postgres_dsn)
+    if os.environ.get("KAP_WIKI_QUALITY_PG") == "1":
+        from packages.observability import initialize_pg_wiki_quality
+        await initialize_pg_wiki_quality(app_settings.postgres_dsn)
 
     _STARTED_AT = time.time()
     log.info("app_started", version="v1.0.0-m0")
@@ -89,11 +92,13 @@ async def lifespan(app: FastAPI):
         shutdown_pg_prompt_versions,
         shutdown_pg_query_log,
         shutdown_pg_recall_eval,
+        shutdown_pg_wiki_quality,
     )
     await shutdown_pg_decision_log()
     await shutdown_pg_query_log()
     await shutdown_pg_recall_eval()
     await shutdown_pg_prompt_versions()
+    await shutdown_pg_wiki_quality()
     await shutdown_stores()
     log.info("app_shutdown")
 

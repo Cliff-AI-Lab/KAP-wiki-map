@@ -507,3 +507,33 @@ export function fetchWikiQualityAggregate(
   const qs = buildQuery({ project_id: projectId });
   return request(`/api/v1/observability/wiki-quality/aggregate${qs}`);
 }
+
+export interface WikiQualityTrendBucket {
+  first_at: string;
+  last_at: string;
+  count: number;
+  avg_overall: number;
+  alerting: number;
+}
+
+export interface WikiQualityTrend {
+  samples: number;
+  buckets: WikiQualityTrendBucket[];
+  current_avg_overall: number;
+  earliest_avg_overall: number;
+  delta: number;
+  trend_alert: boolean;
+}
+
+export function fetchWikiQualityTrend(params: {
+  projectId?: string;
+  bucketSize?: number;
+  maxBuckets?: number;
+}): Promise<WikiQualityTrend> {
+  const qs = buildQuery({
+    project_id: params.projectId,
+    bucket_size: params.bucketSize?.toString(),
+    max_buckets: params.maxBuckets?.toString(),
+  });
+  return request(`/api/v1/observability/wiki-quality/trend${qs}`);
+}

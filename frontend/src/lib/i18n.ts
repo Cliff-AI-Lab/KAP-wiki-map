@@ -136,6 +136,9 @@ export type TranslationKey =
   | 'wq.col.overall'
   | 'wq.col.scoredAt'
   | 'wq.filterAlerting'
+  | 'wq.trend'
+  | 'wq.trendDelta'
+  | 'wq.trendAlert'
   // M18 #3 · PromptVersion 管理
   | 'pv.title'
   | 'pv.subtitle'
@@ -298,6 +301,9 @@ const zh: Dict = {
   'wq.col.overall': '总分',
   'wq.col.scoredAt': '评分时间',
   'wq.filterAlerting': '只看告警',
+  'wq.trend': '历史趋势',
+  'wq.trendDelta': '当前 vs 起始',
+  'wq.trendAlert': '趋势告警（跌幅 > 10pp）',
   // M18 #3 · PromptVersion 管理 (zh)
   'pv.title': 'Prompt 版本管理',
   'pv.subtitle': 'M11 #4 / M12 / M16 · LLM 自学习闭环',
@@ -459,6 +465,9 @@ const en: Dict = {
   'wq.col.overall': 'Overall',
   'wq.col.scoredAt': 'Scored at',
   'wq.filterAlerting': 'Alerting only',
+  'wq.trend': 'Trend over time',
+  'wq.trendDelta': 'current vs earliest',
+  'wq.trendAlert': 'Trend alert (drop > 10pp)',
   // M18 #3 · PromptVersion management (en)
   'pv.title': 'Prompt Version Manager',
   'pv.subtitle': 'M11 #4 / M12 / M16 · LLM self-learning loop',
