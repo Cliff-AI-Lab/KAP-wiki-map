@@ -121,7 +121,8 @@ describe('GovernanceMatrix', () => {
   it('renders refresh button', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText(/刷新/)).toBeInTheDocument();
+      // M14 #4 SLA 总览也带了 "刷新"，所以可能有多个；至少一个即可
+      expect(screen.getAllByText(/刷新/).length).toBeGreaterThan(0);
     });
   });
 });

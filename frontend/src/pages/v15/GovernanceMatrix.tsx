@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { useActiveProject } from '@/hooks/useActiveProject';
+import SLAOverview from '@/components/v15/SLAOverview';
 import {
   claimGovernanceItem,
   decideGovernanceItem,
@@ -443,6 +444,9 @@ export default function GovernanceMatrix() {
           <AlertCircle className="inline mr-2" size={14} /> {error}
         </div>
       )}
+
+      {/* M14 #4 · SLA 总览（跨 cell 一眼看全） */}
+      <SLAOverview projectId={projectId} />
 
       {/* 顶部统计 */}
       <div className="grid grid-cols-4 gap-4">
