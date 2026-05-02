@@ -39,8 +39,9 @@ services:
       MILVUS_HOST: kap-milvus
       REDIS_URL: redis://kap-redis:6379/0
       MINIO_ENDPOINT: kap-minio:9000
-      # M19 #1 启用 Wiki 质量 PG 持久化
+      # M19 #1 + M20 #1 启用所有 observability PG 持久化
       KAP_WIKI_QUALITY_PG: "1"
+      KAP_EXTRACTION_QUALITY_PG: "1"
       KAP_DECISION_LOG_PG: "1"
       KAP_QUERY_LOG_PG: "1"
       KAP_RECALL_EVAL_PG: "1"

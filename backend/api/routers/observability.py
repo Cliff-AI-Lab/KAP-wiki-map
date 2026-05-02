@@ -36,6 +36,7 @@ from packages.observability import (
     aggregate_wiki_quality,
     compute_wiki_quality_trend,
     aggregate_extraction_metrics,
+    compute_extraction_quality_trend,
     list_extraction_metrics,
     auto_promote_best_prompt,
     auto_rollback_alerting_prompt,
@@ -622,6 +623,20 @@ async def aggregate_extraction_metrics_endpoint(
     project_id: str | None = Query(default=None),
 ) -> dict[str, Any]:
     return aggregate_extraction_metrics(project_id=project_id)
+
+
+@router.get("/extraction-quality/trend")
+async def extraction_quality_trend_endpoint(
+    project_id: str | None = Query(default=None),
+    bucket_size: int = Query(default=10, ge=1, le=200),
+    max_buckets: int = Query(default=30, ge=1, le=100),
+) -> dict[str, Any]:
+    """M20 #1 · 抽取质量按时间桶趋势。"""
+    return compute_extraction_quality_trend(
+        project_id=project_id,
+        bucket_size=bucket_size,
+        max_buckets=max_buckets,
+    )
 
 
 @router.get("/condition-health", response_model=dict[str, ConditionHealth])

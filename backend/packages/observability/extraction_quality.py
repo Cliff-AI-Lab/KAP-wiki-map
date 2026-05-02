@@ -13,8 +13,9 @@ LLM 6 维 wiki_quality 走 wiki_compiler；这里 W4 走规则化诊断。
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Awaitable, Callable
 
 from pydantic import BaseModel, Field
 
@@ -65,9 +66,29 @@ class ExtractionMetric(BaseModel):
 _metrics: list[ExtractionMetric] = []
 _METRICS_MAX = 5000
 
+# M20 #1 · PG sink（write-through）
+_pg_sink: Callable[[ExtractionMetric], Awaitable[None]] | None = None
+
 
 def reset_extraction_quality_for_test() -> None:
+    global _pg_sink
     _metrics.clear()
+    _pg_sink = None
+
+
+def set_extraction_quality_pg_sink(
+    sink: Callable[[ExtractionMetric], Awaitable[None]] | None,
+) -> None:
+    global _pg_sink
+    _pg_sink = sink
+
+
+def _fire_and_forget(coro_factory) -> None:
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(coro_factory())
+    except RuntimeError:
+        pass
 
 
 def _score_density(density: float) -> float:
@@ -175,6 +196,9 @@ def record_extraction_metric(
     if len(_metrics) > _METRICS_MAX:
         _metrics.pop(0)
 
+    if _pg_sink is not None:
+        _fire_and_forget(lambda: _pg_sink(metric))
+
     if metric.quality_alert:
         log.warning(
             "w4_quality_alert",
@@ -199,6 +223,54 @@ def list_extraction_metrics(
     if only_alerting:
         out = [m for m in out if m.quality_alert]
     return out[:limit]
+
+
+def compute_extraction_quality_trend(
+    *,
+    project_id: str | None = None,
+    bucket_size: int = 10,
+    max_buckets: int = 30,
+) -> dict:
+    """M20 #1 · 抽取质量按时间桶趋势（与 wiki_quality 保持一致接口）。"""
+    items = list(_metrics)
+    if project_id is not None:
+        items = [m for m in items if m.project_id == project_id]
+    items.sort(key=lambda m: m.extracted_at)
+    n = len(items)
+    if n == 0:
+        return {
+            "samples": 0, "buckets": [],
+            "current_avg_overall": 0.0,
+            "earliest_avg_overall": 0.0,
+            "delta": 0.0, "trend_alert": False,
+        }
+
+    buckets: list[dict] = []
+    for i in range(0, n, bucket_size):
+        chunk = items[i : i + bucket_size]
+        avg = sum(m.overall for m in chunk) / len(chunk)
+        alerting = sum(1 for m in chunk if m.quality_alert)
+        buckets.append({
+            "first_at": chunk[0].extracted_at.isoformat(),
+            "last_at": chunk[-1].extracted_at.isoformat(),
+            "count": len(chunk),
+            "avg_overall": round(avg, 4),
+            "alerting": alerting,
+        })
+    if len(buckets) > max_buckets:
+        buckets = buckets[-max_buckets:]
+
+    current = buckets[-1]["avg_overall"]
+    earliest = buckets[0]["avg_overall"]
+    delta = round(current - earliest, 4)
+    trend_alert = delta < -0.10
+
+    return {
+        "samples": n, "buckets": buckets,
+        "current_avg_overall": current,
+        "earliest_avg_overall": earliest,
+        "delta": delta, "trend_alert": trend_alert,
+    }
 
 
 def aggregate_extraction_metrics(

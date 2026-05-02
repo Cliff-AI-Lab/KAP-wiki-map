@@ -9,9 +9,11 @@ from packages.common.types import (
 )
 from packages.observability import (
     aggregate_extraction_metrics,
+    compute_extraction_quality_trend,
     list_extraction_metrics,
     record_extraction_metric,
     reset_extraction_quality_for_test,
+    set_extraction_quality_pg_sink,
 )
 
 
@@ -186,6 +188,71 @@ class TestListAggregate:
         assert agg["total"] == 0
         assert agg["alerting"] == 0
         assert agg["avg_overall"] == 0.0
+
+
+class TestTrend:
+    def test_empty_trend(self) -> None:
+        out = compute_extraction_quality_trend()
+        assert out["samples"] == 0
+        assert out["buckets"] == []
+        assert out["delta"] == 0.0
+        assert out["trend_alert"] is False
+
+    def test_decline_triggers_alert(self) -> None:
+        # 5 个健康文档 + 5 个失败文档（按时间序列录入）
+        for i in range(5):
+            record_extraction_metric(
+                result=ExtractionResult(
+                    doc_id=f"ok{i}",
+                    entities=[_make_entity(f"e{j}", 0.9) for j in range(5)],
+                    relations=[
+                        ExtractedRelation(
+                            source_entity_id="e0", target_entity_id="e1",
+                            relation_type_id="r", confidence=0.8,
+                        ),
+                        ExtractedRelation(
+                            source_entity_id="e1", target_entity_id="e2",
+                            relation_type_id="r", confidence=0.8,
+                        ),
+                    ],
+                ),
+                project_id="p1", content_chars=1000,
+            )
+        for i in range(5):
+            record_extraction_metric(
+                result=ExtractionResult(doc_id=f"fail{i}", error="x"),
+                project_id="p1", content_chars=1000,
+            )
+        out = compute_extraction_quality_trend(
+            project_id="p1", bucket_size=5,
+        )
+        assert out["samples"] == 10
+        assert len(out["buckets"]) == 2
+        assert out["delta"] < -0.10
+        assert out["trend_alert"] is True
+
+
+class TestPgSink:
+    async def test_sink_called_on_record(self) -> None:
+        captured: list = []
+
+        async def fake_sink(metric):
+            captured.append(metric)
+
+        set_extraction_quality_pg_sink(fake_sink)
+        record_extraction_metric(
+            result=ExtractionResult(
+                doc_id="d_pg",
+                entities=[_make_entity("e1", 0.9)],
+            ),
+            project_id="p1", content_chars=1000,
+        )
+        # fire-and-forget：等异步任务完成
+        import asyncio
+        await asyncio.sleep(0.05)
+        assert len(captured) == 1
+        assert captured[0].doc_id == "d_pg"
+        set_extraction_quality_pg_sink(None)
 
 
 class TestW4Integration:

@@ -39,9 +39,15 @@ from packages.observability.condition_health import (
 from packages.observability.extraction_quality import (
     ExtractionMetric,
     aggregate_extraction_metrics,
+    compute_extraction_quality_trend,
     list_extraction_metrics,
     record_extraction_metric,
     reset_extraction_quality_for_test,
+    set_extraction_quality_pg_sink,
+)
+from packages.observability.pg_extraction_quality import (
+    initialize_pg_extraction_quality,
+    shutdown_pg_extraction_quality,
 )
 from packages.observability.wiki_quality import (
     DimensionScore,
@@ -129,9 +135,13 @@ __all__ = [
     "ConditionType",
     "ExtractionMetric",
     "aggregate_extraction_metrics",
+    "compute_extraction_quality_trend",
     "list_extraction_metrics",
     "record_extraction_metric",
     "reset_extraction_quality_for_test",
+    "set_extraction_quality_pg_sink",
+    "initialize_pg_extraction_quality",
+    "shutdown_pg_extraction_quality",
     "DimensionScore",
     "WikiQualityScore",
     "DecisionEvent",
