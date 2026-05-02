@@ -35,7 +35,11 @@ from packages.common.types import (
     OntologyLayer,
     OntologyVersion,
 )
-from packages.ontology import get_current_l1, get_current_l2, get_ontology_store
+from packages.ontology import (
+    ImportReport, OntologyExportBundle, deserialize_bundle,
+    export_l2_ontology, get_current_l1, get_current_l2, get_ontology_store,
+    import_l2_ontology, serialize_bundle,
+)
 from packages.ontology.evolution_proposer import (
     collect_unmatched_entities,
     propose_new_entity_type,
@@ -312,6 +316,58 @@ async def reject_proposal(
 # ════════════════════════════════════════════════════════════════════════
 #  GET /ontology/{layer}（放最后，避免 path param 拦截 /proposals 等）
 # ════════════════════════════════════════════════════════════════════════
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M20 #2 · L2 本体迁移（跨项目 / 跨环境 export-import）
+# ════════════════════════════════════════════════════════════════════════
+
+
+class ImportL2Body(BaseModel):
+    target_project_id: str
+    bundle: OntologyExportBundle
+    on_conflict: Literal["rename", "skip", "overwrite"] = "rename"
+
+
+@router.get("/migration/export")
+async def export_l2(
+    project_id: str = Query(..., min_length=1),
+    fmt: Literal["json", "yaml"] = Query(default="json"),
+    include_history: bool = Query(default=True),
+) -> dict:
+    """导出某 project 的 L2 本体（M20 #2）。
+
+    Returns:
+        ``format=json`` → 直接返回 bundle 对象
+        ``format=yaml`` → ``{"yaml": "<text>"}``
+    """
+    bundle = export_l2_ontology(
+        project_id, store=get_ontology_store(),
+        include_history=include_history,
+    )
+    if fmt == "json":
+        return bundle.model_dump(mode="json")
+    text = serialize_bundle(bundle, fmt="yaml")
+    return {"yaml": text}
+
+
+@router.post("/migration/import", response_model=ImportReport)
+async def import_l2(
+    body: ImportL2Body,
+    user=Depends(RequireRole(ROLE_SME)),
+) -> ImportReport:
+    """导入 L2 本体到目标 project（M20 #2）。SME 权限。"""
+    report = import_l2_ontology(
+        body.bundle, body.target_project_id,
+        store=get_ontology_store(),
+        on_conflict=body.on_conflict,
+        created_by=getattr(user, "user_id", "") or "ontology_migration_api",
+    )
+    log.info("ontology_l2_imported_via_api",
+             user=getattr(user, "user_id", "?"),
+             target=body.target_project_id, source=body.bundle.source_project_id,
+             new_version=report.new_version)
+    return report
 
 
 @router.get("/{layer}")

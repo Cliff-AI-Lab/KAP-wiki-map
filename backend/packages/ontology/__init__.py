@@ -30,16 +30,34 @@ from packages.ontology.store import (
     get_ontology_store,
     reset_store_for_test,
 )
+from packages.ontology.migration import (
+    ImportReport,
+    OntologyExportBundle,
+    deserialize_bundle,
+    export_l2_ontology,
+    export_to_file,
+    import_from_file,
+    import_l2_ontology,
+    serialize_bundle,
+)
 
 __all__ = [
+    "ImportReport",
+    "OntologyExportBundle",
     "OntologyRegistry",
     "OntologyStore",
+    "deserialize_bundle",
+    "export_l2_ontology",
+    "export_to_file",
     "get_current_l1",
     "get_current_l2",
     "get_ontology_store",
     "get_registry",
+    "import_from_file",
+    "import_l2_ontology",
     "register_l1",
     "register_l2",
     "reset_registry_for_test",
     "reset_store_for_test",
+    "serialize_bundle",
 ]
