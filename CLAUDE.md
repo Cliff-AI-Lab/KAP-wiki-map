@@ -64,15 +64,15 @@
 ## 当前阶段
 
 ```
-[M0 KAP-Lite]──→[M1 企业级v1]──→...──→[M16 i18n+自学习闭环+反馈细分+Wiki可视化]──→[M17 i18n铺开+自动tune+Wiki质量]──→[M18 Wiki质量闭环+前端管理面板]──→ M19⬜
+[M0 KAP-Lite]──→[M1 企业级v1]──→...──→[M17 i18n铺开+自动tune+Wiki质量]──→[M18 Wiki质量闭环+前端管理面板]──→[M19 Wiki质量PG+W4诊断+部署收口]──→ 部署期 / M20⬜
 ```
 
 进程链（按时间正序，每份是独立快照）：
-[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → [M9-评估持久化与趋势告警](docs/progress/M9-评估持久化与趋势告警.md) → [M10-评估深化与前端仪表盘](docs/progress/M10-评估深化与前端仪表盘.md) → [M11-自学习闭环与GT工作流](docs/progress/M11-自学习闭环与GT工作流.md) → [M12-自学习闭环到端+前端深耕](docs/progress/M12-自学习闭环到端%20%2B%20前端深耕.md) → [M13-真LLM测试与端到端深耕](docs/progress/M13-真LLM测试与端到端深耕.md) → [M14-大规模优化与端到端补强](docs/progress/M14-大规模优化与端到端补强.md) → [M15-真LLM扩展+反馈告警+多语言](docs/progress/M15-真LLM扩展%2B反馈告警%2B多语言.md) → [M16-i18n+自学习闭环+反馈细分+Wiki可视化](docs/progress/M16-i18n%2B自学习闭环%2B反馈细分%2BWiki可视化.md) → [M17-i18n铺开+自动tune+Wiki质量](docs/progress/M17-i18n铺开%2B自动tune%2BWiki质量.md) → [M18-Wiki质量闭环+前端管理面板](docs/progress/M18-Wiki质量闭环%2B前端管理面板.md) → M19（待启动）
+[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → [M9-评估持久化与趋势告警](docs/progress/M9-评估持久化与趋势告警.md) → [M10-评估深化与前端仪表盘](docs/progress/M10-评估深化与前端仪表盘.md) → [M11-自学习闭环与GT工作流](docs/progress/M11-自学习闭环与GT工作流.md) → [M12-自学习闭环到端+前端深耕](docs/progress/M12-自学习闭环到端%20%2B%20前端深耕.md) → [M13-真LLM测试与端到端深耕](docs/progress/M13-真LLM测试与端到端深耕.md) → [M14-大规模优化与端到端补强](docs/progress/M14-大规模优化与端到端补强.md) → [M15-真LLM扩展+反馈告警+多语言](docs/progress/M15-真LLM扩展%2B反馈告警%2B多语言.md) → [M16-i18n+自学习闭环+反馈细分+Wiki可视化](docs/progress/M16-i18n%2B自学习闭环%2B反馈细分%2BWiki可视化.md) → [M17-i18n铺开+自动tune+Wiki质量](docs/progress/M17-i18n铺开%2B自动tune%2BWiki质量.md) → [M18-Wiki质量闭环+前端管理面板](docs/progress/M18-Wiki质量闭环%2B前端管理面板.md) → [M19-Wiki质量PG+W4诊断+部署收口](docs/progress/M19-Wiki质量PG%2BW4诊断%2B部署收口.md) → **部署期 / M20（待启动）**
 
-**KAP 累计**：~140 commits / 测试 1016/1018 ✓ + 51 前端 tests ✓ + 8 live_llm（默认 deselect）/ 实际 ~109h vs Opus 估 ~590h，节省 ~82%。
+**KAP 累计**：~145 commits / 测试 1031/1033 ✓ + 58 前端 tests ✓ + 12 live_llm（默认 deselect）/ 实际 ~114h vs Opus 估 ~610h，节省 ~81%。
 
-### 整体进度看板（M0-M18 ✓ / M19+ ⬜）
+### 整体进度看板（M0-M19 ✓ / 部署期 + M20+ ⬜）
 
 | 维度                       | 状态 | 来自里程碑              |
 |:---------------------------|:---:|:-----------------------|
@@ -128,13 +128,19 @@
 | 前端 Wiki 质量看板（6 维雷达图）| ✓ | M18                    |
 | 前端 PromptVersion 管理 UI（list/AB/auto-tune/创建）| ✓ | M18 |
 | portal 反馈原因 Top 5 前端可视化| ✓ | M18                    |
-| 独立物理 Neo4j 实例         | ⬜   | 部署期                 |
-| ISS-Job 真实环境联调          | ⬜   | M19+（接通真 ISS）     |
-| Wiki 质量评分 PG 持久化 + 趋势| ⬜   | M19+                   |
-| W4 抽取流程链式自动评分       | ⬜   | M19+                   |
-| PromptVersion 多版本 diff UI  | ⬜   | M19+                   |
+| Wiki 质量评分 PG 持久化 + 趋势| ✓   | M19                    |
+| Wiki 质量趋势线图（前端）     | ✓   | M19                    |
+| W4 抽取流程链式自动评分（规则化诊断）| ✓ | M19              |
+| PromptVersion 多版本 diff UI（行级 LCS）| ✓ | M19            |
+| 真 LLM 测试覆盖块①（architect） | ✓   | M19                    |
+| 生产 docker-compose + nginx + TLS| ✓ | M19                  |
+| DecisionLog/QueryLog 分区迁移脚本| ✓ | M19                   |
+| 部署 checklist + Neo4j 物理化指南| ✓ | M19                   |
+| 独立物理 Neo4j 实例（实际切换） | ⬜   | 部署期                 |
+| ISS-Job 真实环境联调          | ⬜   | 部署期（接通真 ISS）   |
+| 首批客户 PoC 上线             | ⬜   | 部署期                 |
 
-**下一阶段 M19 待启动**：Wiki 质量评分 PG 持久化 + 趋势 / W4 链式评分 / PromptVersion diff UI / 物理 Neo4j / ISS 联调。
+**下一阶段 部署期 / M20 候选**：真实环境上线（按 deployment/checklist.md）/ 首批客户 PoC / W4 诊断 PG 持久化 / Neo4j Enterprise 多 DB 影子库 / 多模态文档解析 / 横向多租户。
 
 **新约束** (M12 收尾时由用户提出)：涉及 LLM 的测试改用真实 LLM（不 mock acall_llm_json）；老 mock 测试不强制重写，新增遵循。
 
