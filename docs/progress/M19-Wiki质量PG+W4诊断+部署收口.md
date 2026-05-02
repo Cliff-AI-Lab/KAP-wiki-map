@@ -12,7 +12,7 @@ status: completed
 tags: [kap, m19]
 ---
 
-> 进程链：[M0 KAP-Lite](M0-KAP-Lite.md) → ... → [M18 Wiki 质量闭环 + 前端管理面板](M18-Wiki质量闭环%2B前端管理面板.md) → **【M19 Wiki 质量 PG + W4 诊断 + diff UI + 部署收口】** → 部署期 / M20⬜
+> 进程链：[M0 KAP-Lite](M0-KAP-Lite.md) → ... → [M18 Wiki 质量闭环 + 前端管理面板](M18-Wiki质量闭环%2B前端管理面板.md) → **【M19 Wiki 质量 PG + W4 诊断 + diff UI + 部署收口】** → [M20 W4 诊断 PG + L2 迁移工具](M20-W4诊断PG%2BL2迁移工具.md)
 
 # M19 Wiki 质量 PG + W4 诊断 + diff UI + 部署收口（5 commits / ~5h vs Opus 估 16-22h，节省 ~75%）
 
