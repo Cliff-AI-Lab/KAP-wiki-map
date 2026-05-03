@@ -478,9 +478,16 @@ export default function GovernanceMatrix() {
           {/* 表头：工位列名 */}
           <div className="text-[11px] text-th-text-muted font-mono">工位 \ 角色</div>
           {ROLES.map((r) => (
-            <div key={r.code} className="flex items-center gap-2 text-xs text-th-text-secondary px-2">
-              <span className={`w-2 h-2 rounded-full ${r.color}`} />
-              {r.code}
+            <div
+              key={r.code}
+              className="flex flex-col gap-0.5 text-xs text-th-text-secondary px-2"
+              title={r.name}
+            >
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${r.color}`} />
+                <span className="font-mono">{r.code}</span>
+              </div>
+              <span className="text-[10px] text-th-text-muted">{r.name}</span>
             </div>
           ))}
 

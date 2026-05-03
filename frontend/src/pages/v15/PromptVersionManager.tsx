@@ -150,7 +150,11 @@ export default function PromptVersionManager() {
             className="px-2 py-1 rounded-btn border border-th-border bg-elevated text-sm font-mono"
           >
             <option value="">{t('pv.filterAll')}</option>
-            {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
+            {CONDITIONS.map(c => (
+              <option key={c} value={c}>
+                {t(`cond.${c}` as const)}（{c}）
+              </option>
+            ))}
           </select>
         </label>
         <label className="flex items-center gap-2 text-xs text-th-text-muted">
@@ -332,7 +336,10 @@ function VersionList({
                 }`}
               >
                 <td className="p-2 font-mono text-xs">{v.version_id}</td>
-                <td className="p-2 text-xs">{v.condition_type}</td>
+                <td className="p-2 text-xs">
+                  {t(`cond.${v.condition_type}` as const)}
+                  <span className="ml-1 text-th-text-muted">{v.condition_type}</span>
+                </td>
                 <td className="p-2 text-xs">{v.language}</td>
                 <td className="p-2 text-xs text-th-text-muted">
                   {new Date(v.activated_at).toLocaleString()}

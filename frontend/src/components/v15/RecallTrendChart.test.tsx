@@ -12,6 +12,20 @@ vi.mock('@/services/observabilityApi', () => ({
   fetchRecallReports: vi.fn(),
 }));
 
+vi.mock('@/contexts/LocaleContext', () => ({
+  useLocale: () => ({
+    locale: 'zh', setLocale: vi.fn(),
+    t: (key: string) => {
+      const map: Record<string, string> = {
+        'common.loading': '加载历史报告...',
+        'common.loadFailed': '加载失败',
+        'observ.noReports': '尚无评估报告（先在 SME 端运行 recall-eval）',
+      };
+      return map[key] || key;
+    },
+  }),
+}));
+
 import { fetchRecallReports } from '@/services/observabilityApi';
 
 

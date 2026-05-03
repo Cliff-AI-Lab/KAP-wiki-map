@@ -239,7 +239,7 @@ export default function WikiQualityDashboard() {
 
         {scores.length === 0 ? (
           <div className="p-6 text-center text-th-text-muted text-sm">
-            {t('wq.empty')}
+            {t('wq.emptyClean')}
           </div>
         ) : (
           <table className="w-full text-sm">

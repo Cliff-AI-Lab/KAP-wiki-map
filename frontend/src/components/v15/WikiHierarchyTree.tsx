@@ -18,6 +18,7 @@ import {
 import {
   fetchWikiPages, type WikiPageSummary,
 } from '@/services/api';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface Props {
   projectId?: string;
@@ -123,6 +124,7 @@ function NodeRow({
 export default function WikiHierarchyTree({
   projectId, onSelectPage,
 }: Props) {
+  const { t } = useLocale();
   const [pages, setPages] = useState<WikiPageSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -177,7 +179,8 @@ export default function WikiHierarchyTree({
       <div className="grid grid-cols-3 gap-2 mb-3 text-[11px]">
         <div className="rounded p-2 border border-th-border">
           <div className="flex items-center gap-1 text-th-text-muted">
-            <Layers size={10} /> index
+            <Layers size={10} /> {t('wiki.layer.index')}
+            <span className="ml-auto font-mono text-[10px]">index</span>
           </div>
           <div className="text-base font-semibold text-accent mt-0.5">
             {counts.index}
@@ -185,7 +188,8 @@ export default function WikiHierarchyTree({
         </div>
         <div className="rounded p-2 border border-th-border">
           <div className="flex items-center gap-1 text-th-text-muted">
-            <BookOpen size={10} /> domain
+            <BookOpen size={10} /> {t('wiki.layer.domain_overview')}
+            <span className="ml-auto font-mono text-[10px]">domain</span>
           </div>
           <div className="text-base font-semibold text-emerald-700 mt-0.5">
             {counts.domain}
@@ -193,7 +197,8 @@ export default function WikiHierarchyTree({
         </div>
         <div className="rounded p-2 border border-th-border">
           <div className="flex items-center gap-1 text-th-text-muted">
-            <FileText size={10} /> source
+            <FileText size={10} /> {t('wiki.layer.source_summary')}
+            <span className="ml-auto font-mono text-[10px]">source</span>
           </div>
           <div className="text-base font-semibold text-th-text-primary mt-0.5">
             {counts.source}

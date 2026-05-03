@@ -9,6 +9,20 @@ vi.mock('@/services/api', () => ({
   fetchWikiPages: vi.fn(),
 }));
 
+vi.mock('@/contexts/LocaleContext', () => ({
+  useLocale: () => ({
+    locale: 'zh', setLocale: vi.fn(),
+    t: (key: string) => {
+      const map: Record<string, string> = {
+        'wiki.layer.index': '索引',
+        'wiki.layer.domain_overview': '领域概览',
+        'wiki.layer.source_summary': '源文档摘要',
+      };
+      return map[key] || key;
+    },
+  }),
+}));
+
 import { fetchWikiPages } from '@/services/api';
 
 

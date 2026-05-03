@@ -16,6 +16,7 @@ import {
 
 import { useActiveProject } from '@/hooks/useActiveProject';
 import { useLocale } from '@/contexts/LocaleContext';
+import type { TranslationKey } from '@/lib/i18n';
 import { WikiEditorModal } from '@/components/v15/WikiEditorModal';
 import { runGovernanceAgent, type AgentRunResult } from '@/services/governanceApi';
 import {
@@ -29,14 +30,14 @@ import {
   type GovernanceQueueItem,
 } from '@/services/governanceApi';
 
-type AgentRow = { key: GovernanceAgent; label: string; tone: string; kindKey: string };
+type AgentRow = { key: GovernanceAgent; labelKey: TranslationKey; tone: string; kindKey: string };
 
 const AGENTS: AgentRow[] = [
-  { key: 'curator',      label: 'Curator',      tone: 'bg-accent',      kindKey: 'gov.kindDraft' },
-  { key: 'auditor',      label: 'Auditor',      tone: 'bg-amber-500',   kindKey: 'gov.kindUnverified' },
-  { key: 'deduper',      label: 'Deduper',      tone: 'bg-rose-500',    kindKey: 'gov.kindConflict' },
-  { key: 'standardizer', label: 'Standardizer', tone: 'bg-indigo-400',  kindKey: 'gov.kindStandardize' },
-  { key: 'gardener',     label: 'Gardener',     tone: 'bg-emerald-500', kindKey: 'gov.kindArchive' },
+  { key: 'curator',      labelKey: 'agent.curator',      tone: 'bg-accent',      kindKey: 'gov.kindDraft' },
+  { key: 'auditor',      labelKey: 'agent.auditor',      tone: 'bg-amber-500',   kindKey: 'gov.kindUnverified' },
+  { key: 'deduper',      labelKey: 'agent.deduper',      tone: 'bg-rose-500',    kindKey: 'gov.kindConflict' },
+  { key: 'standardizer', labelKey: 'agent.standardizer', tone: 'bg-indigo-400',  kindKey: 'gov.kindStandardize' },
+  { key: 'gardener',     labelKey: 'agent.gardener',     tone: 'bg-emerald-500', kindKey: 'gov.kindArchive' },
 ];
 
 function AgentStatCard({
@@ -60,6 +61,7 @@ function AgentStatCard({
   onClick: () => void;
   onRun: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <div
       className={`relative text-left rounded-card border p-4 transition-all ${
@@ -90,7 +92,7 @@ function AgentStatCard({
         className="relative z-10 mt-3 inline-flex items-center gap-1 rounded-btn border border-th-border px-2 py-1 text-[11px] text-th-text-secondary hover:text-accent hover:border-accent disabled:opacity-40 transition"
       >
         {running ? <Loader2 size={10} className="animate-spin" /> : <Play size={10} />}
-        {running ? '运行中' : '运行'}
+        {running ? t('pipeline.running') : t('pipeline.run')}
       </button>
       <div className="sr-only">{agent}</div>
     </div>
@@ -351,7 +353,7 @@ export default function GovernanceHome() {
             to="/v15/manage/matrix"
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-btn border border-accent/40 text-xs text-accent hover:bg-accent/10 transition"
           >
-            <LayoutGrid size={12} /> 矩阵审核台
+            <LayoutGrid size={12} /> {t('pipeline.matrix')}
           </Link>
           <button
             type="button"
@@ -379,7 +381,7 @@ export default function GovernanceHome() {
           <AgentStatCard
             key={a.key}
             agent={a.key}
-            label={a.label}
+            label={t(a.labelKey)}
             tone={a.tone}
             kindLabel={t(a.kindKey as any)}
             count={counts[a.key] ?? 0}
@@ -406,7 +408,10 @@ export default function GovernanceHome() {
       <div className="rounded-card border border-th-border bg-elevated p-5">
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm font-semibold text-th-text-primary">
-            {AGENTS.find((a) => a.key === selectedAgent)?.label} · {t('gov.queueDetail')}
+            {(() => {
+              const ag = AGENTS.find((a) => a.key === selectedAgent);
+              return ag ? t(ag.labelKey) : selectedAgent;
+            })()} · {t('gov.queueDetail')}
           </div>
           <div className="text-xs text-th-text-muted font-mono">
             {loading ? '...' : t('gov.countTotal', { n: filtered.length })}
@@ -452,13 +457,14 @@ export default function GovernanceHome() {
    6 步: 项目 → 上传 → 去噪 → Schema → Wiki → 图谱
    ============================================ */
 function KnowledgePipeline({ projectId }: { projectId: string | null }) {
+  const { t } = useLocale();
   const steps = [
-    { icon: FolderPlus,  label: '1. 项目',     desc: '选行业模板',    path: (_pid: string) => `/projects` },
-    { icon: Upload,      label: '2. 上传',     desc: '飞书/钉钉/本地', path: (_pid: string) => `/v15/manage/import/upload` },
-    { icon: Filter,      label: '3. 去噪审核', desc: '保留/归档/丢弃', path: (_pid: string) => `/v15/manage/import/review` },
-    { icon: Network,     label: '4. 知识体系', desc: '四级 Schema',   path: (_pid: string) => `/v15/manage/import/taxonomy` },
-    { icon: BookOpen,    label: '5. Wiki',     desc: '编译产物',      path: (_pid: string) => `/v15/manage/wiki/domain/energy/safety/hazard` },
-    { icon: GitBranch,   label: '6. 图谱',     desc: '实体关系',      path: (_pid: string) => `/v15/manage/graph` },
+    { icon: FolderPlus,  labelKey: 'pipeline.s1.label' as const, descKey: 'pipeline.s1.desc' as const, path: (_pid: string) => `/projects` },
+    { icon: Upload,      labelKey: 'pipeline.s2.label' as const, descKey: 'pipeline.s2.desc' as const, path: (_pid: string) => `/v15/manage/import/upload` },
+    { icon: Filter,      labelKey: 'pipeline.s3.label' as const, descKey: 'pipeline.s3.desc' as const, path: (_pid: string) => `/v15/manage/import/review` },
+    { icon: Network,     labelKey: 'pipeline.s4.label' as const, descKey: 'pipeline.s4.desc' as const, path: (_pid: string) => `/v15/manage/import/taxonomy` },
+    { icon: BookOpen,    labelKey: 'pipeline.s5.label' as const, descKey: 'pipeline.s5.desc' as const, path: (_pid: string) => `/v15/manage/wiki/domain/energy/safety/hazard` },
+    { icon: GitBranch,   labelKey: 'pipeline.s6.label' as const, descKey: 'pipeline.s6.desc' as const, path: (_pid: string) => `/v15/manage/graph` },
   ];
 
   return (
@@ -469,9 +475,10 @@ function KnowledgePipeline({ projectId }: { projectId: string | null }) {
             <Inbox size={14} className="text-accent" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-th-text-primary">知识体系建立 · 完整流程</div>
+            <div className="text-sm font-semibold text-th-text-primary">{t('pipeline.title')}</div>
             <div className="text-xs text-th-text-muted mt-0.5 v15-mono">
-              从导入到出 Schema · 6 步 · {projectId ? `项目 ${projectId.slice(0, 16)}...` : '请先创建项目'}
+              {t('pipeline.subtitle')}
+              {projectId && (<span> · {projectId.slice(0, 16)}{projectId.length > 16 ? '...' : ''}</span>)}
             </div>
           </div>
         </div>
@@ -479,27 +486,27 @@ function KnowledgePipeline({ projectId }: { projectId: string | null }) {
           to="/projects"
           className="text-xs px-3 py-1.5 rounded-btn border border-th-border text-th-text-secondary hover:text-th-text-primary hover:border-th-border-hover transition"
         >
-          切项目 / 新建项目
+          {t('pipeline.switch')}
         </Link>
       </div>
 
       {!projectId ? (
         <div className="text-sm text-th-text-muted py-4 text-center">
-          尚无项目 — 点 <Link to="/projects/new" className="text-accent underline">新建项目</Link> 开始
+          {t('pipeline.empty')}
         </div>
       ) : (
         <div className="flex items-stretch gap-2">
           {steps.map((s, i) => {
             const Icon = s.icon;
             return (
-              <div key={s.label} className="flex items-center flex-1">
+              <div key={s.labelKey} className="flex items-center flex-1">
                 <Link
                   to={s.path(projectId)}
                   className="group flex-1 flex flex-col items-center gap-1.5 p-3 rounded-card border border-th-border hover:border-accent hover:bg-hover transition"
                 >
                   <Icon size={20} className="text-th-text-muted group-hover:text-accent transition-colors" />
-                  <div className="text-xs font-medium text-th-text-primary">{s.label}</div>
-                  <div className="text-[10px] text-th-text-muted">{s.desc}</div>
+                  <div className="text-xs font-medium text-th-text-primary">{t(s.labelKey)}</div>
+                  <div className="text-[10px] text-th-text-muted">{t(s.descKey)}</div>
                 </Link>
                 {i < steps.length - 1 && (
                   <ArrowRight size={14} className="text-th-text-muted shrink-0 mx-1" />

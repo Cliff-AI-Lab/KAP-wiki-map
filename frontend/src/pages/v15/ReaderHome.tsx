@@ -54,8 +54,11 @@ function RouteBadge({ path }: { path?: string }) {
     hybrid: t('reader.routeHybrid'),
   };
   return (
-    <span className="px-2 py-0.5 rounded-pill text-xs font-mono bg-hover text-accent-secondary border border-th-border">
-      {label[path] ?? path}
+    <span className="px-2 py-0.5 rounded-pill text-xs bg-hover text-accent-secondary border border-th-border">
+      <span className="text-[10px] text-th-text-muted mr-1">
+        {t('reader.routeShown')}:
+      </span>
+      <span className="font-mono">{label[path] ?? path}</span>
     </span>
   );
 }
@@ -73,7 +76,7 @@ function AnswerCard({ resp, q }: { resp: QAResponse; q: string }) {
           </span>
         )}
         {resp.routed_domains && resp.routed_domains.length > 0 && (
-          <span className="font-mono">· 域: {resp.routed_domains.slice(0, 3).join(', ')}</span>
+          <span className="font-mono">· {t('reader.cardDomainMap')}: {resp.routed_domains.slice(0, 3).join(', ')}</span>
         )}
       </div>
 

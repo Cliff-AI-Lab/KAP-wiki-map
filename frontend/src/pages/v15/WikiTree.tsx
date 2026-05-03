@@ -37,7 +37,10 @@ export default function WikiTree() {
       </div>
 
       <p className="text-sm text-th-text-muted">
-        index → domain_overview → source_summary 三级编译产出。点节点跳转到详情页。
+        索引 → 领域概览 → 源文档摘要 三级编译产出。点节点跳转到详情页。
+        <span className="ml-2 font-mono text-[11px]">
+          (index → domain_overview → source_summary)
+        </span>
       </p>
 
       <WikiHierarchyTree

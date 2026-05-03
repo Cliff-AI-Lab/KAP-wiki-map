@@ -152,6 +152,9 @@ export interface ConditionHealth {
   approve_rate: number;
   common_reject_reasons: string[];
   tuning_suggestion: string;
+  /** M21 i18n · 前端按 code 查 i18n 字典渲染（low_samples/all_pending/low_approve/mid_approve/high_approve/unclassified） */
+  suggestion_code?: string;
+  suggestion_params?: Record<string, string | number>;
 }
 
 // ════════════════════════════════════════════════════════════════════════

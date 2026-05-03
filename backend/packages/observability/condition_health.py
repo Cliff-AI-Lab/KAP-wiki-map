@@ -46,7 +46,9 @@ class ConditionHealth(BaseModel):
     pending: int = 0
     approve_rate: float = 0.0       # approved / (approved + rejected)
     common_reject_reasons: list[str] = Field(default_factory=list)  # top 3
-    tuning_suggestion: str = ""
+    tuning_suggestion: str = ""           # 已国际化中文（zh fallback）
+    suggestion_code: str = ""              # M21 i18n · 前端按 code 渲染（low_samples / all_pending / low_approve / high_approve / mid_approve / unclassified）
+    suggestion_params: dict = Field(default_factory=dict)   # 渲染参数（如 approve_rate, sample_count）
 
 
 # 启发式阈值（可后续按运行数据校准）
@@ -95,26 +97,47 @@ def _top_reject_reasons(rejected: list[OntologyEvolutionProposal]) -> list[str]:
 def _make_suggestion(
     *, condition_type: ConditionType, total: int,
     approved: int, rejected: int, approve_rate: float,
-) -> str:
+) -> tuple[str, str, dict]:
+    """返回 (中文文案 fallback, suggestion_code, suggestion_params)。
+
+    code 列表（前端 i18n 字典 condhealth.suggest.* 渲染）：
+    - low_samples       样本不足
+    - all_pending       全部 pending
+    - low_approve       接受率偏低
+    - mid_approve       中等接受率
+    - high_approve      接受率高（健康）
+    """
     if total < _MIN_SAMPLES_FOR_JUDGMENT:
         return (
-            f"样本不足 ({total} < {_MIN_SAMPLES_FOR_JUDGMENT})，"
-            f"暂无法评估 prompt 健康度"
+            f"样本不足 ({total} < {_MIN_SAMPLES_FOR_JUDGMENT})，暂无法评估 prompt 健康度",
+            "low_samples",
+            {"total": total, "min_samples": _MIN_SAMPLES_FOR_JUDGMENT},
         )
     decided = approved + rejected
     if decided == 0:
-        return "全部 pending，等 SME 审批后再评估"
+        return (
+            "全部 pending，等 SME 审批后再评估",
+            "all_pending",
+            {},
+        )
+    pct = f"{approve_rate:.0%}"
     if approve_rate < _LOW_APPROVE_RATE:
         return (
-            f"接受率偏低 ({approve_rate:.0%})，"
-            f"建议收紧触发阈值或细化 prompt 例子；"
-            f"可参考 common_reject_reasons 调优"
+            f"接受率偏低 ({pct})，建议收紧触发阈值或细化 prompt 例子；"
+            f"可参考 common_reject_reasons 调优",
+            "low_approve",
+            {"approve_rate_pct": pct},
         )
     if approve_rate >= _HIGH_APPROVE_RATE:
-        return f"接受率高 ({approve_rate:.0%})，prompt 健康"
+        return (
+            f"接受率高 ({pct})，prompt 健康",
+            "high_approve",
+            {"approve_rate_pct": pct},
+        )
     return (
-        f"中等接受率 ({approve_rate:.0%})，"
-        f"建议样本扩大后再评估；可关注 common_reject_reasons"
+        f"中等接受率 ({pct})，建议样本扩大后再评估；可关注 common_reject_reasons",
+        "mid_approve",
+        {"approve_rate_pct": pct},
     )
 
 
@@ -149,6 +172,13 @@ def analyze_condition_health(
             len(approved) / decided, 4,
         ) if decided > 0 else 0.0
 
+        suggestion_text, suggestion_code, suggestion_params = _make_suggestion(
+            condition_type=ct,                # type: ignore[arg-type]
+            total=len(items),
+            approved=len(approved),
+            rejected=len(rejected),
+            approve_rate=approve_rate,
+        )
         out[ct] = ConditionHealth(
             condition_type=ct,                   # type: ignore[arg-type]
             total=len(items),
@@ -157,13 +187,9 @@ def analyze_condition_health(
             pending=len(pending),
             approve_rate=approve_rate,
             common_reject_reasons=_top_reject_reasons(rejected),
-            tuning_suggestion=_make_suggestion(
-                condition_type=ct,                # type: ignore[arg-type]
-                total=len(items),
-                approved=len(approved),
-                rejected=len(rejected),
-                approve_rate=approve_rate,
-            ),
+            tuning_suggestion=suggestion_text,
+            suggestion_code=suggestion_code,
+            suggestion_params=suggestion_params,
         )
 
     # unknown 类型有样本时也返回
@@ -176,6 +202,7 @@ def analyze_condition_health(
             rejected=sum(1 for p in items if p.status == "rejected"),
             pending=sum(1 for p in items if p.status == "pending"),
             tuning_suggestion="无法分类的提议（缺 entity_type 和 relation_type）",
+            suggestion_code="unclassified",
         )
 
     log.info("condition_health_analyzed",

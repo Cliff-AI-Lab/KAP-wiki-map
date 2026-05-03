@@ -141,8 +141,8 @@ export default function MyClaimed() {
         <h1 className="text-2xl font-semibold tracking-tight text-th-text-primary">
           {t('myclaimed.title')}
         </h1>
-        <span className="text-xs text-th-text-muted font-mono">
-          {t('myclaimed.subtitle')}
+        <span className="text-xs text-th-text-muted">
+          {t('myclaimed.subtitleClean')}
         </span>
 
         <div className="ml-auto flex items-center gap-3">

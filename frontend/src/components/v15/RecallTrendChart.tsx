@@ -14,6 +14,7 @@ import { Loader2, TrendingUp } from 'lucide-react';
 import {
   fetchRecallReports, type RecallReportSummary,
 } from '@/services/observabilityApi';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface Props {
   projectId?: string;
@@ -41,6 +42,7 @@ function shortenDate(iso: string): string {
 }
 
 export default function RecallTrendChart({ projectId, limit = 30 }: Props) {
+  const { t } = useLocale();
   const [reports, setReports] = useState<RecallReportSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,19 +69,19 @@ export default function RecallTrendChart({ projectId, limit = 30 }: Props) {
   if (loading) {
     return (
       <div className="text-xs text-th-text-muted py-6 text-center">
-        <Loader2 size={14} className="inline animate-spin mr-2" /> 加载历史报告...
+        <Loader2 size={14} className="inline animate-spin mr-2" /> {t('common.loading')}
       </div>
     );
   }
   if (error) {
     return (
-      <div className="text-xs text-rose-600 py-4">加载失败：{error}</div>
+      <div className="text-xs text-rose-600 py-4">{t('common.loadFailed')}：{error}</div>
     );
   }
   if (!reports || reports.length === 0) {
     return (
       <div className="text-xs text-th-text-muted py-6 text-center border border-dashed border-th-border rounded-card">
-        尚无评估报告（先在 SME 端运行 recall-eval）
+        {t('observ.noReports')}
       </div>
     );
   }

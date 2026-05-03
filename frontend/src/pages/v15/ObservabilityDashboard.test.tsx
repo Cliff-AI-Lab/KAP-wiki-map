@@ -44,6 +44,12 @@ vi.mock('@/contexts/LocaleContext', () => ({
         'observ.feedbackReasons.title': '反馈原因 Top 5',
         'observ.feedbackReasons.empty': '暂无负反馈',
         'observ.feedbackReasons.totalNegFeedback': '负反馈样本',
+        'common.loading': '加载中...',
+        'common.loadFailed': '加载失败',
+        'observ.fetchFailed': '请求失败',
+        'observ.gtSet': 'Ground Truth 集',
+        'observ.notEvaluated': '尚未运行评估',
+        'observ.status.alert': '告警',
       };
       return map[key] || key;
     },

@@ -25,6 +25,7 @@ vi.mock('@/contexts/LocaleContext', () => ({
         'wq.radar': '雷达',
         'wq.alertList': '告警清单',
         'wq.empty': '暂无',
+        'wq.emptyClean': '暂无评分',
         'wq.dim.consistency': '一致性',
         'wq.dim.completeness': '完整性',
         'wq.dim.evidence': '证据',
@@ -146,7 +147,7 @@ describe('WikiQualityDashboard', () => {
     });
     render(<WikiQualityDashboard />);
     await waitFor(() => {
-      expect(screen.getByText('暂无')).toBeInTheDocument();
+      expect(screen.getByText('暂无评分')).toBeInTheDocument();
     });
   });
 

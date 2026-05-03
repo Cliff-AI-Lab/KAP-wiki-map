@@ -35,12 +35,13 @@ import LanguageSwitcher from '@/components/v15/LanguageSwitcher';
 // ════════════════════════════════════════════════════════════════════════
 
 function MetricCard({
-  title, icon, children, alert,
+  title, icon, children, alert, alertLabel,
 }: {
   title: string;
   icon: React.ReactNode;
   children: React.ReactNode;
   alert?: boolean;
+  alertLabel?: string;
 }) {
   return (
     <div
@@ -55,7 +56,7 @@ function MetricCard({
         <h3 className="text-sm font-mono text-th-text-muted">{title}</h3>
         {alert && (
           <span className="ml-auto text-xs text-rose-600 font-medium">
-            告警
+            {alertLabel}
           </span>
         )}
       </div>
@@ -84,26 +85,27 @@ function StatRow({
   );
 }
 
-function EmptyOrLoading({ loading, error, empty }: {
+function EmptyOrLoading({ loading, error, empty, t }: {
   loading: boolean;
   error: string | null;
   empty?: boolean;
+  t: (k: string) => string;
 }) {
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-th-text-muted text-xs py-4">
-        <Loader2 size={14} className="animate-spin" /> 加载中...
+        <Loader2 size={14} className="animate-spin" /> {t('common.loading')}
       </div>
     );
   }
   if (error) {
     return (
-      <div className="text-rose-600 text-xs py-4">加载失败：{error}</div>
+      <div className="text-rose-600 text-xs py-4">{t('common.loadFailed')}：{error}</div>
     );
   }
   if (empty) {
     return (
-      <div className="text-th-text-muted text-xs py-4">暂无数据</div>
+      <div className="text-th-text-muted text-xs py-4">{t('observ.empty')}</div>
     );
   }
   return null;
@@ -188,13 +190,13 @@ export default function ObservabilityDashboard() {
     ]);
 
     if (dashRes.status === 'fulfilled') setDashboard(dashRes.value);
-    else setErrors(e => ({ ...e, dashboard: dashRes.reason?.message || '请求失败' }));
+    else setErrors(e => ({ ...e, dashboard: dashRes.reason?.message || t('observ.fetchFailed') }));
 
     if (trendRes.status === 'fulfilled') setTrend(trendRes.value);
-    else setErrors(e => ({ ...e, trend: trendRes.reason?.message || '请求失败' }));
+    else setErrors(e => ({ ...e, trend: trendRes.reason?.message || t('observ.fetchFailed') }));
 
     if (condRes.status === 'fulfilled') setConditionHealth(condRes.value);
-    else setErrors(e => ({ ...e, condition: condRes.reason?.message || '请求失败' }));
+    else setErrors(e => ({ ...e, condition: condRes.reason?.message || t('observ.fetchFailed') }));
 
     setLoading(false);
   }, [projectId]);
@@ -241,6 +243,7 @@ export default function ObservabilityDashboard() {
         {/* 演化决策 */}
         <MetricCard title={t('observ.card.decisions')} icon={<GitMerge size={16} />}>
           <EmptyOrLoading
+            t={t}
             loading={loading && !dashboard}
             error={errors.dashboard ?? null}
             empty={!!dashboard && dashboard.decisions.total === 0}
@@ -248,11 +251,11 @@ export default function ObservabilityDashboard() {
           {dashboard && dashboard.decisions.total > 0 && (
             <>
               <StatRow
-                label="总决策数"
+                label={t('observ.row.totalDecisions')}
                 value={dashboard.decisions.total}
               />
               <StatRow
-                label="本体批准 / 驳回"
+                label={t('observ.row.approveReject')}
                 value={
                   <>
                     <CheckCircle2 size={12} className="inline mr-1 text-emerald-600" />
@@ -264,11 +267,11 @@ export default function ObservabilityDashboard() {
                 }
               />
               <StatRow
-                label="批准率"
+                label={t('observ.row.approvalRate')}
                 value={<PercentBadge value={dashboard.decisions.approval_rate} />}
               />
               <StatRow
-                label="灰度切换 / 回滚"
+                label={t('observ.row.promoteRollback')}
                 value={
                   <>
                     {dashboard.decisions.by_type.promote ?? 0}
@@ -278,7 +281,7 @@ export default function ObservabilityDashboard() {
                 }
               />
               <StatRow
-                label="切换 / 回滚比"
+                label={t('observ.row.promoteRatio')}
                 value={dashboard.decisions.promote_rollback_ratio.toFixed(2)}
               />
             </>
@@ -288,6 +291,7 @@ export default function ObservabilityDashboard() {
         {/* 查询召回 */}
         <MetricCard title={t('observ.card.queries')} icon={<Search size={16} />}>
           <EmptyOrLoading
+            t={t}
             loading={loading && !dashboard}
             error={errors.dashboard ?? null}
             empty={!!dashboard && dashboard.queries.total === 0}
@@ -295,30 +299,30 @@ export default function ObservabilityDashboard() {
           {dashboard && dashboard.queries.total > 0 && (
             <>
               <StatRow
-                label="查询总数 / 命中数"
+                label={t('observ.row.queryTotalHits')}
                 value={`${dashboard.queries.total} / ${dashboard.queries.hits}`}
               />
               <StatRow
-                label="命中率"
+                label={t('observ.row.hitRate')}
                 value={<PercentBadge value={dashboard.queries.hit_rate} />}
               />
               <StatRow
-                label="平均延时"
+                label={t('observ.row.avgLatency')}
                 value={`${dashboard.queries.avg_latency_ms.toFixed(0)}`}
                 hint="ms"
               />
               <StatRow
-                label="P95 延时"
+                label={t('observ.row.p95Latency')}
                 value={`${dashboard.queries.p95_latency_ms}`}
                 hint="ms"
               />
               <StatRow
-                label="用户反馈率"
+                label={t('observ.row.feedbackRate')}
                 value={<PercentBadge value={dashboard.queries.feedback_coverage} />}
                 hint={`(${dashboard.queries.feedback_total})`}
               />
               <StatRow
-                label="有用率"
+                label={t('observ.row.usefulRate')}
                 value={
                   <span className="inline-flex items-center gap-1">
                     <MessageSquare size={12} className="text-accent" />
@@ -339,8 +343,10 @@ export default function ObservabilityDashboard() {
           title={t('observ.card.observations')}
           icon={<Clock size={16} />}
           alert={!!dashboard && dashboard.observations.alerting > 0}
+          alertLabel={t('observ.status.alert')}
         >
           <EmptyOrLoading
+            t={t}
             loading={loading && !dashboard}
             error={errors.dashboard ?? null}
             empty={!!dashboard && dashboard.observations.total === 0}
@@ -348,11 +354,11 @@ export default function ObservabilityDashboard() {
           {dashboard && dashboard.observations.total > 0 && (
             <>
               <StatRow
-                label="活跃观察期"
+                label={t('observ.row.activeWindow')}
                 value={dashboard.observations.active}
               />
               <StatRow
-                label="告警中"
+                label={t('observ.row.alerting')}
                 value={
                   <span
                     className={
@@ -366,7 +372,7 @@ export default function ObservabilityDashboard() {
                 }
               />
               <StatRow
-                label="历史观察期"
+                label={t('observ.row.totalWindow')}
                 value={dashboard.observations.total}
               />
               {dashboard.observations.items.length > 0 && (
@@ -380,7 +386,7 @@ export default function ObservabilityDashboard() {
                         {o.project_id} · {o.version}
                       </span>
                       <span className="flex items-center gap-1">
-                        <StatusBadge status={o.status} />
+                        <StatusBadge status={o.status} t={t} />
                         {o.alerts_count > 0 && (
                           <span className="text-rose-600 ml-1">
                             <AlertTriangle size={10} className="inline" />
@@ -402,19 +408,20 @@ export default function ObservabilityDashboard() {
           icon={<Target size={16} />}
         >
           <EmptyOrLoading
+            t={t}
             loading={loading && !dashboard}
             error={errors.dashboard ?? null}
           />
           {dashboard && (
             <>
               <StatRow
-                label="Ground Truth 集"
+                label={t('observ.gtSet')}
                 value={dashboard.recall_eval.ground_truth_count}
               />
               {dashboard.recall_eval.latest ? (
                 <>
                   <StatRow
-                    label="最新 avg_recall"
+                    label={t('observ.row.latestRecall')}
                     value={
                       <PercentBadge
                         value={dashboard.recall_eval.latest.avg_recall}
@@ -423,7 +430,7 @@ export default function ObservabilityDashboard() {
                     hint={`@${dashboard.recall_eval.latest.k}`}
                   />
                   <StatRow
-                    label="avg_precision"
+                    label={t('observ.row.latestPrecision')}
                     value={
                       <PercentBadge
                         value={dashboard.recall_eval.latest.avg_precision}
@@ -431,7 +438,7 @@ export default function ObservabilityDashboard() {
                     }
                   />
                   <StatRow
-                    label="avg_f1"
+                    label={t('observ.row.latestF1')}
                     value={
                       <PercentBadge
                         value={dashboard.recall_eval.latest.avg_f1}
@@ -439,13 +446,13 @@ export default function ObservabilityDashboard() {
                     }
                   />
                   <StatRow
-                    label="评估 query 数"
+                    label={t('observ.row.totalQueries')}
                     value={dashboard.recall_eval.latest.total_queries}
                   />
                 </>
               ) : (
                 <div className="text-th-text-muted text-xs py-2">
-                  尚未运行评估
+                  {t('observ.notEvaluated')}
                 </div>
               )}
             </>
@@ -463,8 +470,10 @@ export default function ObservabilityDashboard() {
             )
           }
           alert={!!trend?.recall_alert || !!trend?.precision_alert}
+          alertLabel={t('observ.status.alert')}
         >
           <EmptyOrLoading
+            t={t}
             loading={loading && !trend}
             error={errors.trend ?? null}
             empty={!!trend && trend.samples < 2}
@@ -472,11 +481,11 @@ export default function ObservabilityDashboard() {
           {trend && trend.samples >= 2 && trend.current && trend.baseline && (
             <>
               <StatRow
-                label="样本数"
+                label={t('observ.row.k')}
                 value={trend.samples}
               />
               <StatRow
-                label="召回率（baseline → current）"
+                label={t('observ.row.recallTrendPair')}
                 value={
                   <>
                     <PercentBadge value={trend.baseline.avg_recall} />
@@ -486,19 +495,19 @@ export default function ObservabilityDashboard() {
                 }
               />
               <StatRow
-                label="召回率 delta"
+                label={t('observ.row.recallDelta')}
                 value={
                   <DeltaBadge value={trend.recall_delta} alert={trend.recall_alert} />
                 }
               />
               <StatRow
-                label="精确率 delta"
+                label={t('observ.row.precisionDelta')}
                 value={
                   <DeltaBadge value={trend.precision_delta} alert={trend.precision_alert} />
                 }
               />
               <StatRow
-                label="F1 delta"
+                label={t('observ.row.f1Delta')}
                 value={<DeltaBadge value={trend.f1_delta} />}
               />
               {trend.alert_messages.length > 0 && (
@@ -521,6 +530,7 @@ export default function ObservabilityDashboard() {
           icon={<Activity size={16} />}
         >
           <EmptyOrLoading
+            t={t}
             loading={loading && !conditionHealth}
             error={errors.condition ?? null}
           />
@@ -532,20 +542,28 @@ export default function ObservabilityDashboard() {
                   className="border-t border-th-border first:border-t-0 pt-2 first:pt-0"
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-mono text-th-text-secondary">
-                      {key}
+                    <span className="text-xs text-th-text-secondary">
+                      {t(`cond.${key}` as const) || key}
+                      <span className="ml-1 font-mono text-th-text-muted">{key}</span>
                     </span>
                     <span className="text-xs text-th-text-muted">
                       {health.approved}/{health.rejected}/{health.pending}
-                      <span className="ml-1 text-th-text-muted">(批/驳/待)</span>
+                      <span className="ml-1 text-th-text-muted">
+                        ({t('observ.legendApproveRejectPending')})
+                      </span>
                     </span>
                   </div>
                   <div className="text-xs text-th-text-muted">
-                    {health.tuning_suggestion}
+                    {health.suggestion_code
+                      ? t(
+                          `condhealth.suggest.${health.suggestion_code}` as const,
+                          (health.suggestion_params ?? {}) as Record<string, string | number>,
+                        )
+                      : health.tuning_suggestion}
                   </div>
                   {health.common_reject_reasons.length > 0 && (
                     <div className="mt-1 text-xs text-th-text-muted">
-                      <span className="font-medium">常见驳回:</span>{' '}
+                      <span className="font-medium">{t('observ.commonRejectReasons')}:</span>{' '}
                       {health.common_reject_reasons.join('；')}
                     </div>
                   )}
@@ -561,27 +579,36 @@ export default function ObservabilityDashboard() {
         <RecallTrendChart projectId={projectId} limit={30} />
       </div>
 
-      <div className="mt-6 text-xs text-th-text-muted text-center">
-        <BarChart3 size={12} className="inline mr-1" />
-        数据来自 GET /api/v1/observability/dashboard + /trend + /condition-health + /recall-eval/reports
-      </div>
+      {import.meta.env.DEV && (
+        <div className="mt-6 text-xs text-th-text-muted text-center font-mono">
+          <BarChart3 size={12} className="inline mr-1" />
+          GET /api/v1/observability/{`{`}dashboard,trend,condition-health,recall-eval/reports{`}`}
+        </div>
+      )}
     </div>
   );
 }
 
 // ── 状态徽章 ──
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; className: string }> = {
-    watching:    { label: '观察中', className: 'bg-emerald-500/10 text-emerald-700' },
-    alert:       { label: '告警',   className: 'bg-rose-500/10 text-rose-700' },
-    expired:     { label: '已过期', className: 'bg-th-border text-th-text-muted' },
-    rolled_back: { label: '已回滚', className: 'bg-amber-500/10 text-amber-700' },
+function StatusBadge({ status, t }: {
+  status: string;
+  t: (k: string) => string;
+}) {
+  const classMap: Record<string, string> = {
+    watching:    'bg-emerald-500/10 text-emerald-700',
+    alert:       'bg-rose-500/10 text-rose-700',
+    expired:     'bg-th-border text-th-text-muted',
+    rolled_back: 'bg-amber-500/10 text-amber-700',
   };
-  const cfg = map[status] ?? { label: status, className: 'bg-th-border text-th-text-muted' };
+  const className = classMap[status] ?? 'bg-th-border text-th-text-muted';
+  const labelKey = `observ.status.${status}`;
+  const label = t(labelKey);
+  // 若字典未命中则 t() 返回 key 本身，回落 status 字符串
+  const finalLabel = label === labelKey ? status : label;
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${cfg.className}`}>
-      {cfg.label}
+    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${className}`}>
+      {finalLabel}
     </span>
   );
 }

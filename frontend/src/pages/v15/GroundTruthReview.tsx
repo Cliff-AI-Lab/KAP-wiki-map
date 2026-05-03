@@ -245,7 +245,7 @@ export default function GroundTruthReview() {
             {t('gtreview.title')}
           </h1>
           <p className="text-sm text-th-text-muted mt-1">
-            {t('gtreview.subtitle')}
+            {t('gtreview.subtitleClean')}
             {projectId && (
               <span className="ml-2 px-2 py-0.5 rounded-full bg-accent/10 text-accent text-xs font-mono">
                 {projectId}

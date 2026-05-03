@@ -176,6 +176,106 @@ export type TranslationKey =
   | 'pv.diffExcerpt'
   | 'pv.diffSystem'
   | 'pv.diffStats'
+  // M21 i18n 收口 · 5 Agent / 4 角色 / 4 监测条件 / 3 层 Wiki / 调试提示清理
+  | 'agent.curator'
+  | 'agent.auditor'
+  | 'agent.deduper'
+  | 'agent.standardizer'
+  | 'agent.gardener'
+  | 'agent.planner'
+  | 'role.dg'
+  | 'role.sme'
+  | 'role.sec'
+  | 'role.aiops'
+  | 'role.dg.full'
+  | 'role.sme.full'
+  | 'role.sec.full'
+  | 'role.aiops.full'
+  | 'cond.new_entity_type'
+  | 'cond.relation_solidification'
+  | 'cond.relation_split'
+  | 'cond.standard_upgrade'
+  | 'wiki.layer.index'
+  | 'wiki.layer.domain_overview'
+  | 'wiki.layer.source_summary'
+  | 'observ.endpointHint'
+  | 'gtreview.subtitleClean'
+  | 'gtreview.minUsefulRate'
+  | 'gtreview.minSamples'
+  | 'myclaimed.subtitleClean'
+  | 'wq.emptyClean'
+  | 'observ.legendApproveRejectPending'
+  | 'observ.commonRejectReasons'
+  // GovernanceHome 6 工位 pipeline
+  | 'pipeline.title'
+  | 'pipeline.subtitle'
+  | 'pipeline.empty'
+  | 'pipeline.switch'
+  | 'pipeline.matrix'
+  | 'pipeline.run'
+  | 'pipeline.s1.label'
+  | 'pipeline.s1.desc'
+  | 'pipeline.s2.label'
+  | 'pipeline.s2.desc'
+  | 'pipeline.s3.label'
+  | 'pipeline.s3.desc'
+  | 'pipeline.s4.label'
+  | 'pipeline.s4.desc'
+  | 'pipeline.s5.label'
+  | 'pipeline.s5.desc'
+  | 'pipeline.s6.label'
+  | 'pipeline.s6.desc'
+  | 'pipeline.running'
+  | 'common.loading'
+  | 'common.loadFailed'
+  | 'observ.gtSet'
+  | 'observ.notEvaluated'
+  | 'observ.noReports'
+  | 'observ.recallEvalHistory'
+  | 'observ.row.totalDecisions'
+  | 'observ.row.approveReject'
+  | 'observ.row.approvalRate'
+  | 'observ.row.promoteRollback'
+  | 'observ.row.promoteRatio'
+  | 'observ.row.queryTotalHits'
+  | 'observ.row.hitRate'
+  | 'observ.row.avgLatency'
+  | 'observ.row.p95Latency'
+  | 'observ.row.feedbackRate'
+  | 'observ.row.usefulRate'
+  | 'observ.row.activeWindow'
+  | 'observ.row.alerting'
+  | 'observ.row.totalWindow'
+  | 'observ.row.gtCount'
+  | 'observ.row.latestRecall'
+  | 'observ.row.latestPrecision'
+  | 'observ.row.latestF1'
+  | 'observ.row.k'
+  | 'observ.row.totalQueries'
+  | 'observ.row.evalAt'
+  | 'observ.row.recallTrend'
+  | 'observ.row.precisionTrend'
+  | 'observ.row.f1Trend'
+  | 'observ.row.recallDelta'
+  | 'observ.row.precisionDelta'
+  | 'observ.row.f1Delta'
+  | 'observ.row.improving'
+  | 'observ.row.degrading'
+  | 'observ.row.stable'
+  | 'observ.row.recallTrendPair'
+  | 'reader.routeLabel'
+  | 'reader.routeShown'
+  | 'observ.fetchFailed'
+  | 'observ.status.watching'
+  | 'observ.status.alert'
+  | 'observ.status.expired'
+  | 'observ.status.rolled_back'
+  | 'condhealth.suggest.low_samples'
+  | 'condhealth.suggest.all_pending'
+  | 'condhealth.suggest.low_approve'
+  | 'condhealth.suggest.mid_approve'
+  | 'condhealth.suggest.high_approve'
+  | 'condhealth.suggest.unclassified'
   // M18 #4 · 反馈原因可视化
   | 'observ.feedbackReasons.title'
   | 'observ.feedbackReasons.empty'
@@ -211,7 +311,7 @@ const zh: Dict = {
   'reader.routeHybrid': '双路径交叉',
 
   'gov.title': '治理收件箱',
-  'gov.subtitle': 'planner · 每日 08:00 合单',
+  'gov.subtitle': '调度员 · 每日 08:00 合单',
   'gov.seedDemo': '种入示例工单',
   'settings.tabSystem': '组件状态',
   'gov.queueDetail': '工单详情',
@@ -220,19 +320,19 @@ const zh: Dict = {
   'gov.btnApprove': '通过',
   'gov.btnReject': '打回',
   'gov.btnEdit': '改',
-  'gov.kindDraft': 'draft 待审',
+  'gov.kindDraft': '草稿待审',
   'gov.kindUnverified': '未溯源',
   'gov.kindConflict': '事实冲突',
   'gov.kindStandardize': '实体归一',
   'gov.kindArchive': '建议归档',
   'gov.health': '健康面板',
-  'gov.healthSub': 'gardener · 每日刷新',
+  'gov.healthSub': '园丁 · 每日刷新',
   'gov.metricCoverage': 'Wiki 覆盖率',
   'gov.metricFallback': 'RAG 兜底率',
   'gov.metricProvenance': '溯源完整度',
   'gov.hintCoverage': '已编译 / 已识别域',
   'gov.hintFallback': '数值越低说明治理起效',
-  'gov.hintProvenance': 'Auditor 统计',
+  'gov.hintProvenance': '审核员统计',
 
   'settings.title': '设置',
   'settings.tabAI': 'AI 配置',
@@ -350,6 +450,105 @@ const zh: Dict = {
   'pv.diffExcerpt': 'prompt 摘要',
   'pv.diffSystem': 'system_prompt',
   'pv.diffStats': '差异：+{added} / -{removed}',
+  // M21 i18n 收口 (zh)
+  'agent.curator': '治理员',
+  'agent.auditor': '审核员',
+  'agent.deduper': '去重员',
+  'agent.standardizer': '规范员',
+  'agent.gardener': '园丁',
+  'agent.planner': '调度员',
+  'role.dg': 'DG',
+  'role.sme': 'SME',
+  'role.sec': 'SEC',
+  'role.aiops': 'AIOps',
+  'role.dg.full': '数据治理员',
+  'role.sme.full': '业务专家',
+  'role.sec.full': '安全审计员',
+  'role.aiops.full': 'AI 运营员',
+  'cond.new_entity_type': '新实体类型',
+  'cond.relation_solidification': '关系固化',
+  'cond.relation_split': '关系拆分',
+  'cond.standard_upgrade': '标准升版',
+  'wiki.layer.index': '索引',
+  'wiki.layer.domain_overview': '领域概览',
+  'wiki.layer.source_summary': '源文档摘要',
+  'observ.endpointHint': '',                                  // 生产隐藏调试提示
+  'gtreview.subtitleClean': '决策书 §5.3 · 从高有用率查询反向构造标注集',
+  'gtreview.minUsefulRate': '最低有用率',
+  'gtreview.minSamples': '最小样本数',
+  'myclaimed.subtitleClean': '按认领人筛选 · 批量决策',
+  'wq.emptyClean': '暂无评分数据（先编译几次 Wiki 页）',
+  'observ.legendApproveRejectPending': '批/驳/待',
+  'observ.commonRejectReasons': '常见驳回',
+  'pipeline.title': '知识体系建立 · 完整流程',
+  'pipeline.subtitle': '从导入到出 Schema · 6 步',
+  'pipeline.empty': '尚无项目 — 请先新建项目',
+  'pipeline.switch': '切项目 / 新建项目',
+  'pipeline.matrix': '矩阵审核台',
+  'pipeline.run': '运行',
+  'pipeline.s1.label': '1. 项目',
+  'pipeline.s1.desc': '选行业模板',
+  'pipeline.s2.label': '2. 上传',
+  'pipeline.s2.desc': '飞书/钉钉/本地',
+  'pipeline.s3.label': '3. 去噪审核',
+  'pipeline.s3.desc': '保留/归档/丢弃',
+  'pipeline.s4.label': '4. 知识体系',
+  'pipeline.s4.desc': '四级 Schema',
+  'pipeline.s5.label': '5. Wiki',
+  'pipeline.s5.desc': '编译产物',
+  'pipeline.s6.label': '6. 图谱',
+  'pipeline.s6.desc': '实体关系',
+  'pipeline.running': '运行中',
+  'common.loading': '加载中...',
+  'common.loadFailed': '加载失败',
+  'observ.gtSet': 'Ground Truth 集',
+  'observ.notEvaluated': '尚未运行评估',
+  'observ.noReports': '尚无运行报告（先在 SME 端运行 recall-eval）',
+  'observ.recallEvalHistory': '召回评估历史趋势',
+  'observ.row.totalDecisions': '总决策数',
+  'observ.row.approveReject': '本体批准 / 驳回',
+  'observ.row.approvalRate': '批准率',
+  'observ.row.promoteRollback': '灰度切换 / 回滚',
+  'observ.row.promoteRatio': '切换 / 回滚比',
+  'observ.row.queryTotalHits': '查询总数 / 命中数',
+  'observ.row.hitRate': '命中率',
+  'observ.row.avgLatency': '平均延时',
+  'observ.row.p95Latency': 'P95 延时',
+  'observ.row.feedbackRate': '用户反馈率',
+  'observ.row.usefulRate': '有用率',
+  'observ.row.activeWindow': '活跃观察期',
+  'observ.row.alerting': '告警中',
+  'observ.row.totalWindow': '历史观察期',
+  'observ.row.gtCount': 'Ground Truth 集',
+  'observ.row.latestRecall': '召回率',
+  'observ.row.latestPrecision': '精确率',
+  'observ.row.latestF1': 'F1',
+  'observ.row.k': 'K',
+  'observ.row.totalQueries': '查询总数',
+  'observ.row.evalAt': '评估时间',
+  'observ.row.recallTrend': '召回率趋势',
+  'observ.row.precisionTrend': '精确率趋势',
+  'observ.row.f1Trend': 'F1 趋势',
+  'observ.row.recallDelta': '召回率变化',
+  'observ.row.precisionDelta': '精确率变化',
+  'observ.row.f1Delta': 'F1 变化',
+  'observ.row.improving': '上升',
+  'observ.row.degrading': '下降',
+  'observ.row.stable': '稳定',
+  'observ.row.recallTrendPair': '召回率（基线 → 当前）',
+  'reader.routeLabel': '本次走的路径',
+  'reader.routeShown': '路径',
+  'observ.fetchFailed': '请求失败',
+  'observ.status.watching': '观察中',
+  'observ.status.alert': '告警',
+  'observ.status.expired': '已过期',
+  'observ.status.rolled_back': '已回滚',
+  'condhealth.suggest.low_samples': '样本不足（{total} < {min_samples}），暂无法评估 prompt 健康度',
+  'condhealth.suggest.all_pending': '全部待审，等 SME 审批后再评估',
+  'condhealth.suggest.low_approve': '接受率偏低（{approve_rate_pct}），建议收紧触发阈值或细化 prompt 例子；可参考常见驳回理由调优',
+  'condhealth.suggest.mid_approve': '中等接受率（{approve_rate_pct}），建议样本扩大后再评估；可关注常见驳回理由',
+  'condhealth.suggest.high_approve': '接受率高（{approve_rate_pct}），prompt 健康',
+  'condhealth.suggest.unclassified': '无法分类的提议（缺 entity_type 和 relation_type）',
   // M18 #4 · 反馈原因可视化 (zh)
   'observ.feedbackReasons.title': '反馈原因 Top 5（无用反馈）',
   'observ.feedbackReasons.empty': '暂无负反馈原因',
@@ -523,6 +722,105 @@ const en: Dict = {
   'pv.diffExcerpt': 'Excerpt',
   'pv.diffSystem': 'system_prompt',
   'pv.diffStats': 'Diff: +{added} / -{removed}',
+  // M21 i18n consolidation (en)
+  'agent.curator': 'Curator',
+  'agent.auditor': 'Auditor',
+  'agent.deduper': 'Deduper',
+  'agent.standardizer': 'Standardizer',
+  'agent.gardener': 'Gardener',
+  'agent.planner': 'Planner',
+  'role.dg': 'DG',
+  'role.sme': 'SME',
+  'role.sec': 'SEC',
+  'role.aiops': 'AIOps',
+  'role.dg.full': 'Data Governor',
+  'role.sme.full': 'Subject Matter Expert',
+  'role.sec.full': 'Security Auditor',
+  'role.aiops.full': 'AI Operator',
+  'cond.new_entity_type': 'New entity type',
+  'cond.relation_solidification': 'Relation solidification',
+  'cond.relation_split': 'Relation split',
+  'cond.standard_upgrade': 'Standard upgrade',
+  'wiki.layer.index': 'Index',
+  'wiki.layer.domain_overview': 'Domain overview',
+  'wiki.layer.source_summary': 'Source summary',
+  'observ.endpointHint': '',
+  'gtreview.subtitleClean': 'Decision book §5.3 · Build ground truth from high-useful-rate queries',
+  'gtreview.minUsefulRate': 'Min useful rate',
+  'gtreview.minSamples': 'Min samples',
+  'myclaimed.subtitleClean': 'Filter by claimer · bulk actions',
+  'wq.emptyClean': 'No quality scores yet (compile some Wiki pages first)',
+  'observ.legendApproveRejectPending': 'approved/rejected/pending',
+  'observ.commonRejectReasons': 'Common reject reasons',
+  'pipeline.title': 'Knowledge pipeline · 6 stages',
+  'pipeline.subtitle': 'Import → Schema · 6 steps',
+  'pipeline.empty': 'No project yet — create one first',
+  'pipeline.switch': 'Switch / New project',
+  'pipeline.matrix': 'Governance Matrix',
+  'pipeline.run': 'Run',
+  'pipeline.s1.label': '1. Project',
+  'pipeline.s1.desc': 'Pick industry template',
+  'pipeline.s2.label': '2. Upload',
+  'pipeline.s2.desc': 'Lark / DingTalk / local',
+  'pipeline.s3.label': '3. Denoise',
+  'pipeline.s3.desc': 'Keep / archive / drop',
+  'pipeline.s4.label': '4. Schema',
+  'pipeline.s4.desc': '4-level taxonomy',
+  'pipeline.s5.label': '5. Wiki',
+  'pipeline.s5.desc': 'Compiled artifacts',
+  'pipeline.s6.label': '6. Graph',
+  'pipeline.s6.desc': 'Entities / relations',
+  'pipeline.running': 'Running...',
+  'common.loading': 'Loading...',
+  'common.loadFailed': 'Load failed',
+  'observ.gtSet': 'Ground truth set',
+  'observ.notEvaluated': 'Not yet evaluated',
+  'observ.noReports': 'No reports yet (run recall-eval from SME end first)',
+  'observ.recallEvalHistory': 'Recall evaluation history',
+  'observ.row.totalDecisions': 'Total decisions',
+  'observ.row.approveReject': 'Proposals approved / rejected',
+  'observ.row.approvalRate': 'Approval rate',
+  'observ.row.promoteRollback': 'Promote / rollback',
+  'observ.row.promoteRatio': 'Promote / rollback ratio',
+  'observ.row.queryTotalHits': 'Total queries / hits',
+  'observ.row.hitRate': 'Hit rate',
+  'observ.row.avgLatency': 'Avg latency',
+  'observ.row.p95Latency': 'P95 latency',
+  'observ.row.feedbackRate': 'Feedback coverage',
+  'observ.row.usefulRate': 'Useful rate',
+  'observ.row.activeWindow': 'Active windows',
+  'observ.row.alerting': 'Alerting',
+  'observ.row.totalWindow': 'Total windows',
+  'observ.row.gtCount': 'Ground truth set',
+  'observ.row.latestRecall': 'Recall',
+  'observ.row.latestPrecision': 'Precision',
+  'observ.row.latestF1': 'F1',
+  'observ.row.k': 'K',
+  'observ.row.totalQueries': 'Total queries',
+  'observ.row.evalAt': 'Evaluated at',
+  'observ.row.recallTrend': 'Recall trend',
+  'observ.row.precisionTrend': 'Precision trend',
+  'observ.row.f1Trend': 'F1 trend',
+  'observ.row.recallDelta': 'Recall delta',
+  'observ.row.precisionDelta': 'Precision delta',
+  'observ.row.f1Delta': 'F1 delta',
+  'observ.row.improving': 'Improving',
+  'observ.row.degrading': 'Degrading',
+  'observ.row.stable': 'Stable',
+  'observ.row.recallTrendPair': 'Recall (baseline → current)',
+  'reader.routeLabel': 'Route used',
+  'reader.routeShown': 'Route',
+  'observ.fetchFailed': 'Request failed',
+  'observ.status.watching': 'Watching',
+  'observ.status.alert': 'Alert',
+  'observ.status.expired': 'Expired',
+  'observ.status.rolled_back': 'Rolled back',
+  'condhealth.suggest.low_samples': 'Insufficient samples ({total} < {min_samples}); cannot assess prompt health yet',
+  'condhealth.suggest.all_pending': 'All pending; wait for SME review before assessment',
+  'condhealth.suggest.low_approve': 'Low approval rate ({approve_rate_pct}); tighten trigger threshold or refine prompt examples; review common reject reasons',
+  'condhealth.suggest.mid_approve': 'Moderate approval rate ({approve_rate_pct}); collect more samples before reassessing',
+  'condhealth.suggest.high_approve': 'High approval rate ({approve_rate_pct}); prompt healthy',
+  'condhealth.suggest.unclassified': 'Unclassifiable proposal (missing entity_type and relation_type)',
   // M18 #4 · Feedback reasons visualization (en)
   'observ.feedbackReasons.title': 'Top 5 feedback reasons (negative)',
   'observ.feedbackReasons.empty': 'No negative feedback reasons yet',
