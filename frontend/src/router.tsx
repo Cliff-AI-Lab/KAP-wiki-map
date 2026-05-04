@@ -13,6 +13,7 @@ const ProjectListPage = lazy(() => import('@/pages/ProjectListPage'));
 
 // V15 双模式页
 const ReaderHome = lazy(() => import('@/pages/v15/ReaderHome'));
+const ConsultHome = lazy(() => import('@/pages/v15/ConsultHome'));
 const GovernanceHome = lazy(() => import('@/pages/v15/GovernanceHome'));
 const GovernanceMatrix = lazy(() => import('@/pages/v15/GovernanceMatrix'));
 const WikiReader = lazy(() => import('@/pages/v15/WikiReader'));
@@ -59,6 +60,8 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="read" replace /> },
 
       // 消费模式
+      // M21 #1 · 咨询中心入口
+      { path: 'consult',       element: <L><ConsultHome /></L> },
       { path: 'read',          element: <L><ReaderHome /></L> },
       { path: 'read/wiki/*',   element: <L><WikiReader /></L> },
       { path: 'read/wiki-tree',element: <L><WikiTree /></L> },     // M16 #4 三层结构总览

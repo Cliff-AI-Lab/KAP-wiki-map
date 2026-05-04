@@ -1,14 +1,15 @@
 /**
- * ModeContext — V15 双模式（消费 / 治理）全局状态
+ * ModeContext — V15 三中心模式（咨询 / 知识 / 消费）全局状态（M21 #1）
  *
- * 消费模式 (read)  : 业务/新员工视角 — 读 Wiki、搜索、问答
- * 治理模式 (manage): 管理员/专家视角 — 编译、审核、配置
+ * 咨询中心 (consult): 块① 知识咨询智能体 — AI 对话式建知识体系
+ * 知识中心 (manage):  块② 知识管理 + 存储 — 6 工位 + 4×6 矩阵 + 双层本体
+ * 消费中心 (read):    块③ 渐进式消费门户 — Wiki / RAG / 图谱三路召回
  *
- * 状态持久化到 localStorage['wikimap-mode']，默认 'read'。
+ * 状态持久化到 localStorage['wikimap-mode']，默认 'read'（消费中心）。
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-export type Mode = 'read' | 'manage';
+export type Mode = 'consult' | 'manage' | 'read';
 
 const STORAGE_KEY = 'wikimap-mode';
 
@@ -23,8 +24,11 @@ const ModeContext = createContext<ModeContextValue | null>(null);
 function readInitialMode(): Mode {
   if (typeof window === 'undefined') return 'read';
   const v = window.localStorage.getItem(STORAGE_KEY);
-  return v === 'manage' ? 'manage' : 'read';
+  if (v === 'consult' || v === 'manage' || v === 'read') return v;
+  return 'read';
 }
+
+const _MODE_ORDER: Mode[] = ['consult', 'manage', 'read'];
 
 export function ModeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<Mode>(readInitialMode);
@@ -34,7 +38,10 @@ export function ModeProvider({ children }: { children: ReactNode }) {
   }, [mode]);
 
   const setMode = (m: Mode) => setModeState(m);
-  const toggleMode = () => setModeState((m) => (m === 'read' ? 'manage' : 'read'));
+  const toggleMode = () => setModeState((m) => {
+    const idx = _MODE_ORDER.indexOf(m);
+    return _MODE_ORDER[(idx + 1) % _MODE_ORDER.length];
+  });
 
   return (
     <ModeContext.Provider value={{ mode, setMode, toggleMode }}>

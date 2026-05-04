@@ -13,8 +13,21 @@ export type TranslationKey =
   | 'brand.tagline'
   | 'mode.read'
   | 'mode.manage'
+  | 'mode.consult'
   | 'mode.read.sub'
   | 'mode.manage.sub'
+  | 'mode.consult.sub'
+  | 'mode.tablistLabel'
+  | 'consult.title'
+  | 'consult.subtitle'
+  | 'consult.greeting'
+  | 'consult.placeholder'
+  | 'consult.send'
+  | 'consult.thinking'
+  | 'consult.you'
+  | 'consult.architect'
+  | 'consult.downloadDraft'
+  | 'consult.flowHint'
   | 'topbar.settings'
   // ReaderHome
   | 'reader.title'
@@ -286,10 +299,23 @@ type Dict = Record<TranslationKey, string>;
 const zh: Dict = {
   'brand.name': '知识图鉴',
   'brand.tagline': 'Wiki-Map',
-  'mode.read': '消费',
-  'mode.manage': '治理',
+  'mode.consult': '咨询中心',
+  'mode.read': '消费中心',
+  'mode.manage': '知识中心',
+  'mode.consult.sub': '对话式建知识体系',
   'mode.read.sub': '读 Wiki / 查知识 / 问答',
   'mode.manage.sub': '编译 / 审核 / 配置',
+  'mode.tablistLabel': '三中心切换',
+  'consult.title': '咨询中心',
+  'consult.subtitle': 'AI 对话式建知识体系 · 行业识别 → 本体建议 → 一键落知识中心',
+  'consult.greeting': '你好！我是 KAP 知识架构师。告诉我你的行业 / 业务场景，或上传几份典型材料，我帮你建一套合身的知识体系。',
+  'consult.placeholder': '描述你的业务，或粘贴几段材料样本...（Enter 发送，Shift+Enter 换行）',
+  'consult.send': '发送',
+  'consult.thinking': '架构师思考中...',
+  'consult.you': '你',
+  'consult.architect': '架构师',
+  'consult.downloadDraft': '下载草稿',
+  'consult.flowHint': '咨询完成后可下载 schema.md 草稿，或一键提交到知识中心落 L2 本体。',
   'topbar.settings': '设置',
 
   'reader.title': '你好，在查什么？',
@@ -558,10 +584,23 @@ const zh: Dict = {
 const en: Dict = {
   'brand.name': 'Wiki-Map',
   'brand.tagline': 'Knowledge Atlas',
-  'mode.read': 'Read',
-  'mode.manage': 'Manage',
+  'mode.consult': 'Consult',
+  'mode.read': 'Consume',
+  'mode.manage': 'Knowledge',
+  'mode.consult.sub': 'Conversational schema design',
   'mode.read.sub': 'Read Wiki / Search / Q&A',
   'mode.manage.sub': 'Compile / Audit / Configure',
+  'mode.tablistLabel': 'Switch center',
+  'consult.title': 'Consult Center',
+  'consult.subtitle': 'AI conversational schema design · industry recognition → ontology proposal → one-click commit to Knowledge Center',
+  'consult.greeting': 'Hi! I am the KAP Knowledge Architect. Tell me your industry / business scenario or paste a few sample documents, and I will design a fitting knowledge system for you.',
+  'consult.placeholder': 'Describe your business or paste sample text... (Enter to send, Shift+Enter for newline)',
+  'consult.send': 'Send',
+  'consult.thinking': 'Architect thinking...',
+  'consult.you': 'You',
+  'consult.architect': 'Architect',
+  'consult.downloadDraft': 'Download draft',
+  'consult.flowHint': 'After the consultation, download schema.md draft or commit directly to Knowledge Center as L2 ontology.',
   'topbar.settings': 'Settings',
 
   'reader.title': 'What are you looking for?',

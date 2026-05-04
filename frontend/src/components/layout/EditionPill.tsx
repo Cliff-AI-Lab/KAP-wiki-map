@@ -1,7 +1,7 @@
 /**
- * EditionPill — 消费 / 治理 模式切换控件
+ * EditionPill — 咨询中心 / 知识中心 / 消费中心 三 tab 切换（M21 #1）
  *
- * AI4S 风：圆角 pill + 暖橙激活滑块 + 280ms 缓动
+ * AI4S 风：圆角 pill + 激活滑块 + 280ms 缓动
  */
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -10,9 +10,12 @@ import { useLocale } from '@/contexts/LocaleContext';
 
 /** 路由 path → mode 的映射 */
 function inferModeFromPath(pathname: string): Mode {
+  if (pathname.startsWith('/v15/consult') || pathname.startsWith('/agent/architect')) return 'consult';
   if (pathname.startsWith('/v15/manage')) return 'manage';
-  return 'read'; // /v15/read 及其他默认消费
+  return 'read';
 }
+
+const _ORDER: Mode[] = ['consult', 'manage', 'read'];
 
 export function EditionPill() {
   const { mode, setMode } = useMode();
@@ -20,7 +23,6 @@ export function EditionPill() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 路由变化时同步 mode（保持 Pill 视觉状态正确）
   useEffect(() => {
     const inferred = inferModeFromPath(location.pathname);
     if (inferred !== mode) setMode(inferred);
@@ -28,26 +30,31 @@ export function EditionPill() {
 
   const handleClick = (value: Mode) => {
     setMode(value);
-    // 真实切页面: 治理 → /v15/manage / 消费 → /v15/read
-    navigate(value === 'manage' ? '/v15/manage' : '/v15/read');
+    if (value === 'consult') navigate('/v15/consult');
+    else if (value === 'manage') navigate('/v15/manage');
+    else navigate('/v15/read');
   };
 
   const OPTIONS: { value: Mode; label: string }[] = [
-    { value: 'read',   label: t('mode.read') },
-    { value: 'manage', label: t('mode.manage') },
+    { value: 'consult', label: t('mode.consult') },
+    { value: 'manage',  label: t('mode.manage') },
+    { value: 'read',    label: t('mode.read') },
   ];
+
+  const activeIdx = _ORDER.indexOf(mode);
 
   return (
     <div
       className="relative inline-flex items-center p-1 rounded-pill border border-th-border bg-elevated"
       role="tablist"
-      aria-label="模式切换"
+      aria-label={t('mode.tablistLabel')}
     >
       <div
         className="absolute top-1 bottom-1 rounded-pill bg-accent shadow-sm"
         style={{
-          width: 'calc(50% - 4px)',
-          transform: mode === 'read' ? 'translateX(0)' : 'translateX(100%)',
+          width: 'calc(33.333% - 3px)',
+          left: '4px',
+          transform: `translateX(${activeIdx * 100}%)`,
           transition: 'transform 280ms cubic-bezier(.4,0,.2,1)',
         }}
         aria-hidden="true"
@@ -61,7 +68,7 @@ export function EditionPill() {
             role="tab"
             aria-selected={active}
             onClick={() => handleClick(opt.value)}
-            className={`relative z-10 px-5 py-1.5 text-sm font-medium rounded-pill transition-colors ${
+            className={`relative z-10 px-4 py-1.5 text-sm font-medium rounded-pill transition-colors whitespace-nowrap ${
               active ? 'text-white' : 'text-th-text-muted hover:text-th-text-primary'
             }`}
           >
