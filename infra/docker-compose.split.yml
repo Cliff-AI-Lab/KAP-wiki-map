@@ -1,0 +1,193 @@
+name: kap-split
+
+# 三块松耦合拆分部署（M21 #1）
+#
+# 每块独立 image + 端口：
+#   咨询中心 (architect)  :8011
+#   知识中心 (storage)    :8012
+#   消费中心 (portal)     :8013
+#
+# 三块共享基础设施（PG / Redis / Milvus / Neo4j / MinIO），通过 KAP_*_BASE
+# 互调（无缝衔接）。任何一块都可单独 `up`，也可三块全 `up`。
+#
+# 启动单块（咨询中心）：
+#   docker compose -f infra/docker-compose.split.yml --env-file .env.prod up kap-architect
+#
+# 启动全部三块：
+#   docker compose -f infra/docker-compose.split.yml --env-file .env.prod up
+
+services:
+  # ── 咨询中心 ─────────────────────────────────────────────
+  kap-architect:
+    image: kap/architect:v1.0.0-m21
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.architect
+    container_name: kap-architect
+    ports:
+      - "8011:8011"
+    env_file:
+      - ../.env.prod
+    environment:
+      KAP_ENV: prod
+      POSTGRES_HOST: kap-postgres
+      REDIS_URL: redis://kap-redis:6379/0
+      # 无缝衔接：咨询中心调知识中心存草稿
+      KAP_STORAGE_BASE: http://kap-storage:8012
+    depends_on:
+      - kap-postgres
+      - kap-redis
+    restart: unless-stopped
+    networks:
+      - kap-net
+
+  # ── 知识中心 ─────────────────────────────────────────────
+  kap-storage:
+    image: kap/storage:v1.0.0-m21
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.storage
+    container_name: kap-storage
+    ports:
+      - "8012:8012"
+    env_file:
+      - ../.env.prod
+    environment:
+      KAP_ENV: prod
+      POSTGRES_HOST: kap-postgres
+      NEO4J_URI: bolt://kap-neo4j:7687
+      MILVUS_HOST: kap-milvus
+      MINIO_ENDPOINT: kap-minio:9000
+      REDIS_URL: redis://kap-redis:6379/0
+      # PG 持久化开关（仅 storage 块需要）
+      KAP_DECISION_LOG_PG: "1"
+      KAP_PROMPT_VER_PG: "1"
+      KAP_WIKI_QUALITY_PG: "1"
+      KAP_EXTRACTION_QUALITY_PG: "1"
+    depends_on:
+      - kap-postgres
+      - kap-neo4j
+      - kap-milvus
+      - kap-minio
+      - kap-redis
+    restart: unless-stopped
+    networks:
+      - kap-net
+
+  # ── 消费中心 ─────────────────────────────────────────────
+  kap-portal:
+    image: kap/portal:v1.0.0-m21
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.portal
+    container_name: kap-portal
+    ports:
+      - "8013:8013"
+    env_file:
+      - ../.env.prod
+    environment:
+      KAP_ENV: prod
+      POSTGRES_HOST: kap-postgres
+      NEO4J_URI: bolt://kap-neo4j:7687
+      MILVUS_HOST: kap-milvus
+      REDIS_URL: redis://kap-redis:6379/0
+      # 无缝衔接：消费中心调知识中心拉 Wiki/图谱/向量
+      KAP_STORAGE_BASE: http://kap-storage:8012
+      # PG 持久化开关（仅 portal 块需要）
+      KAP_QUERY_LOG_PG: "1"
+      KAP_RECALL_EVAL_PG: "1"
+    depends_on:
+      - kap-postgres
+      - kap-storage    # 拉 Wiki / 图谱依赖知识中心
+      - kap-redis
+    restart: unless-stopped
+    networks:
+      - kap-net
+
+  # ── 共享基础设施 ────────────────────────────────────────
+  kap-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kap
+      POSTGRES_USER: kap
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kap_dev_pwd}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - kap-net
+
+  kap-neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-kap_dev_pwd}
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - neo4jdata:/data
+    networks:
+      - kap-net
+
+  kap-milvus-etcd:
+    image: quay.io/coreos/etcd:v3.5.16
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    volumes:
+      - etcddata:/etcd
+    networks:
+      - kap-net
+
+  kap-minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    command: minio server /minio_data --console-address ":9001"
+    volumes:
+      - miniodata:/minio_data
+    networks:
+      - kap-net
+
+  kap-milvus:
+    image: milvusdb/milvus:v2.4.17
+    command: milvus run standalone
+    environment:
+      ETCD_ENDPOINTS: kap-milvus-etcd:2379
+      MINIO_ADDRESS: kap-minio:9000
+    volumes:
+      - milvusdata:/var/lib/milvus
+    depends_on:
+      - kap-milvus-etcd
+      - kap-minio
+    networks:
+      - kap-net
+
+  kap-redis:
+    image: redis:7-alpine
+    networks:
+      - kap-net
+
+  # ── nginx 网关：把 :443 路由到三块 ──────────────────────
+  kap-gateway:
+    image: nginx:1.27-alpine
+    container_name: kap-gateway
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx-split.conf:/etc/nginx/nginx.conf:ro
+      - ./tls:/etc/nginx/tls:ro
+    depends_on:
+      - kap-architect
+      - kap-storage
+      - kap-portal
+    networks:
+      - kap-net
+
+volumes:
+  pgdata:
+  neo4jdata:
+  etcddata:
+  miniodata:
+  milvusdata:
+
+networks:
+  kap-net:
+    driver: bridge

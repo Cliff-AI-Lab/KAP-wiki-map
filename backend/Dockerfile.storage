@@ -1,0 +1,35 @@
+# 知识中心独立镜像（M21 #1）
+# 镜像标签：kap/storage:v1.0.0-m21
+#
+# 含前端 SPA 构建（治理面板入口）
+
+# Stage 1: 前端构建
+FROM node:20-alpine AS frontend-build
+WORKDIR /frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: 后端 + 静态前端
+FROM python:3.11-slim
+
+LABEL org.opencontainers.image.title="KAP Storage (知识中心)" \
+      org.opencontainers.image.description="KAP 块② 知识管理 + 存储中心" \
+      org.opencontainers.image.version="v1.0.0-m21"
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml .
+RUN pip install --no-cache-dir -e ".[dev]"
+
+COPY . .
+COPY --from=frontend-build /frontend/dist ./frontend/dist
+
+EXPOSE 8012
+
+CMD ["uvicorn", "api.main_storage:app", "--host", "0.0.0.0", "--port", "8012"]

@@ -1,0 +1,23 @@
+# 咨询中心独立镜像（M21 #1）
+# 镜像标签：kap/architect:v1.0.0-m21
+
+FROM python:3.11-slim
+
+LABEL org.opencontainers.image.title="KAP Architect (咨询中心)" \
+      org.opencontainers.image.description="KAP 块① 知识咨询智能体" \
+      org.opencontainers.image.version="v1.0.0-m21"
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml .
+RUN pip install --no-cache-dir -e ".[dev]"
+
+COPY . .
+
+EXPOSE 8011
+
+CMD ["uvicorn", "api.main_architect:app", "--host", "0.0.0.0", "--port", "8011"]
