@@ -1,16 +1,13 @@
 /**
- * ReaderHome — 消费模式首页（Phase B: 接真实 API）
+ * 消费中心 — 三中心统一设计 (M21 #4)
  *
- * 设计：
- *   - 顶部标题 + 项目选择器（全局入口自动选中首个项目）
- *   - 搜索框 → askQuestion → 答案卡（路由徽章 / 耗时 / Markdown / 溯源）
- *   - 三卡片：热门Wiki / 知识地图 / 最近问答（本地历史）
+ * 严格按 distinctive.css Nordic Minimalism 系统渲染。
+ * 共享 CenterShell + CenterHero + Pipeline + StatTile + KapCard。
  *
- * 睿动 glm-5.1 驱动后端 call_llm，前端只经 /api/v1/qa/ask 代理。
+ * 业务定位：渐进式三路召回（Wiki 快路径 → RAG 深检索 → 图谱跨域）
  */
 import { useEffect, useState, type FormEvent } from 'react';
-import { Search, Clock, FileText, ChevronDown } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Search, Clock, BookOpen, Layers, Network } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -24,6 +21,10 @@ import {
   type WikiPageSummary,
   type DomainInfo,
 } from '@/services/api';
+import {
+  CenterShell, CenterHero, Pipeline, KapCard, StatTile, type Station,
+} from '@/components/v15/CenterShell';
+
 
 const RECENT_KEY = 'wikimap-recent-questions';
 const MAX_RECENT = 5;
@@ -33,323 +34,267 @@ function loadRecent(): string[] {
   try {
     const raw = window.localStorage.getItem(RECENT_KEY);
     return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
-
 function saveRecent(q: string): string[] {
-  const prev = loadRecent().filter((x) => x !== q);
+  const prev = loadRecent().filter(x => x !== q);
   const next = [q, ...prev].slice(0, MAX_RECENT);
   window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
   return next;
 }
 
-function RouteBadge({ path }: { path?: string }) {
+
+export default function ReaderHome() {
   const { t } = useLocale();
-  if (!path) return null;
-  const label: Record<string, string> = {
-    wiki: t('reader.routeWiki'),
-    rag: t('reader.routeRag'),
-    hybrid: t('reader.routeHybrid'),
+  const { projectId } = useActiveProject();
+
+  const [query, setQuery] = useState('');
+  const [resp, setResp] = useState<QAResponse | null>(null);
+  const [lastQ, setLastQ] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [wikiPages, setWikiPages] = useState<WikiPageSummary[]>([]);
+  const [domains, setDomains] = useState<DomainInfo[]>([]);
+  const [recent, setRecent] = useState<string[]>(loadRecent());
+
+  useEffect(() => {
+    fetchWikiPages(projectId || undefined).then(setWikiPages).catch(() => {});
+    fetchDomains(projectId || undefined)
+      .then(r => setDomains(r?.domains || []))
+      .catch(() => {});
+  }, [projectId]);
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+    if (!q || loading) return;
+    setLoading(true); setError(null); setResp(null); setLastQ(q);
+    try {
+      const r = await askQuestion(q, 5, projectId || undefined);
+      setResp(r);
+      setRecent(saveRecent(q));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // 三路 stations（消费中心的 pipeline 是渐进式召回路径）
+  const stations: Station[] = [
+    { id: 'P1', icon: BookOpen, labelKey: 'read.path.wiki',  hintKey: 'read.path.wiki.hint',
+      state: resp?.route_path === 'wiki' ? 'active' : 'pending' },
+    { id: 'P2', icon: Layers,   labelKey: 'read.path.rag',   hintKey: 'read.path.rag.hint',
+      state: resp?.route_path === 'rag'  ? 'active' : resp?.route_path === 'hybrid' ? 'active' : 'pending' },
+    { id: 'P3', icon: Network,  labelKey: 'read.path.graph', hintKey: 'read.path.graph.hint',
+      state: 'pending' },
+  ];
+
   return (
-    <span className="px-2 py-0.5 rounded-pill text-xs bg-hover text-accent-secondary border border-th-border">
-      <span className="text-[10px] text-th-text-muted mr-1">
-        {t('reader.routeShown')}:
-      </span>
-      <span className="font-mono">{label[path] ?? path}</span>
-    </span>
-  );
-}
+    <CenterShell>
+      <CenterHero
+        kind="read"
+        titleKey="read.heroTitle"
+        subtitleKey="read.heroSub"
+      />
 
-function AnswerCard({ resp, q }: { resp: QAResponse; q: string }) {
-  const { t } = useLocale();
-  const [expandedSources, setExpandedSources] = useState(false);
-  return (
-    <div className="rounded-card border border-th-border bg-elevated p-5 space-y-4">
-      <div className="flex items-center gap-2 text-xs text-th-text-muted">
-        <RouteBadge path={resp.route_path} />
-        {resp.latency_ms !== undefined && (
-          <span className="flex items-center gap-1 font-mono">
-            <Clock size={11} /> {resp.latency_ms} ms
-          </span>
-        )}
-        {resp.routed_domains && resp.routed_domains.length > 0 && (
-          <span className="font-mono">· {t('reader.cardDomainMap')}: {resp.routed_domains.slice(0, 3).join(', ')}</span>
-        )}
-      </div>
+      <Pipeline labelKey="kap.tagFlow" stations={stations} />
 
-      <div className="text-xs text-th-text-muted font-mono">Q: {q}</div>
-
-      <div className="text-th-text-primary prose prose-sm max-w-none">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{resp.answer}</ReactMarkdown>
-      </div>
-
-      {resp.sources && resp.sources.length > 0 && (
-        <div className="pt-3 border-t border-th-border">
+      {/* 搜索框 */}
+      <KapCard frost className="mb-8">
+        <form onSubmit={onSubmit} className="flex items-center gap-3">
+          <Search size={18} style={{ color: 'var(--kap-frost)' }} />
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder={t('reader.searchPlaceholder')}
+            className="kap-input"
+            style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', fontWeight: 200, padding: '0.4rem 0' }}
+            autoFocus
+          />
           <button
-            type="button"
-            onClick={() => setExpandedSources((v) => !v)}
-            className="flex items-center gap-2 text-xs text-th-text-muted hover:text-th-text-primary"
+            type="submit"
+            disabled={loading || !query.trim()}
+            className="kap-btn kap-btn-primary"
           >
-            <ChevronDown
-              size={14}
-              style={{
-                transform: expandedSources ? 'rotate(0)' : 'rotate(-90deg)',
-                transition: 'transform 150ms',
-              }}
-            />
-            <FileText size={12} />
-            {t('reader.sources')} · {resp.sources.length}
+            {loading ? t('reader.searching') : t('reader.searchBtn')}
           </button>
-          {expandedSources && (
-            <ul className="mt-3 space-y-2">
-              {resp.sources.map((s, i) => (
-                <li key={`${s.doc_id}-${i}`} className="text-xs flex items-start gap-2">
-                  <span className="text-th-text-muted font-mono w-6 text-right">#{i + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-th-text-primary truncate">{s.title}</div>
-                    <div className="text-th-text-muted truncate">{s.content}</div>
-                  </div>
-                  <span className="text-th-text-muted font-mono">{(s.score * 100).toFixed(0)}%</span>
+        </form>
+      </KapCard>
+
+      {error && (
+        <div className="kap-card mb-6" style={{
+          padding: '0.8rem 1rem', borderColor: 'var(--kap-aurora-red)',
+          background: 'rgba(191,97,106,0.08)',
+        }}>
+          <span className="kap-mono-tag" style={{ color: 'var(--kap-aurora-red)' }}>
+            ERR · {error}
+          </span>
+        </div>
+      )}
+
+      {resp && <AnswerCard resp={resp} q={lastQ} t={t} />}
+
+      {/* 4 张统计 */}
+      <section className="kap-stagger kap-grid-3 my-8" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <StatTile labelKey="kap.statWiki"    value={wikiPages.length} />
+        <StatTile labelKey="kap.statDomains" value={domains.length} />
+        <StatTile labelKey="kap.statQueries" value={recent.length} />
+        <StatTile
+          labelKey="reader.routeShown"
+          value={resp?.route_path?.toUpperCase() ?? '—'}
+          state={resp ? 'good' : 'normal'}
+        />
+      </section>
+
+      {/* 三卡：热门 Wiki / 知识地图 / 最近问答 */}
+      <div className="kap-stagger kap-grid-3">
+        <KapCard eyebrow={`▶ ${t('reader.cardHotWiki')}`}>
+          {wikiPages.length === 0 ? (
+            <Empty text={t('reader.emptyWiki')} />
+          ) : (
+            <ul className="space-y-2">
+              {wikiPages.slice(0, 6).map(p => (
+                <li key={p.page_id}
+                    className="flex items-center justify-between gap-3 py-1.5"
+                    style={{ borderBottom: '1px dashed rgba(216,222,233,0.06)' }}>
+                  <span style={{ fontFamily: 'var(--kap-font-display)', fontWeight: 500, fontSize: 14 }}>
+                    {p.title}
+                  </span>
+                  <span className="kap-mono-tag" style={{ color: 'var(--kap-snow-4)' }}>
+                    {p.source_doc_count ?? 0}
+                  </span>
                 </li>
               ))}
             </ul>
           )}
-        </div>
-      )}
-    </div>
+        </KapCard>
+
+        <KapCard eyebrow={`▶ ${t('reader.cardDomainMap')}`}>
+          {domains.length === 0 ? (
+            <Empty text={t('reader.emptyDomain')} />
+          ) : (
+            <ul className="space-y-2">
+              {domains.slice(0, 6).map(d => (
+                <li key={d.domain_id}
+                    className="flex items-center justify-between gap-3 py-1.5"
+                    style={{ borderBottom: '1px dashed rgba(216,222,233,0.06)' }}>
+                  <span style={{ fontFamily: 'var(--kap-font-display)', fontWeight: 500, fontSize: 14 }}>
+                    {d.name}
+                  </span>
+                  <span className="kap-mono-tag" style={{ color: 'var(--kap-snow-4)' }}>
+                    {d.doc_count ?? 0}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </KapCard>
+
+        <KapCard eyebrow={`▶ ${t('reader.cardRecent')}`}>
+          {recent.length === 0 ? (
+            <Empty text={t('reader.emptyRecent')} />
+          ) : (
+            <ul className="space-y-1.5">
+              {recent.map((q, i) => (
+                <li key={i}>
+                  <button
+                    type="button"
+                    onClick={() => { setQuery(q); }}
+                    className="w-full text-left flex items-baseline gap-2 py-1"
+                    style={{ fontFamily: 'var(--kap-font-body)', fontSize: 13 }}
+                  >
+                    <span className="kap-mono-tag" style={{ color: 'var(--kap-snow-4)' }}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span className="truncate" style={{ color: 'var(--kap-snow-2)' }}>{q}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </KapCard>
+      </div>
+    </CenterShell>
   );
 }
 
-function WikiHotCard({ projectId }: { projectId: string }) {
-  const { t } = useLocale();
-  const [pages, setPages] = useState<WikiPageSummary[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetchWikiPages(projectId)
-      .then((list) => {
-        if (!cancelled) setPages(list.slice(0, 5));
-      })
-      .catch(() => {
-        if (!cancelled) setPages([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId]);
-
+function Empty({ text }: { text: string }) {
   return (
-    <div className="rounded-card border border-th-border bg-elevated p-4 hover:shadow-card-hover transition-shadow">
-      <div className="text-xs uppercase tracking-wider text-th-text-muted mb-3">{t('reader.cardHotWiki')}</div>
-      {loading ? (
-        <div className="text-xs text-th-text-muted">...</div>
-      ) : pages.length === 0 ? (
-        <div className="text-xs text-th-text-muted">{t('reader.emptyWiki')}</div>
-      ) : (
-        <ul className="space-y-2 text-sm text-th-text-primary">
-          {pages.map((p) => (
-            <li key={p.page_id}>
-              <Link
-                to={`/v15/wiki/${encodeURI(p.page_id)}`}
-                className="flex items-center gap-2 truncate hover:text-accent transition-colors"
-              >
-                <span className="w-1 h-1 rounded-full bg-accent opacity-60 shrink-0" />
-                <span className="truncate">{p.title}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="py-6 text-center kap-mono-tag" style={{ color: 'var(--kap-snow-4)' }}>
+      ○ {text}
     </div>
   );
 }
 
-function DomainMapCard({ projectId }: { projectId: string }) {
-  const { t } = useLocale();
-  const [domains, setDomains] = useState<DomainInfo[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetchDomains(projectId)
-      .then((r) => {
-        if (!cancelled) {
-          // 取前 5 个有文档的域
-          const top = r.domains
-            .filter((d) => d.doc_count > 0)
-            .sort((a, b) => b.doc_count - a.doc_count)
-            .slice(0, 5);
-          setDomains(top);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setDomains([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId]);
-
-  return (
-    <div className="rounded-card border border-th-border bg-elevated p-4 hover:shadow-card-hover transition-shadow">
-      <div className="text-xs uppercase tracking-wider text-th-text-muted mb-3">{t('reader.cardDomainMap')}</div>
-      {loading ? (
-        <div className="text-xs text-th-text-muted">...</div>
-      ) : domains.length === 0 ? (
-        <div className="text-xs text-th-text-muted">{t('reader.emptyDomain')}</div>
-      ) : (
-        <ul className="space-y-2 text-sm text-th-text-primary">
-          {domains.map((d) => (
-            <li key={d.domain_id} className="flex items-center gap-2 truncate">
-              <span className="w-1 h-1 rounded-full bg-accent opacity-60 shrink-0" />
-              <span className="truncate flex-1">{d.name}</span>
-              <span className="text-xs text-th-text-muted font-mono">{d.doc_count}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function RecentCard({
-  items,
-  onPick,
+function AnswerCard({
+  resp, q, t,
 }: {
-  items: string[];
-  onPick: (q: string) => void;
+  resp: QAResponse;
+  q: string;
+  t: (k: string, vars?: Record<string, string | number>) => string;
 }) {
-  const { t } = useLocale();
-  return (
-    <div className="rounded-card border border-th-border bg-elevated p-4 hover:shadow-card-hover transition-shadow">
-      <div className="text-xs uppercase tracking-wider text-th-text-muted mb-3">{t('reader.cardRecent')}</div>
-      {items.length === 0 ? (
-        <div className="text-xs text-th-text-muted">{t('reader.emptyRecent')}</div>
-      ) : (
-        <ul className="space-y-2 text-sm">
-          {items.map((q, i) => (
-            <li key={`${i}-${q}`}>
-              <button
-                type="button"
-                onClick={() => onPick(q)}
-                className="flex items-center gap-2 truncate w-full text-left text-th-text-primary hover:text-accent"
-              >
-                <span className="w-1 h-1 rounded-full bg-accent opacity-60 shrink-0" />
-                <span className="truncate">{q}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-export default function ReaderHome() {
-  const { t } = useLocale();
-  const { projectId, projects, loading: projectsLoading } = useActiveProject();
-
-  const [query, setQuery] = useState('');
-  const [answering, setAnswering] = useState(false);
-  const [answer, setAnswer] = useState<{ resp: QAResponse; q: string } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [recent, setRecent] = useState<string[]>(() => loadRecent());
-
-  async function doAsk(q: string) {
-    if (!q.trim() || !projectId) return;
-    setAnswering(true);
-    setError(null);
-    try {
-      const resp = await askQuestion(q.trim(), 5, projectId);
-      setAnswer({ resp, q });
-      setRecent(saveRecent(q.trim()));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setAnswering(false);
-    }
-  }
-
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    doAsk(query);
-  }
-
-  if (projectsLoading) {
-    return <div className="text-sm text-th-text-muted">{t('reader.loadingProject')}</div>;
-  }
-
-  if (!projectId) {
-    return (
-      <div className="rounded-card border border-th-border bg-elevated p-8 text-center">
-        <div className="text-th-text-primary mb-2">{t('reader.emptyProject')}</div>
-        <div className="text-sm text-th-text-muted">{t('reader.emptyProjectHint')}</div>
-      </div>
-    );
-  }
-
-  const currentProjectName = projects.find((p) => p.id === projectId)?.name ?? projectId;
+  const routeLabel: Record<string, string> = {
+    wiki:   t('reader.routeWiki'),
+    rag:    t('reader.routeRag'),
+    hybrid: t('reader.routeHybrid'),
+  };
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-2 pt-4">
-        <div className="v15-anim v15-stagger-1 text-[10px] v15-mono uppercase tracking-[0.3em] text-accent">
-          Knowledge Atlas · Reader
-        </div>
-        <h1 className="v15-anim v15-stagger-2 v15-display text-5xl md:text-6xl text-th-text-primary">
-          {t('reader.title')}
-        </h1>
-        <div className="v15-anim v15-stagger-3 v15-body-light text-sm text-th-text-muted v15-mono">
-          · {currentProjectName}
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="v15-anim v15-stagger-4 v15-glass p-4">
-        <div className="flex items-center gap-3">
-          <Search size={18} className="text-th-text-muted shrink-0" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            disabled={answering}
-            placeholder={t('reader.searchPlaceholder')}
-            className="flex-1 bg-transparent outline-none text-th-text-primary placeholder:text-th-text-muted disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={answering || !query.trim()}
-            className="v15-cta text-sm"
+    <KapCard frost className="mb-8">
+      <div className="flex items-center flex-wrap gap-3 mb-3">
+        {resp.route_path && (
+          <span
+            className="kap-mono-tag px-2 py-1"
+            style={{
+              border: '1px solid var(--kap-frost)',
+              color: 'var(--kap-frost)',
+              background: 'rgba(136,192,208,0.08)',
+            }}
           >
-            {answering ? t('reader.searching') : t('reader.searchBtn')}
-          </button>
-        </div>
-      </form>
+            {t('reader.routeShown')} · {routeLabel[resp.route_path] ?? resp.route_path}
+          </span>
+        )}
+        {resp.latency_ms !== undefined && (
+          <span className="kap-mono-tag" style={{ color: 'var(--kap-snow-4)' }}>
+            <Clock size={10} className="inline mr-1" />
+            {resp.latency_ms}ms
+          </span>
+        )}
+      </div>
 
-      {error && (
-        <div className="rounded-card border border-th-border bg-elevated p-4 text-sm text-th-error">
-          {error}
+      <div className="kap-mono-tag mb-3" style={{ color: 'var(--kap-snow-4)' }}>
+        Q · {q}
+      </div>
+
+      <div className="prose prose-sm max-w-none"
+           style={{
+             fontFamily: 'var(--kap-font-body)', fontWeight: 400, fontSize: 14.5,
+             color: 'var(--kap-snow-1)', lineHeight: 1.7,
+           }}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{resp.answer}</ReactMarkdown>
+      </div>
+
+      {resp.sources && resp.sources.length > 0 && (
+        <div className="mt-5 pt-3" style={{ borderTop: '1px solid rgba(216,222,233,0.08)' }}>
+          <div className="kap-mono-tag mb-2" style={{ color: 'var(--kap-snow-4)' }}>
+            ▶ {t('reader.sources')} · {resp.sources.length}
+          </div>
+          <ul className="space-y-1.5">
+            {resp.sources.slice(0, 5).map((s, i) => (
+              <li key={i} className="kap-mono-tag flex items-baseline gap-2"
+                  style={{ color: 'var(--kap-snow-3)', letterSpacing: '0.06em' }}>
+                <span style={{ color: 'var(--kap-frost)' }}>#{String(i + 1).padStart(2, '0')}</span>
+                <span>{s.title || s.doc_id}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
-
-      {answer && <AnswerCard resp={answer.resp} q={answer.q} />}
-
-      <div className="grid grid-cols-3 gap-4">
-        <div className="v15-anim v15-stagger-5"><WikiHotCard projectId={projectId} /></div>
-        <div className="v15-anim v15-stagger-5"><DomainMapCard projectId={projectId} /></div>
-        <div className="v15-anim v15-stagger-6"><RecentCard items={recent} onPick={(q) => { setQuery(q); doAsk(q); }} /></div>
-      </div>
-    </div>
+    </KapCard>
   );
 }

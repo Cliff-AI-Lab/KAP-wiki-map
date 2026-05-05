@@ -12,6 +12,7 @@ import { ModeProvider } from './contexts/ModeContext';
 import { LocaleProvider } from './contexts/LocaleContext';
 import { applyTheme, loadSavedTheme } from './lib/themes';
 import './index.css';
+import './styles/distinctive.css';   // M21 #4 · 三中心统一设计系统
 
 // 在渲染前恢复用户上次保存的主题
 applyTheme(loadSavedTheme());

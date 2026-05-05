@@ -47,6 +47,40 @@ export type TranslationKey =
   | 'consult.w3.bp.title' | 'consult.w3.bp.r1' | 'consult.w3.bp.r2' | 'consult.w3.bp.r3' | 'consult.w3.bp.r4'
   | 'consult.w4.bp.title' | 'consult.w4.bp.r1' | 'consult.w4.bp.r2' | 'consult.w4.bp.r3'
   | 'consult.w5.bp.title' | 'consult.w5.bp.r1' | 'consult.w5.bp.r2' | 'consult.w5.bp.r3'
+  // M21 #4 三中心统一设计 · 共享 keys
+  | 'kap.tagPipeline'
+  | 'kap.tagFlow'
+  | 'kap.tagOverview'
+  | 'kap.viewMatrix'
+  | 'kap.startConsult'
+  | 'kap.openSearch'
+  | 'kap.cardConsultProgress'
+  | 'kap.cardKnowledgeOverview'
+  | 'kap.cardConsumeRecent'
+  | 'kap.statProjects'
+  | 'kap.statDocs'
+  | 'kap.statWiki'
+  | 'kap.statDomains'
+  | 'kap.statQueries'
+  | 'kap.statHitRate'
+  | 'kap.statUseful'
+  | 'kap.statDecisions'
+  | 'consult.heroTitle'
+  | 'consult.heroSub'
+  | 'manage.heroTitle'
+  | 'manage.heroSub'
+  | 'read.heroTitle'
+  | 'read.heroSub'
+  | 'manage.station.w1' | 'manage.station.w2' | 'manage.station.w3'
+  | 'manage.station.w4' | 'manage.station.w5' | 'manage.station.w6'
+  | 'manage.station.w1.hint' | 'manage.station.w2.hint' | 'manage.station.w3.hint'
+  | 'manage.station.w4.hint' | 'manage.station.w5.hint' | 'manage.station.w6.hint'
+  | 'read.path.wiki'
+  | 'read.path.rag'
+  | 'read.path.graph'
+  | 'read.path.wiki.hint'
+  | 'read.path.rag.hint'
+  | 'read.path.graph.hint'
   | 'topbar.settings'
   // ReaderHome
   | 'reader.title'
@@ -375,6 +409,47 @@ const zh: Dict = {
   'consult.w5.bp.r1': '已编译页',
   'consult.w5.bp.r2': '交叉引用',
   'consult.w5.bp.r3': '三层结构',
+  'kap.tagPipeline': '工位流水线',
+  'kap.tagFlow': '渐进式消费 · 三路召回',
+  'kap.tagOverview': '中心总览',
+  'kap.viewMatrix': '矩阵审核台',
+  'kap.startConsult': '开始咨询',
+  'kap.openSearch': '打开搜索',
+  'kap.cardConsultProgress': '咨询进度',
+  'kap.cardKnowledgeOverview': '知识资产概览',
+  'kap.cardConsumeRecent': '近期问答',
+  'kap.statProjects': '项目',
+  'kap.statDocs': '文档',
+  'kap.statWiki': 'Wiki 页',
+  'kap.statDomains': '知识域',
+  'kap.statQueries': '查询数',
+  'kap.statHitRate': '命中率',
+  'kap.statUseful': '有用率',
+  'kap.statDecisions': '决策数',
+  'consult.heroTitle': '咨询中心',
+  'consult.heroSub': 'AI 知识架构师 · 上传 → 去噪 → 体系 → Wiki 编织 / 一站完成知识体系建立',
+  'manage.heroTitle': '知识中心',
+  'manage.heroSub': '存储 · 向量化 · 图谱化 / 把咨询中心产物变成可检索的企业资产',
+  'read.heroTitle': '消费中心',
+  'read.heroSub': '渐进式消费 / Wiki 快路径 → RAG 深检索 → 图谱跨域 三路并行召回',
+  'manage.station.w1': '项目',
+  'manage.station.w2': '入库',
+  'manage.station.w3': '向量化',
+  'manage.station.w4': '图谱化',
+  'manage.station.w5': '审核',
+  'manage.station.w6': '发布',
+  'manage.station.w1.hint': '元数据 · 行业',
+  'manage.station.w2.hint': 'PG / MinIO',
+  'manage.station.w3.hint': 'Milvus / bge',
+  'manage.station.w4.hint': 'Neo4j / 实体关系',
+  'manage.station.w5.hint': '4×6 矩阵 SME',
+  'manage.station.w6.hint': 'published',
+  'read.path.wiki': 'Wiki 快路径',
+  'read.path.rag': 'RAG 深检索',
+  'read.path.graph': '图谱跨域',
+  'read.path.wiki.hint': '直答 · 高置信',
+  'read.path.rag.hint': '语义 · 向量',
+  'read.path.graph.hint': '关系 · 跨域',
   'topbar.settings': '设置',
 
   'reader.title': '你好，在查什么？',
@@ -700,6 +775,47 @@ const en: Dict = {
   'consult.w5.bp.r1': 'Pages compiled',
   'consult.w5.bp.r2': 'Cross-refs',
   'consult.w5.bp.r3': '3-tier structure',
+  'kap.tagPipeline': 'Pipeline',
+  'kap.tagFlow': 'Progressive consumption · 3-path retrieval',
+  'kap.tagOverview': 'Overview',
+  'kap.viewMatrix': 'Governance Matrix',
+  'kap.startConsult': 'Start consult',
+  'kap.openSearch': 'Open search',
+  'kap.cardConsultProgress': 'Consult progress',
+  'kap.cardKnowledgeOverview': 'Knowledge assets',
+  'kap.cardConsumeRecent': 'Recent Q&A',
+  'kap.statProjects': 'Projects',
+  'kap.statDocs': 'Documents',
+  'kap.statWiki': 'Wiki pages',
+  'kap.statDomains': 'Domains',
+  'kap.statQueries': 'Queries',
+  'kap.statHitRate': 'Hit rate',
+  'kap.statUseful': 'Useful',
+  'kap.statDecisions': 'Decisions',
+  'consult.heroTitle': 'Consult Center',
+  'consult.heroSub': 'AI Knowledge Architect · Upload → Denoise → Schema → Wiki / build a fitting knowledge system in one place',
+  'manage.heroTitle': 'Knowledge Center',
+  'manage.heroSub': 'Storage · Vectorization · Graph / turn consult artifacts into queryable enterprise assets',
+  'read.heroTitle': 'Consume Center',
+  'read.heroSub': 'Progressive consumption / Wiki fast path → RAG deep search → Graph cross-domain · 3 paths in parallel',
+  'manage.station.w1': 'Project',
+  'manage.station.w2': 'Ingest',
+  'manage.station.w3': 'Vectorize',
+  'manage.station.w4': 'Graph',
+  'manage.station.w5': 'Review',
+  'manage.station.w6': 'Publish',
+  'manage.station.w1.hint': 'metadata · industry',
+  'manage.station.w2.hint': 'PG / MinIO',
+  'manage.station.w3.hint': 'Milvus / bge',
+  'manage.station.w4.hint': 'Neo4j / triples',
+  'manage.station.w5.hint': '4×6 matrix · SME',
+  'manage.station.w6.hint': 'published',
+  'read.path.wiki': 'Wiki fast path',
+  'read.path.rag': 'RAG deep search',
+  'read.path.graph': 'Graph cross-domain',
+  'read.path.wiki.hint': 'direct · high-confidence',
+  'read.path.rag.hint': 'semantic · vector',
+  'read.path.graph.hint': 'relation · cross-domain',
   'topbar.settings': 'Settings',
 
   'reader.title': 'What are you looking for?',
