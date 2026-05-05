@@ -1,448 +1,449 @@
 /**
- * KAP Distinctive Design System (M21 #4)
+ * KAP Unified Design System (M21 #5)
  *
- * 严格按 claude-frontend-skills · distinctive-frontend.md 执行：
- *   1. Typography  — Space Grotesk (display 900) + IBM Plex Sans (body 200) + JetBrains Mono
- *   2. Color       — Nordic Minimalism palette
- *   3. Motion      — Staggered fade-in-up entrance (cubic-bezier ease-out)
- *   4. Background  — Layered radial gradient + 1px grid + noise overlay
+ * 严格按 stitch-skills · shadcn-ui 体系 · slate baseColor + new-york style。
+ * 整体一致：导航 + 页面 + 卡片 + 按钮 全部 share 同一 token，无第二风格。
  *
- * 三中心（咨询 / 知识 / 消费）统一使用此 token，不再各自一种风格。
+ * 字体：Geist Sans (display+body) + Geist Mono — 商务现代风，避开 Inter。
+ * 配色：Slate (zinc 同族) — 微冷灰，商务沉稳，背景近黑、卡片近深灰、强调蓝。
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=IBM+Plex+Sans:wght@200;400;700&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@300;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* ── Typography ── */
-  --kap-font-display: 'Space Grotesk', 'Noto Serif SC', system-ui, sans-serif;
-  --kap-font-body:    'IBM Plex Sans', 'Noto Sans SC', system-ui, sans-serif;
-  --kap-font-mono:    'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
-  --kap-font-cn-serif:'Noto Serif SC', 'Source Han Serif SC', serif;
+    /* shadcn slate · dark — 全局唯一主题 */
+    --background:        222 24% 6%;       /* #0c0e12 近黑 */
+    --foreground:        210 14% 92%;      /* #e6eaef 高对比文本 */
 
-  --kap-w-thin:   200;
-  --kap-w-mid:    500;
-  --kap-w-bold:   700;
-  --kap-w-black:  900;
+    --muted:             222 14% 11%;      /* 卡片背景 hover */
+    --muted-foreground:  217 10% 60%;      /* #8a91a0 次级文本 */
 
-  /* ── Nordic Minimalism Color Palette ── */
-  --kap-bg:         #2e3440;     /* Polar Night 0 */
-  --kap-bg-2:       #3b4252;     /* Polar Night 1 */
-  --kap-bg-3:       #434c5e;     /* Polar Night 2 */
-  --kap-bg-4:       #4c566a;     /* Polar Night 3 */
+    --card:              222 18% 9%;       /* #11141a 卡片 */
+    --card-foreground:   210 14% 92%;
+    --card-border:       220 13% 18%;      /* #252b36 卡片边 */
 
-  --kap-frost:      #88c0d0;     /* Frost — primary accent */
-  --kap-frost-deep: #5e81ac;     /* Frost — deep */
-  --kap-frost-soft: #81a1c1;     /* Frost — mid */
+    --popover:           222 20% 8%;
+    --popover-foreground:210 14% 92%;
 
-  --kap-aurora-red:    #bf616a;
-  --kap-aurora-orange: #d08770;
-  --kap-aurora-yellow: #ebcb8b;
-  --kap-aurora-green:  #a3be8c;
-  --kap-aurora-purple: #b48ead;
+    --primary:           212 95% 62%;      /* #3b82f6 主操作蓝 */
+    --primary-foreground:0 0% 100%;
+    --primary-soft:      212 95% 62% / 0.10;
 
-  --kap-snow-1:     #eceff4;     /* Snow Storm 0 — primary text */
-  --kap-snow-2:     #e5e9f0;
-  --kap-snow-3:     #d8dee9;     /* secondary text */
-  --kap-snow-4:     #6f7889;     /* muted (Polar Night derived) */
+    --secondary:         222 14% 14%;
+    --secondary-foreground: 210 14% 92%;
 
-  /* ── Motion ── */
-  --kap-ease:        cubic-bezier(0.16, 1, 0.3, 1);
-  --kap-dur-fast:    220ms;
-  --kap-dur-base:    520ms;
-  --kap-dur-slow:    820ms;
+    --accent:            220 14% 16%;      /* hover bg */
+    --accent-foreground: 210 14% 92%;
 
-  /* ── Spacing scale ── */
-  --kap-s-xs: 0.5rem;
-  --kap-s-sm: 1rem;
-  --kap-s-md: 2rem;
-  --kap-s-lg: 4rem;
-  --kap-s-xl: 8rem;
-}
+    --destructive:       0 72% 56%;
+    --destructive-foreground: 0 0% 100%;
 
-/* ════════════════════════════════════════════════════════════
-   Global page chrome — all 3 centers share this shell
-   ════════════════════════════════════════════════════════════ */
+    --success:           142 65% 50%;
+    --warning:           38 92% 56%;
+    --info:              199 89% 60%;
 
-.kap-page {
-  min-height: 100vh;
-  background:
-    radial-gradient(ellipse 80% 60% at 0% 0%, rgba(136,192,208,0.10) 0%, transparent 60%),
-    radial-gradient(ellipse 70% 60% at 100% 100%, rgba(180,142,173,0.08) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 50% 50%, rgba(94,129,172,0.05) 0%, transparent 70%),
-    var(--kap-bg);
-  color: var(--kap-snow-1);
-  font-family: var(--kap-font-body);
-  font-weight: var(--kap-w-thin);
-  letter-spacing: 0.005em;
-  position: relative;
-  overflow-x: hidden;
-}
+    --border:            220 13% 18%;       /* 默认边 */
+    --input:             220 13% 18%;
+    --ring:              212 95% 62%;
 
-/* 1px grid + noise overlay — atmosphere, not dominance */
-.kap-page::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image:
-    linear-gradient(rgba(216,222,233,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(216,222,233,0.03) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 30%, transparent 100%);
-}
+    --radius: 0.625rem;
 
-.kap-page::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.04;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
+    /* 字体 */
+    --font-sans: 'Geist', 'Noto Sans SC', system-ui, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, 'JetBrains Mono', monospace;
+  }
 
-.kap-content {
-  position: relative;
-  z-index: 1;
-  max-width: 1480px;
-  margin: 0 auto;
-  padding: 3rem 2.5rem 4rem;
-}
+  /* base — 全局同一字体 + 背景 */
+  body {
+    font-family: var(--font-sans);
+    background:
+      radial-gradient(1200px 600px at 0% 0%, hsl(212 95% 62% / 0.06) 0%, transparent 50%),
+      radial-gradient(900px 600px at 100% 0%, hsl(285 70% 60% / 0.05) 0%, transparent 50%),
+      hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+  }
 
-/* ════════════════════════════════════════════════════════════
-   Typography — extreme weight pairing
-   ════════════════════════════════════════════════════════════ */
+  /* 字体特征 */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+  }
 
-.kap-eyebrow {
-  font-family: var(--kap-font-mono);
-  font-weight: var(--kap-w-mid);
-  font-size: 11px;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  color: var(--kap-frost);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
+  /* scrollbar — 与 slate 协调 */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 5px;
+  }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.4); }
 
-.kap-eyebrow::before {
-  content: '';
-  display: inline-block;
-  width: 24px;
-  height: 1px;
-  background: var(--kap-frost);
-}
 
-.kap-headline {
-  font-family: var(--kap-font-display);
-  font-weight: var(--kap-w-black);  /* 900 — bold extreme */
-  font-size: clamp(2.5rem, 5vw, 4.5rem);
-  line-height: 0.95;
-  letter-spacing: -0.04em;
-  color: var(--kap-snow-1);
-  margin: 0.4rem 0 0.8rem;
-}
+/* ════════════════════════════════════════════════════════════════════
+   shadcn-style utility classes — 三中心通用
+   ════════════════════════════════════════════════════════════════════ */
 
-.kap-headline-cn {
-  font-family: var(--kap-font-cn-serif);
-  font-weight: var(--kap-w-bold);
-  letter-spacing: 0.02em;
-}
+  /* 整页 chrome（不再需要 .kap-page，body 已是统一主题） */
+  .kap-page {
+    min-height: 100vh;
+    color: hsl(var(--foreground));
+  }
+  .kap-content {
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: 2rem 2rem 4rem;
+  }
 
-.kap-subhead {
-  font-family: var(--kap-font-body);
-  font-weight: var(--kap-w-thin);   /* 200 — thin extreme */
-  font-size: 1.05rem;
-  line-height: 1.55;
-  color: var(--kap-snow-3);
-  max-width: 56ch;
-}
+  /* card — shadcn Card 等价 */
+  .kap-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--card-border));
+    border-radius: var(--radius);
+    transition: border-color 200ms ease, background 200ms ease;
+  }
+  .kap-card:hover {
+    border-color: hsl(var(--ring) / 0.4);
+  }
+  .kap-card-frost {
+    border-color: hsl(var(--ring) / 0.5);
+    box-shadow: 0 0 0 1px hsl(var(--ring) / 0.10), 0 8px 24px hsl(0 0% 0% / 0.4);
+  }
 
-.kap-section-title {
-  font-family: var(--kap-font-display);
-  font-weight: var(--kap-w-black);
-  font-size: 1.6rem;
-  letter-spacing: -0.02em;
-  color: var(--kap-snow-1);
-}
+  /* button base */
+  .kap-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.9rem;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 13px;
+    line-height: 1;
+    border-radius: calc(var(--radius) - 2px);
+    background: transparent;
+    color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--border));
+    cursor: pointer;
+    transition: all 150ms ease;
+    white-space: nowrap;
+  }
+  .kap-btn:hover { background: hsl(var(--accent)); border-color: hsl(var(--ring) / 0.5); }
+  .kap-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
-.kap-mono-tag {
-  font-family: var(--kap-font-mono);
-  font-weight: var(--kap-w-mid);
-  font-size: 10.5px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
+  .kap-btn-primary {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    border-color: hsl(var(--primary));
+  }
+  .kap-btn-primary:hover {
+    background: hsl(var(--primary) / 0.88);
+    border-color: hsl(var(--primary) / 0.88);
+  }
 
-/* ════════════════════════════════════════════════════════════
-   Cards / surfaces
-   ════════════════════════════════════════════════════════════ */
+  .kap-btn-ghost {
+    border-color: transparent;
+  }
+  .kap-btn-ghost:hover { background: hsl(var(--accent)); }
 
-.kap-card {
-  background: linear-gradient(160deg, rgba(67,76,94,0.55) 0%, rgba(46,52,64,0.35) 100%);
-  border: 1px solid rgba(216,222,233,0.08);
-  backdrop-filter: blur(8px);
-  position: relative;
-  transition: border-color var(--kap-dur-fast) var(--kap-ease),
-              transform var(--kap-dur-fast) var(--kap-ease);
-}
+  /* input */
+  .kap-input {
+    width: 100%;
+    padding: 0.55rem 0.85rem;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--input));
+    border-radius: calc(var(--radius) - 2px);
+    outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .kap-input:focus {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.2);
+  }
+  .kap-input::placeholder { color: hsl(var(--muted-foreground)); }
 
-.kap-card:hover {
-  border-color: rgba(136,192,208,0.35);
-}
+  /* badge — shadcn Badge 等价 */
+  .kap-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.55rem;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 11px;
+    line-height: 1.4;
+    border-radius: 9999px;
+    background: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+    border: 1px solid hsl(var(--border));
+  }
+  .kap-badge-primary {
+    background: hsl(var(--primary) / 0.15);
+    color: hsl(var(--primary));
+    border-color: hsl(var(--primary) / 0.3);
+  }
+  .kap-badge-success {
+    background: hsl(var(--success) / 0.15);
+    color: hsl(var(--success));
+    border-color: hsl(var(--success) / 0.3);
+  }
+  .kap-badge-warning {
+    background: hsl(var(--warning) / 0.15);
+    color: hsl(var(--warning));
+    border-color: hsl(var(--warning) / 0.3);
+  }
+  .kap-badge-danger {
+    background: hsl(var(--destructive) / 0.15);
+    color: hsl(var(--destructive));
+    border-color: hsl(var(--destructive) / 0.3);
+  }
 
-.kap-card-frost {
-  border-color: rgba(136,192,208,0.45);
-  box-shadow:
-    0 0 0 1px rgba(136,192,208,0.12),
-    0 16px 48px -16px rgba(94,129,172,0.35);
-}
+  /* tab — shadcn Tabs 等价 */
+  .kap-tabs {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px;
+    background: hsl(var(--muted));
+    border-radius: var(--radius);
+  }
+  .kap-tab {
+    padding: 0.4rem 0.95rem;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 13px;
+    border: none;
+    border-radius: calc(var(--radius) - 4px);
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    cursor: pointer;
+    transition: all 200ms ease;
+    white-space: nowrap;
+  }
+  .kap-tab:hover { color: hsl(var(--foreground)); }
+  .kap-tab[data-active='true'] {
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.3);
+  }
 
-/* Hairline accent strip on top */
-.kap-card-strip {
-  position: relative;
-}
-.kap-card-strip::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0;
-  width: 32px; height: 2px;
-  background: var(--kap-frost);
-}
+  /* eyebrow / mono caps */
+  .kap-eyebrow {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: hsl(var(--primary));
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .kap-mono-tag {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 10.5px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+  }
 
-/* ════════════════════════════════════════════════════════════
-   Buttons
-   ════════════════════════════════════════════════════════════ */
+  /* hero title */
+  .kap-headline {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: clamp(1.7rem, 3vw, 2.4rem);
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    color: hsl(var(--foreground));
+    margin: 0.4rem 0 0.4rem;
+  }
+  .kap-subhead {
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: hsl(var(--muted-foreground));
+    max-width: 64ch;
+  }
+  .kap-section-title {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 1rem;
+    color: hsl(var(--foreground));
+    letter-spacing: -0.01em;
+  }
 
-.kap-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1.2rem;
-  font-family: var(--kap-font-mono);
-  font-weight: var(--kap-w-mid);
-  font-size: 12px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all var(--kap-dur-fast) var(--kap-ease);
-  border: 1px solid rgba(216,222,233,0.18);
-  background: transparent;
-  color: var(--kap-snow-2);
-}
+  /* 工位 station */
+  .kap-station {
+    flex: 1;
+    min-width: 130px;
+    padding: 0.7rem 0.9rem;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--card-border));
+    border-radius: calc(var(--radius) - 2px);
+    cursor: pointer;
+    transition: all 150ms ease;
+    text-align: left;
+    font-family: var(--font-sans);
+  }
+  .kap-station:hover {
+    border-color: hsl(var(--ring) / 0.5);
+    background: hsl(var(--accent));
+  }
+  .kap-station[data-state='active'] {
+    border-color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.08);
+  }
+  .kap-station[data-state='done'] {
+    border-color: hsl(var(--success) / 0.5);
+  }
 
-.kap-btn:hover {
-  border-color: var(--kap-frost);
-  color: var(--kap-frost);
-}
+  /* stat tile */
+  .kap-stat-label {
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+  }
+  .kap-stat-value {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 1.9rem;
+    color: hsl(var(--foreground));
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-top: 0.4rem;
+  }
+  .kap-stat-suffix {
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 0.75rem;
+    color: hsl(var(--muted-foreground));
+    margin-left: 0.3rem;
+  }
 
-.kap-btn-primary {
-  background: var(--kap-frost);
-  color: var(--kap-bg);
-  border-color: var(--kap-frost);
-}
+  /* divider */
+  .kap-divider {
+    height: 1px;
+    background: hsl(var(--border));
+    margin: 1.5rem 0;
+  }
 
-.kap-btn-primary:hover {
-  background: var(--kap-snow-1);
-  border-color: var(--kap-snow-1);
-  color: var(--kap-bg);
-}
+  /* nav (顶栏 pill) */
+  .kap-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    background: hsl(var(--muted) / 0.6);
+    border: 1px solid hsl(var(--border));
+    border-radius: 9999px;
+  }
+  .kap-nav-item {
+    padding: 0.4rem 1rem;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 13px;
+    border: none;
+    border-radius: 9999px;
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    cursor: pointer;
+    transition: all 200ms ease;
+    white-space: nowrap;
+  }
+  .kap-nav-item:hover { color: hsl(var(--foreground)); }
+  .kap-nav-item[data-active='true'] {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
 
-.kap-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-  pointer-events: none;
-}
 
-/* ════════════════════════════════════════════════════════════
-   Motion — orchestrated page-load
-   ════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+   Animations
+   ════════════════════════════════════════════════════════════════════ */
 
 @keyframes kapFadeUp {
-  from { opacity: 0; transform: translateY(24px); }
+  from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes kapFadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-@keyframes kapSlideRight {
-  from { opacity: 0; transform: translateX(-32px); }
-  to   { opacity: 1; transform: translateX(0); }
 }
 @keyframes kapPulseDot {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50%      { opacity: 0.35; transform: scale(0.6); }
-}
-@keyframes kapShimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
+  50%      { opacity: 0.4; transform: scale(0.7); }
 }
 
 .kap-anim,
 .kap-stagger > * {
   opacity: 0;
-  animation: kapFadeUp var(--kap-dur-base) var(--kap-ease) forwards;
+  animation: kapFadeUp 360ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.kap-stagger > :nth-child(1) { animation-delay: 0.04s; }
+.kap-stagger > :nth-child(2) { animation-delay: 0.10s; }
+.kap-stagger > :nth-child(3) { animation-delay: 0.16s; }
+.kap-stagger > :nth-child(4) { animation-delay: 0.22s; }
+.kap-stagger > :nth-child(5) { animation-delay: 0.28s; }
+.kap-stagger > :nth-child(6) { animation-delay: 0.34s; }
+.kap-stagger > :nth-child(7) { animation-delay: 0.40s; }
+.kap-stagger > :nth-child(8) { animation-delay: 0.46s; }
+.kap-pulse { animation: kapPulseDot 1.6s ease-in-out infinite; }
+
+
+/* ════════════════════════════════════════════════════════════════════
+   Compatibility — V15 旧 token 映射到新主题（避免破坏旧组件）
+   ════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --color-bg-base:     hsl(var(--background));
+  --color-bg-elev:     hsl(var(--card));
+  --color-bg-subtle:   hsl(var(--muted));
+  --color-bg-hover:    hsl(var(--accent));
+  --color-border:      hsl(var(--border));
+  --color-text-primary: hsl(var(--foreground));
+  --color-text-secondary: hsl(var(--foreground) / 0.85);
+  --color-text-muted:   hsl(var(--muted-foreground));
+  --color-accent:       hsl(var(--primary));
+  --color-accent-secondary: hsl(var(--primary) / 0.85);
 }
 
-.kap-stagger > :nth-child(1) { animation-delay: 0.05s; }
-.kap-stagger > :nth-child(2) { animation-delay: 0.12s; }
-.kap-stagger > :nth-child(3) { animation-delay: 0.20s; }
-.kap-stagger > :nth-child(4) { animation-delay: 0.28s; }
-.kap-stagger > :nth-child(5) { animation-delay: 0.36s; }
-.kap-stagger > :nth-child(6) { animation-delay: 0.44s; }
-.kap-stagger > :nth-child(7) { animation-delay: 0.52s; }
-.kap-stagger > :nth-child(8) { animation-delay: 0.60s; }
+/* 旧组件用 bg-elevated / bg-hover / text-th-* 还能兼容 */
+.bg-base      { background-color: hsl(var(--background)); }
+.bg-elevated  { background-color: hsl(var(--card)); }
+.bg-hover     { background-color: hsl(var(--accent)); }
+.bg-th-bg-subtle { background-color: hsl(var(--muted)); }
+.text-th-text-primary   { color: hsl(var(--foreground)); }
+.text-th-text-secondary { color: hsl(var(--foreground) / 0.85); }
+.text-th-text-muted     { color: hsl(var(--muted-foreground)); }
+.border-th-border       { border-color: hsl(var(--border)); }
+.border-th-border-hover { border-color: hsl(var(--ring) / 0.5); }
+.text-accent            { color: hsl(var(--primary)); }
+.text-accent-secondary  { color: hsl(var(--primary) / 0.85); }
+.bg-accent              { background-color: hsl(var(--primary)); }
+.rounded-card           { border-radius: var(--radius); }
+.rounded-btn            { border-radius: calc(var(--radius) - 2px); }
+.rounded-pill           { border-radius: 9999px; }
+.shadow-card-hover      { box-shadow: 0 8px 24px hsl(0 0% 0% / 0.4); }
 
-.kap-pulse {
-  animation: kapPulseDot 1.6s var(--kap-ease) infinite;
-}
 
-/* ════════════════════════════════════════════════════════════
-   Pipeline strip — used by all 3 centers (3/5/6 stations)
-   ════════════════════════════════════════════════════════════ */
-
-.kap-strip {
-  display: flex;
-  gap: 0.75rem;
-  padding: 1.2rem;
-  border: 1px solid rgba(216,222,233,0.08);
-  background: linear-gradient(180deg, rgba(67,76,94,0.5) 0%, rgba(46,52,64,0.3) 100%);
-  position: relative;
-}
-
-.kap-strip-corner {
-  position: absolute;
-  width: 12px; height: 12px;
-  border: 1px solid rgba(136,192,208,0.55);
-}
-
-.kap-station {
-  flex: 1;
-  min-width: 130px;
-  padding: 0.85rem 1rem;
-  border: 1px solid rgba(216,222,233,0.12);
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  transition: all var(--kap-dur-fast) var(--kap-ease);
-  font-family: var(--kap-font-body);
-  position: relative;
-}
-.kap-station[data-state='active'] {
-  border-color: rgba(136,192,208,0.7);
-  background: rgba(136,192,208,0.08);
-  box-shadow: inset 0 0 32px rgba(136,192,208,0.06);
-}
-.kap-station[data-state='done'] {
-  border-color: rgba(163,190,140,0.45);
-}
-.kap-station:hover {
-  border-color: rgba(136,192,208,0.45);
-}
-
-/* ════════════════════════════════════════════════════════════
-   Stat tile — reused on all 3 centers
-   ════════════════════════════════════════════════════════════ */
-
-.kap-stat {
-  padding: 1.2rem 1.4rem;
-}
-.kap-stat-label {
-  font-family: var(--kap-font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.20em;
-  text-transform: uppercase;
-  color: var(--kap-snow-4);
-}
-.kap-stat-value {
-  font-family: var(--kap-font-display);
-  font-weight: var(--kap-w-thin);
-  font-size: 2.6rem;
-  letter-spacing: -0.03em;
-  color: var(--kap-snow-1);
-  line-height: 1;
-  margin-top: 0.5rem;
-}
-.kap-stat-suffix {
-  font-family: var(--kap-font-mono);
-  font-weight: var(--kap-w-mid);
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
-  color: var(--kap-snow-4);
-  margin-left: 0.3rem;
-}
-
-/* ════════════════════════════════════════════════════════════
-   Subtle inputs
-   ════════════════════════════════════════════════════════════ */
-
-.kap-input {
-  font-family: var(--kap-font-body);
-  font-weight: var(--kap-w-thin);
-  font-size: 0.95rem;
-  background: rgba(46,52,64,0.55);
-  border: 1px solid rgba(216,222,233,0.12);
-  color: var(--kap-snow-1);
-  padding: 0.7rem 1rem;
-  outline: none;
-  transition: border-color var(--kap-dur-fast) var(--kap-ease);
-  width: 100%;
-}
-.kap-input:focus {
-  border-color: var(--kap-frost);
-}
-
-/* ════════════════════════════════════════════════════════════
-   Section divider
-   ════════════════════════════════════════════════════════════ */
-
-.kap-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(216,222,233,0.18), transparent);
-  margin: 2.4rem 0;
-}
-
-/* ════════════════════════════════════════════════════════════
-   Center identity badge (顶部品牌区)
-   ════════════════════════════════════════════════════════════ */
-
-.kap-center-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 0.4rem 0.85rem;
-  border: 1px solid rgba(136,192,208,0.45);
-  font-family: var(--kap-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.20em;
-  text-transform: uppercase;
-  color: var(--kap-frost);
-  background: rgba(136,192,208,0.05);
-}
-
-.kap-center-badge[data-active='true'] {
-  background: var(--kap-frost);
-  color: var(--kap-bg);
-  border-color: var(--kap-frost);
-}
-
-/* ════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════════
    Utilities
-   ════════════════════════════════════════════════════════════ */
+   ════════════════════════════════════════════════════════════════════ */
 
 .kap-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
 .kap-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
-.kap-grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.8rem; }
-.kap-grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.8rem; }
+.kap-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
 
 @media (max-width: 1024px) {
-  .kap-grid-3, .kap-grid-5, .kap-grid-6 { grid-template-columns: 1fr 1fr; }
+  .kap-grid-3, .kap-grid-4 { grid-template-columns: 1fr 1fr; }
   .kap-grid-2 { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
-  .kap-grid-3, .kap-grid-5, .kap-grid-6, .kap-grid-2 { grid-template-columns: 1fr; }
-  .kap-content { padding: 2rem 1.2rem 3rem; }
+  .kap-grid-2, .kap-grid-3, .kap-grid-4 { grid-template-columns: 1fr; }
+  .kap-content { padding: 1.5rem 1rem 3rem; }
 }

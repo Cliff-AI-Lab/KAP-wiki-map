@@ -1,8 +1,7 @@
 /**
- * V15Layout — 全局入口布局（消费 / 治理模式）
+ * V15Layout — 全局入口（M21 #5 · 三中心统一 shadcn 风）
  *
- * 不挂 ProjectContext（V15 双模式是跨项目的全局体验）。
- * 顶栏：Logo + 品牌名 + EditionPill + 设置。
+ * 顶栏 + 页面共享同一套 design tokens（slate dark），无第二风格。
  */
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
@@ -17,22 +16,53 @@ export default function V15Layout() {
   const { t } = useLocale();
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-base v15-bg-mesh">
-      <header className="h-16 shrink-0 flex items-center gap-6 px-8 border-b border-th-border bg-elevated/70 backdrop-blur sticky top-0 z-20">
-        {/* Logo + 品牌 — Space Grotesk 900 */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-btn bg-accent grid place-items-center text-[color:var(--color-bg-base)] font-bold text-sm v15-display">
-            图
+    <div className="flex h-screen flex-col overflow-hidden">
+      {/* 顶栏 */}
+      <header
+        className="h-16 shrink-0 sticky top-0 z-20 flex items-center gap-5 px-6 border-b backdrop-blur-md"
+        style={{
+          background: 'hsl(var(--background) / 0.85)',
+          borderColor: 'hsl(var(--border))',
+        }}
+      >
+        {/* Brand */}
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-8 h-8 grid place-items-center font-bold text-sm"
+            style={{
+              background: 'hsl(var(--primary))',
+              color: 'hsl(var(--primary-foreground))',
+              borderRadius: 'calc(var(--radius) - 2px)',
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            K
           </div>
-          <span className="v15-display text-[17px] uppercase tracking-[0.02em] text-th-text-primary">
-            {t('brand.name')}
-          </span>
-          <span className="text-[11px] v15-mono text-th-text-muted uppercase tracking-[0.15em]">
-            {t('brand.tagline')}
-          </span>
+          <div className="flex flex-col leading-tight">
+            <span
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 700,
+                fontSize: 14,
+                letterSpacing: '-0.01em',
+                color: 'hsl(var(--foreground))',
+              }}
+            >
+              {t('brand.name')}
+            </span>
+            <span
+              className="kap-mono-tag"
+              style={{ color: 'hsl(var(--muted-foreground))' }}
+            >
+              {t('brand.tagline')}
+            </span>
+          </div>
         </div>
 
-        <div className="w-px h-5 bg-th-border" />
+        <div
+          className="w-px h-5"
+          style={{ background: 'hsl(var(--border))' }}
+        />
 
         <V15ProjectSelector />
 
@@ -42,16 +72,21 @@ export default function V15Layout() {
 
         <button
           onClick={() => setSettingsOpen(true)}
-          className="btn-ghost rounded-btn p-2 transition-all duration-150"
+          className="kap-btn kap-btn-ghost"
+          style={{ padding: '0.45rem' }}
           aria-label={t('topbar.settings')}
           title={t('topbar.settings')}
         >
-          <Settings size={15} className="text-th-text-secondary" />
+          <Settings size={15} />
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-[1600px] mx-auto w-full px-6 py-8">
+      {/* 主区 */}
+      <main
+        className="flex-1 overflow-y-auto kap-page"
+        style={{ background: 'hsl(var(--background))' }}
+      >
+        <div className="kap-content">
           <Outlet />
         </div>
       </main>

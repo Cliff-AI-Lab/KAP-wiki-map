@@ -1,21 +1,16 @@
 /**
- * EditionPill — 咨询中心 / 知识中心 / 消费中心 三 tab 切换（M21 #1）
- *
- * AI4S 风：圆角 pill + 激活滑块 + 280ms 缓动
+ * EditionPill — 三中心切换（M21 #5 · shadcn 风 .kap-nav）
  */
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMode, type Mode } from '@/contexts/ModeContext';
 import { useLocale } from '@/contexts/LocaleContext';
 
-/** 路由 path → mode 的映射 */
 function inferModeFromPath(pathname: string): Mode {
   if (pathname.startsWith('/v15/consult') || pathname.startsWith('/agent/architect')) return 'consult';
   if (pathname.startsWith('/v15/manage')) return 'manage';
   return 'read';
 }
-
-const _ORDER: Mode[] = ['consult', 'manage', 'read'];
 
 export function EditionPill() {
   const { mode, setMode } = useMode();
@@ -41,41 +36,21 @@ export function EditionPill() {
     { value: 'read',    label: t('mode.read') },
   ];
 
-  const activeIdx = _ORDER.indexOf(mode);
-
   return (
-    <div
-      className="relative inline-flex items-center p-1 rounded-pill border border-th-border bg-elevated"
-      role="tablist"
-      aria-label={t('mode.tablistLabel')}
-    >
-      <div
-        className="absolute top-1 bottom-1 rounded-pill bg-accent shadow-sm"
-        style={{
-          width: 'calc(33.333% - 3px)',
-          left: '4px',
-          transform: `translateX(${activeIdx * 100}%)`,
-          transition: 'transform 280ms cubic-bezier(.4,0,.2,1)',
-        }}
-        aria-hidden="true"
-      />
-      {OPTIONS.map((opt) => {
-        const active = mode === opt.value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => handleClick(opt.value)}
-            className={`relative z-10 px-4 py-1.5 text-sm font-medium rounded-pill transition-colors whitespace-nowrap ${
-              active ? 'text-white' : 'text-th-text-muted hover:text-th-text-primary'
-            }`}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
+    <div className="kap-nav" role="tablist" aria-label={t('mode.tablistLabel')}>
+      {OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          role="tab"
+          aria-selected={mode === opt.value}
+          data-active={mode === opt.value}
+          onClick={() => handleClick(opt.value)}
+          className="kap-nav-item"
+        >
+          {opt.label}
+        </button>
+      ))}
     </div>
   );
 }
