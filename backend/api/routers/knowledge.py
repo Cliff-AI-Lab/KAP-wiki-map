@@ -1105,28 +1105,68 @@ async def ingest_files(
 
 
 async def _parse_upload_file(f: UploadFile) -> str:
-    """解析上传文件内容为纯文本。"""
+    """解析上传文件内容为纯文本。
+
+    支持：txt / md / markdown / csv / rtf
+         docx / doc
+         pdf
+         xlsx / xls
+    """
     filename = (f.filename or "").lower()
     raw = await f.read()
 
-    if filename.endswith((".txt", ".md")):
-        # 尝试 utf-8，fallback gbk
-        for enc in ("utf-8", "gbk", "latin-1"):
+    # ── 纯文本（含 csv 和 markdown） ──
+    if filename.endswith((".txt", ".md", ".markdown", ".csv", ".rtf")):
+        for enc in ("utf-8-sig", "utf-8", "gbk", "gb18030", "big5", "latin-1"):
             try:
                 return raw.decode(enc)
             except (UnicodeDecodeError, LookupError):
                 continue
         return raw.decode("utf-8", errors="replace")
 
+    # ── Word docx ──
     if filename.endswith(".docx"):
         try:
             import docx
             import io
             doc = docx.Document(io.BytesIO(raw))
-            return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+            parts = [p.text for p in doc.paragraphs if p.text.strip()]
+            # docx 表格内容也提取
+            for tbl in doc.tables:
+                for row in tbl.rows:
+                    cells = [c.text.strip() for c in row.cells]
+                    cells = [c for c in cells if c]
+                    if cells:
+                        parts.append(" | ".join(cells))
+            return "\n".join(parts)
         except ImportError:
             raise ValueError("需要安装 python-docx: pip install python-docx")
 
+    # ── Word 老 doc（OLE2 二进制）──
+    if filename.endswith(".doc"):
+        # 优先 textract（依赖 antiword/catdoc）；失败 fallback 提示
+        try:
+            import textract     # type: ignore[import-not-found]
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".doc", delete=False) as tmp:
+                tmp.write(raw)
+                tmp_path = tmp.name
+            try:
+                text = textract.process(tmp_path).decode("utf-8", errors="replace")
+                return text
+            finally:
+                import os
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+        except ImportError:
+            raise ValueError(
+                "暂不支持 .doc（OLE2 老格式），请保存为 .docx 后重传。"
+                "如需支持，pip install textract + 系统 antiword/catdoc。"
+            )
+
+    # ── PDF ──
     if filename.endswith(".pdf"):
         try:
             import fitz  # PyMuPDF
@@ -1139,7 +1179,65 @@ async def _parse_upload_file(f: UploadFile) -> str:
         except ImportError:
             raise ValueError("需要安装 PyMuPDF: pip install pymupdf")
 
-    # 其他格式尝试作为文本读取
+    # ── Excel xlsx / xls ──
+    if filename.endswith((".xlsx", ".xls")):
+        # xlsx 用 openpyxl，xls 用 xlrd（旧二进制）
+        try:
+            import io
+            from openpyxl import load_workbook
+            wb = load_workbook(filename=io.BytesIO(raw), data_only=True, read_only=True)
+            parts: list[str] = []
+            for sheet in wb.worksheets:
+                parts.append(f"## Sheet: {sheet.title}")
+                # 表头
+                rows_iter = sheet.iter_rows(values_only=True)
+                # 限制行数防巨表 OOM
+                row_count = 0
+                MAX_ROWS = 5000
+                for row in rows_iter:
+                    row_count += 1
+                    if row_count > MAX_ROWS:
+                        parts.append(f"... (truncated at {MAX_ROWS} rows)")
+                        break
+                    cells = [str(c) for c in row if c is not None and str(c).strip()]
+                    if cells:
+                        parts.append(" | ".join(cells))
+                parts.append("")  # 空行分隔
+            text = "\n".join(parts)
+            if not text.strip():
+                raise ValueError(f"Excel 文件 {f.filename} 解析后为空")
+            return text
+        except ImportError:
+            raise ValueError("需要安装 openpyxl: pip install openpyxl")
+        except Exception as e:
+            # xls 老格式 fallback xlrd
+            if filename.endswith(".xls"):
+                try:
+                    import io
+                    import xlrd       # type: ignore[import-not-found]
+                    book = xlrd.open_workbook(file_contents=raw)
+                    parts = []
+                    for s in book.sheets():
+                        parts.append(f"## Sheet: {s.name}")
+                        for ri in range(min(s.nrows, 5000)):
+                            row_vals = [str(c) for c in s.row_values(ri) if str(c).strip()]
+                            if row_vals:
+                                parts.append(" | ".join(row_vals))
+                        parts.append("")
+                    return "\n".join(parts)
+                except ImportError:
+                    raise ValueError(
+                        ".xls 老格式解析失败：建议另存为 .xlsx 重传，"
+                        "或 pip install xlrd"
+                    )
+            raise ValueError(f"Excel 解析失败 ({f.filename}): {e}")
+
+    # 其他未知扩展名 — 尝试当作文本（降级，含 BOM/编码探测）
+    for enc in ("utf-8-sig", "utf-8", "gbk", "gb18030"):
+        try:
+            return raw.decode(enc)
+        except (UnicodeDecodeError, LookupError):
+            continue
     return raw.decode("utf-8", errors="replace")
 
 

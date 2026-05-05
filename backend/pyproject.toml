@@ -1,6 +1,6 @@
 [project]
 name = "kap-backend"
-version = "1.0.0-m0"
+version = "1.0.0a0"
 description = "KAP 知识智能体平台 · 后端（基于 Wiki-map V15 演进）"
 requires-python = ">=3.11"
 dependencies = [
