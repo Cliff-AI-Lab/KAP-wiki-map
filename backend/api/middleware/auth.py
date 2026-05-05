@@ -137,16 +137,25 @@ class AuthMiddleware(BaseHTTPMiddleware):
         token = self._extract_token(request)
         api_key_map = _get_api_key_map()
 
+        # dev 模式 anonymous 自动获 admin 全角色（仅 auth_required=False 且 dev 环境）
+        # sandbox/prod 不会触发（auth_required=True 或 mode 已被强制非 api_key）
+        def _dev_anonymous() -> UserContext:
+            from packages.common.roles import (
+                ROLE_DG, ROLE_SME, ROLE_AIOPS, ROLE_READER,
+            )
+            return UserContext(
+                user_id="anonymous", org_id="default", source="anonymous",
+                access_level="INTERNAL",
+                roles=[ROLE_DG, ROLE_SME, ROLE_AIOPS, ROLE_READER],
+            )
+
         if not token:
             if settings.auth_required:
                 return UserContext(), JSONResponse(
                     status_code=401,
                     content={"detail": "缺少认证凭证，请提供 X-API-Key 或 Bearer Token"},
                 )
-            return (
-                UserContext(user_id="anonymous", org_id="default", source="anonymous"),
-                None,
-            )
+            return (_dev_anonymous(), None)
 
         user_ctx_template = api_key_map.get(token)
         user_ctx = user_ctx_template.model_copy() if user_ctx_template else None
@@ -156,7 +165,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     status_code=403,
                     content={"detail": "无效的认证凭证"},
                 )
-            user_ctx = UserContext(user_id="anonymous", org_id="default", source="anonymous")
+            user_ctx = _dev_anonymous()
 
         return user_ctx, None
 

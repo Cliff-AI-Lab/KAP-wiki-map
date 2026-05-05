@@ -28,6 +28,25 @@ export type TranslationKey =
   | 'consult.architect'
   | 'consult.downloadDraft'
   | 'consult.flowHint'
+  | 'consult.sessionPending'
+  | 'consult.pipelineLabel'
+  | 'consult.terminal.label'
+  | 'consult.blueprint.label'
+  | 'consult.sendHint'
+  | 'consult.newlineHint'
+  | 'consult.commit'
+  | 'consult.commitToStorage'
+  | 'consult.footer.flow'
+  | 'consult.w1.label' | 'consult.w1.hint'
+  | 'consult.w2.label' | 'consult.w2.hint'
+  | 'consult.w3.label' | 'consult.w3.hint'
+  | 'consult.w4.label' | 'consult.w4.hint'
+  | 'consult.w5.label' | 'consult.w5.hint'
+  | 'consult.w1.bp.title' | 'consult.w1.bp.r1' | 'consult.w1.bp.r2' | 'consult.w1.bp.r3'
+  | 'consult.w2.bp.title' | 'consult.w2.bp.r1' | 'consult.w2.bp.r2' | 'consult.w2.bp.r3'
+  | 'consult.w3.bp.title' | 'consult.w3.bp.r1' | 'consult.w3.bp.r2' | 'consult.w3.bp.r3' | 'consult.w3.bp.r4'
+  | 'consult.w4.bp.title' | 'consult.w4.bp.r1' | 'consult.w4.bp.r2' | 'consult.w4.bp.r3'
+  | 'consult.w5.bp.title' | 'consult.w5.bp.r1' | 'consult.w5.bp.r2' | 'consult.w5.bp.r3'
   | 'topbar.settings'
   // ReaderHome
   | 'reader.title'
@@ -316,6 +335,46 @@ const zh: Dict = {
   'consult.architect': '架构师',
   'consult.downloadDraft': '下载草稿',
   'consult.flowHint': '咨询完成后可下载 schema.md 草稿，或一键提交到知识中心落 L2 本体。',
+  'consult.sessionPending': '会话未启动',
+  'consult.pipelineLabel': '5 工位流水线 · W1→W5',
+  'consult.terminal.label': '架构师 · 终端',
+  'consult.blueprint.label': '产物预览 · 蓝图',
+  'consult.sendHint': '发送',
+  'consult.newlineHint': '换行',
+  'consult.commit': '提交知识中心',
+  'consult.commitToStorage': '一键提交本阶段产物到知识中心落库',
+  'consult.footer.flow': '上传 → 去噪 → 体系 → Wiki',
+  'consult.w1.label': '项目',
+  'consult.w1.hint': '行业模板 · 项目元数据',
+  'consult.w2.label': '上传',
+  'consult.w2.hint': '飞书 / 钉钉 / 本地',
+  'consult.w3.label': '去噪审核',
+  'consult.w3.hint': '保留 / 归档 / 丢弃',
+  'consult.w4.label': '体系',
+  'consult.w4.hint': '双层本体 L1 + L2',
+  'consult.w5.label': 'Wiki',
+  'consult.w5.hint': '索引 / 域 / 源',
+  'consult.w1.bp.title': '项目元数据',
+  'consult.w1.bp.r1': '项目名',
+  'consult.w1.bp.r2': '行业',
+  'consult.w1.bp.r3': '创建时间',
+  'consult.w2.bp.title': '原始文档',
+  'consult.w2.bp.r1': '已上传',
+  'consult.w2.bp.r2': '解析完成',
+  'consult.w2.bp.r3': '通过率',
+  'consult.w3.bp.title': '去噪决策',
+  'consult.w3.bp.r1': '总数',
+  'consult.w3.bp.r2': '保留',
+  'consult.w3.bp.r3': '归档',
+  'consult.w3.bp.r4': '丢弃',
+  'consult.w4.bp.title': '本体类型',
+  'consult.w4.bp.r1': '实体类型',
+  'consult.w4.bp.r2': '关系类型',
+  'consult.w4.bp.r3': '层级',
+  'consult.w5.bp.title': 'Wiki 编译',
+  'consult.w5.bp.r1': '已编译页',
+  'consult.w5.bp.r2': '交叉引用',
+  'consult.w5.bp.r3': '三层结构',
   'topbar.settings': '设置',
 
   'reader.title': '你好，在查什么？',
@@ -601,6 +660,46 @@ const en: Dict = {
   'consult.architect': 'Architect',
   'consult.downloadDraft': 'Download draft',
   'consult.flowHint': 'After the consultation, download schema.md draft or commit directly to Knowledge Center as L2 ontology.',
+  'consult.sessionPending': 'Session pending',
+  'consult.pipelineLabel': '5-stage pipeline · W1 → W5',
+  'consult.terminal.label': 'Architect · Terminal',
+  'consult.blueprint.label': 'Artifact · Blueprint',
+  'consult.sendHint': 'send',
+  'consult.newlineHint': 'newline',
+  'consult.commit': 'Commit to Knowledge',
+  'consult.commitToStorage': 'Commit current artifact to Knowledge Center',
+  'consult.footer.flow': 'Upload → Denoise → Schema → Wiki',
+  'consult.w1.label': 'Project',
+  'consult.w1.hint': 'Industry template · metadata',
+  'consult.w2.label': 'Upload',
+  'consult.w2.hint': 'Lark / DingTalk / Local',
+  'consult.w3.label': 'Denoise',
+  'consult.w3.hint': 'Keep / Archive / Drop',
+  'consult.w4.label': 'Schema',
+  'consult.w4.hint': '2-layer ontology L1 + L2',
+  'consult.w5.label': 'Wiki',
+  'consult.w5.hint': 'Index / Domain / Source',
+  'consult.w1.bp.title': 'Project metadata',
+  'consult.w1.bp.r1': 'Project name',
+  'consult.w1.bp.r2': 'Industry',
+  'consult.w1.bp.r3': 'Created at',
+  'consult.w2.bp.title': 'Raw documents',
+  'consult.w2.bp.r1': 'Uploaded',
+  'consult.w2.bp.r2': 'Parsed',
+  'consult.w2.bp.r3': 'Pass rate',
+  'consult.w3.bp.title': 'Denoise decisions',
+  'consult.w3.bp.r1': 'Total',
+  'consult.w3.bp.r2': 'Keep',
+  'consult.w3.bp.r3': 'Archive',
+  'consult.w3.bp.r4': 'Drop',
+  'consult.w4.bp.title': 'Ontology types',
+  'consult.w4.bp.r1': 'Entity types',
+  'consult.w4.bp.r2': 'Relation types',
+  'consult.w4.bp.r3': 'Layers',
+  'consult.w5.bp.title': 'Wiki compile',
+  'consult.w5.bp.r1': 'Pages compiled',
+  'consult.w5.bp.r2': 'Cross-refs',
+  'consult.w5.bp.r3': '3-tier structure',
   'topbar.settings': 'Settings',
 
   'reader.title': 'What are you looking for?',

@@ -56,42 +56,49 @@ log = structlog.get_logger(__name__)
 Block = Literal["architect", "storage", "portal", "all"]
 
 
-# 各块路由映射
+# 各块路由映射（M21 #3 重划：按业务流程边界）
 _BLOCK_ROUTERS = {
     "architect": [
-        # 块① 知识咨询智能体：对话式建本体
-        ("architect", architect.router, "/api/v1"),
+        # 咨询中心 = AI 咨询师 + 整理工
+        # 完整知识建立流程：上传 → 去噪审核 → 体系 → Wiki 编织
+        # 即 6 工位的 W1-W5（项目/上传/去噪/体系/Wiki）
+        ("architect",  architect.router,  "/api/v1"),    # 对话式咨询（W1 起点）
+        ("projects",   projects.router,   "/api/v1"),    # 项目管理 (W1)
+        ("knowledge",  knowledge.router,  "/api/v1"),    # 文档导入 (W2)
+        ("sensitive",  sensitive.router,  "/api/v1"),    # 脱敏 (W2 一部分)
+        ("ontology",   ontology.router,   "/api/v1"),    # 双层本体 (W4 体系)
+        ("wiki",       wiki.router,       "/api/v1"),    # Wiki 编译 (W5)
+        ("analysis",   analysis.router,   "/api/v1"),    # 文档分析（咨询参考）
     ],
     "storage": [
-        # 块② 治理 + 存储中心：6 工位 + 4×6 矩阵 + 双层本体 + Wiki 编译
-        ("projects",   projects.router,   "/api/v1"),
-        ("knowledge",  knowledge.router,  "/api/v1"),
-        ("wiki",       wiki.router,       "/api/v1"),
-        ("governance", governance.router, "/api/v1"),
-        ("ontology",   ontology.router,   "/api/v1"),
+        # 知识中心 = 存储 + 向量化 + 图谱化
+        # 拿咨询中心给出的 Wiki/Schema → 入库 → 向量化 → 图谱化
+        # 即 6 工位的 W6（图谱）+ 治理工单审核 + 重抽影子库
+        ("governance", governance.router, "/api/v1"),    # 治理工单（W6 审核）
         ("rebuild",    rebuild.router,    "/api/v1"),    # 全量重抽影子库
-        ("sensitive",  sensitive.router,  "/api/v1"),    # 敏感映射
         ("audit",      audit.router,      "/api/v1"),    # 审计日志
-        ("analysis",   analysis.router,   "/api/v1"),    # 数据分析
     ],
     "portal": [
-        # 块③ 消费门户：Wiki/RAG/图谱三路召回 + 运营观察
-        ("qa",            qa.router,           "/api/v1"),    # 三路召回入口
-        ("recall_test",   recall_test.router,  "/api/v1"),    # 召回测试
+        # 消费中心 = 渐进式三路召回 + 仪表盘
+        ("qa",            qa.router,            "/api/v1"),    # 三路召回入口
+        ("recall_test",   recall_test.router,   "/api/v1"),    # 召回测试
         ("observability", observability.router, "/api/v1"),    # 运营观察
         ("iss_job",       iss_job.router,       "/api/v1"),    # ISS-Job 协调
     ],
 }
 
 
-# 各块 PG 持久化开关（仅相关 block 启用）
+# 各块 PG 持久化开关（M21 #3 · 按重划边界分配）
 _BLOCK_PG_INITS = {
-    "architect": [],   # block ① 暂无独立 PG 持久化
-    "storage": [
-        ("KAP_DECISION_LOG_PG", "initialize_pg_decision_log", "shutdown_pg_decision_log"),
+    "architect": [
+        # 咨询中心：跑 wiki 编译 + W4 抽取诊断 + prompt 版本
         ("KAP_PROMPT_VER_PG",   "initialize_pg_prompt_versions", "shutdown_pg_prompt_versions"),
         ("KAP_WIKI_QUALITY_PG", "initialize_pg_wiki_quality", "shutdown_pg_wiki_quality"),
         ("KAP_EXTRACTION_QUALITY_PG", "initialize_pg_extraction_quality", "shutdown_pg_extraction_quality"),
+    ],
+    "storage": [
+        # 知识中心：治理决策日志（向量化/图谱化的 SME 审批）
+        ("KAP_DECISION_LOG_PG", "initialize_pg_decision_log", "shutdown_pg_decision_log"),
     ],
     "portal": [
         ("KAP_QUERY_LOG_PG",   "initialize_pg_query_log", "shutdown_pg_query_log"),
