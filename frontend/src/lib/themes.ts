@@ -420,6 +420,9 @@ export function applyTheme(theme: Theme): void {
   /* 颜色方案 */
   root.style.colorScheme = theme.colorScheme;
 
+  /* M21 #6 · shadcn distinctive.css 按 data-theme 切换 hsl 变量 */
+  root.dataset.theme = theme.colorScheme;
+
   /* 背景辉光渐变 */
   const [gradA, gradB, gradC] = theme.gradients;
   root.style.setProperty('--color-bg-gradient-a', gradA);

@@ -53,6 +53,50 @@
     --font-mono: 'Geist Mono', ui-monospace, 'JetBrains Mono', monospace;
   }
 
+  /* ── light theme 覆盖（M21 #6） ── */
+  :root[data-theme="light"] {
+    --background:        0 0% 100%;          /* 纯白 */
+    --foreground:        222 47% 11%;         /* 深蓝灰高对比文 */
+
+    --muted:             210 30% 96%;         /* hover bg */
+    --muted-foreground:  220 9% 46%;          /* 次级文本 */
+
+    --card:              0 0% 100%;
+    --card-foreground:   222 47% 11%;
+    --card-border:       214 28% 90%;         /* 浅灰边 */
+
+    --popover:           0 0% 100%;
+    --popover-foreground:222 47% 11%;
+
+    --primary:           212 95% 50%;         /* light 模式蓝深一点 */
+    --primary-foreground:0 0% 100%;
+
+    --secondary:         210 30% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --accent:            210 30% 95%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive:       0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success:           142 70% 35%;
+    --warning:           38 92% 45%;
+    --info:              199 89% 48%;
+
+    --border:            214 28% 90%;
+    --input:             214 28% 90%;
+    --ring:              212 95% 50%;
+  }
+
+  /* light 主题 body 渐变要更柔 */
+  :root[data-theme="light"] body {
+    background:
+      radial-gradient(1200px 600px at 0% 0%, hsl(212 95% 60% / 0.07) 0%, transparent 50%),
+      radial-gradient(900px 600px at 100% 0%, hsl(265 70% 60% / 0.05) 0%, transparent 50%),
+      hsl(var(--background));
+  }
+
   /* base — 全局同一字体 + 背景 */
   body {
     font-family: var(--font-sans);

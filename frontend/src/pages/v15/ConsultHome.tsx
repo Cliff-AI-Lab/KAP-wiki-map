@@ -12,8 +12,9 @@ import {
 
 import { useLocale } from '@/contexts/LocaleContext';
 import {
-  CenterShell, CenterHero, Pipeline, KapCard, StatTile, type Station,
+  CenterShell, CenterHero, Pipeline, KapCard, type Station,
 } from '@/components/v15/CenterShell';
+import ConsultUploader from '@/components/v15/ConsultUploader';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
@@ -281,22 +282,33 @@ export default function ConsultHome() {
             </div>
           </KapCard>
 
+          <ConsultUploader
+            projectId="default"
+            onUploaded={(_r) => {
+              // 上传后推进 stage 到 W3 (去噪审核)
+              setStage('W3');
+            }}
+          />
+
           <KapCard
             eyebrow={`▶ ${t('consult.blueprint.label')}`}
-            rightSlot={<span className="kap-mono-tag" style={{ color: 'var(--kap-aurora-yellow)' }}>{stage}</span>}
+            rightSlot={
+              <span className="kap-badge kap-badge-warning">{stage}</span>
+            }
           >
             <div
               style={{
-                backgroundImage:
-                  'linear-gradient(rgba(136,192,208,0.08) 1px, transparent 1px),\n                   linear-gradient(90deg, rgba(136,192,208,0.08) 1px, transparent 1px)',
-                backgroundSize: '20px 20px',
+                background: 'hsl(var(--muted) / 0.4)',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: 'calc(var(--radius) - 4px)',
                 padding: '1rem',
-                minHeight: 180,
-                borderLeft: '2px solid var(--kap-frost)',
-                paddingLeft: '1.2rem',
+                minHeight: 160,
               }}
             >
-              <div className="kap-mono-tag mb-3" style={{ color: 'var(--kap-frost)' }}>
+              <div
+                className="kap-mono-tag mb-3"
+                style={{ color: 'hsl(var(--primary))' }}
+              >
                 ◇ {t(`consult.${stage.toLowerCase()}.bp.title` as 'consult.w1.bp.title')}
               </div>
               <BlueprintRows stage={stage} t={t} />
@@ -329,13 +341,13 @@ function BlueprintRows({ stage, t }: { stage: StageId; t: (k: string) => string 
           key={k}
           className="flex items-baseline justify-between gap-3 pb-1.5"
           style={{
-            borderBottom: '1px dashed rgba(216,222,233,0.08)',
-            fontFamily: 'var(--kap-font-mono)',
-            fontSize: 12,
+            borderBottom: '1px dashed hsl(var(--border))',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 12.5,
           }}
         >
-          <span style={{ color: 'var(--kap-snow-4)' }}>{k}</span>
-          <span style={{ color: 'var(--kap-snow-1)', fontWeight: 500 }}>{v}</span>
+          <span style={{ color: 'hsl(var(--muted-foreground))' }}>{k}</span>
+          <span style={{ color: 'hsl(var(--foreground))', fontWeight: 500 }}>{v}</span>
         </div>
       ))}
     </div>
@@ -347,33 +359,33 @@ function MsgRow({ m, t }: { m: Msg; t: (k: string) => string }) {
   const isUser = m.role === 'user';
   const isSys = m.role === 'system';
   let tag: string, color: string, Icon: typeof Bot;
-  if (isUser)      { tag = 'YOU';  color = 'var(--kap-aurora-yellow)'; Icon = User; }
-  else if (isSys)  { tag = 'SYS';  color = 'var(--kap-snow-4)';        Icon = Bot;  }
-  else             { tag = 'ARCH'; color = 'var(--kap-frost)';         Icon = Bot;  }
+  if (isUser)      { tag = 'YOU';  color = 'hsl(var(--warning))';     Icon = User; }
+  else if (isSys)  { tag = 'SYS';  color = 'hsl(var(--muted-foreground))'; Icon = Bot;  }
+  else             { tag = 'ARCH'; color = 'hsl(var(--primary))';     Icon = Bot;  }
 
   return (
     <div>
-      <div className="flex items-baseline gap-2 mb-1" style={{ fontFamily: 'var(--kap-font-mono)' }}>
+      <div className="flex items-baseline gap-2 mb-1" style={{ fontFamily: 'var(--font-mono)' }}>
         <Icon size={11} style={{ color }} />
-        <span className="kap-mono-tag" style={{ color, borderColor: color, padding: '1px 5px', border: '1px solid' }}>
+        <span className="kap-mono-tag" style={{ color, borderColor: color, padding: '1px 6px', border: '1px solid', borderRadius: 4 }}>
           {tag}
         </span>
-        <span className="kap-mono-tag" style={{ color: 'var(--kap-snow-4)', opacity: 0.7 }}>
+        <span className="kap-mono-tag" style={{ color: 'hsl(var(--muted-foreground))', opacity: 0.7 }}>
           [{fmtTs(m.ts)}]
         </span>
-        <span className="kap-mono-tag" style={{ color: 'var(--kap-snow-4)', opacity: 0.4 }}>
+        <span className="kap-mono-tag" style={{ color: 'hsl(var(--muted-foreground))', opacity: 0.4 }}>
           #{m.id}
         </span>
       </div>
       <div
         className="pl-5 whitespace-pre-wrap"
         style={{
-          borderLeft: `2px solid ${color}40`,
-          fontFamily: 'var(--kap-font-body)',
+          borderLeft: `2px solid ${color}`,
+          fontFamily: 'var(--font-sans)',
           fontWeight: 400,
           fontSize: 13.5,
           lineHeight: 1.6,
-          color: 'var(--kap-snow-1)',
+          color: 'hsl(var(--foreground))',
         }}
       >
         {m.content}

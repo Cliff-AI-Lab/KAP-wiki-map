@@ -14,8 +14,13 @@ import { applyTheme, loadSavedTheme } from './lib/themes';
 import './index.css';
 import './styles/distinctive.css';   // M21 #4 · 三中心统一设计系统
 
-// 在渲染前恢复用户上次保存的主题
+// 在渲染前恢复用户上次保存的主题（含 data-theme 切换 hsl）
 applyTheme(loadSavedTheme());
+// 兜底：若 applyTheme 未触发 dataset.theme（如旧缓存），按 colorScheme 设
+if (!document.documentElement.dataset.theme) {
+  document.documentElement.dataset.theme =
+    document.documentElement.style.colorScheme === 'light' ? 'light' : 'dark';
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

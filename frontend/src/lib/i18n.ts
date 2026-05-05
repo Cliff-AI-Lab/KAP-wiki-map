@@ -81,6 +81,18 @@ export type TranslationKey =
   | 'read.path.wiki.hint'
   | 'read.path.rag.hint'
   | 'read.path.graph.hint'
+  | 'consult.upload.title'
+  | 'consult.upload.dragHint'
+  | 'consult.upload.browse'
+  | 'consult.upload.accepted'
+  | 'consult.upload.uploading'
+  | 'consult.upload.success'
+  | 'consult.upload.failed'
+  | 'consult.upload.empty'
+  | 'consult.upload.fileSize'
+  | 'consult.upload.kept'
+  | 'consult.upload.archived'
+  | 'consult.upload.discarded'
   | 'topbar.settings'
   // ReaderHome
   | 'reader.title'
@@ -450,6 +462,18 @@ const zh: Dict = {
   'read.path.wiki.hint': '直答 · 高置信',
   'read.path.rag.hint': '语义 · 向量',
   'read.path.graph.hint': '关系 · 跨域',
+  'consult.upload.title': '上传材料',
+  'consult.upload.dragHint': '拖入文件到此区域，或点击选择',
+  'consult.upload.browse': '选择文件',
+  'consult.upload.accepted': '支持 PDF / Word / Excel / Markdown / TXT · 最大 100MB / 单文件',
+  'consult.upload.uploading': '上传中...',
+  'consult.upload.success': '上传完成',
+  'consult.upload.failed': '上传失败',
+  'consult.upload.empty': '尚未选择文件',
+  'consult.upload.fileSize': '体积',
+  'consult.upload.kept': '保留',
+  'consult.upload.archived': '归档',
+  'consult.upload.discarded': '丢弃',
   'topbar.settings': '设置',
 
   'reader.title': '你好，在查什么？',
@@ -816,6 +840,18 @@ const en: Dict = {
   'read.path.wiki.hint': 'direct · high-confidence',
   'read.path.rag.hint': 'semantic · vector',
   'read.path.graph.hint': 'relation · cross-domain',
+  'consult.upload.title': 'Upload materials',
+  'consult.upload.dragHint': 'Drag files here or click to browse',
+  'consult.upload.browse': 'Browse files',
+  'consult.upload.accepted': 'PDF / Word / Excel / Markdown / TXT · max 100MB per file',
+  'consult.upload.uploading': 'Uploading...',
+  'consult.upload.success': 'Upload complete',
+  'consult.upload.failed': 'Upload failed',
+  'consult.upload.empty': 'No files selected',
+  'consult.upload.fileSize': 'Size',
+  'consult.upload.kept': 'Kept',
+  'consult.upload.archived': 'Archived',
+  'consult.upload.discarded': 'Discarded',
   'topbar.settings': 'Settings',
 
   'reader.title': 'What are you looking for?',
