@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Send, Loader2, FileDown, FolderPlus, Upload, Filter, Network, BookOpen,
-  Bot, User, CornerDownLeft,
+  Bot, User, CornerDownLeft, Sparkles,
 } from 'lucide-react';
 
 import { useLocale } from '@/contexts/LocaleContext';
@@ -15,6 +15,9 @@ import {
   CenterShell, CenterHero, Pipeline, KapCard, type Station,
 } from '@/components/v15/CenterShell';
 import ConsultUploader from '@/components/v15/ConsultUploader';
+import IndustryPicker, {
+  loadSavedIndustry, clearSavedIndustry,
+} from '@/components/v15/IndustryPicker';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
@@ -41,6 +44,11 @@ function mapArchitectStage(s: string | null | undefined): StageId {
 
 export default function ConsultHome() {
   const { t } = useLocale();
+
+  // M21 #9 · 行业前置：未选行业 → IndustryPicker；选完才进入对话
+  const [industry, setIndustry] = useState<string | null>(loadSavedIndustry);
+  const [industryLabel, setIndustryLabel] = useState<string>('');
+
   const [stage, setStage] = useState<StageId>('W1');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([
@@ -52,6 +60,20 @@ export default function ConsultHome() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // 未选行业 → 显示行业选择
+  if (!industry) {
+    return (
+      <CenterShell>
+        <IndustryPicker
+          onConfirm={(code, label) => {
+            setIndustry(code);
+            setIndustryLabel(label);
+          }}
+        />
+      </CenterShell>
+    );
+  }
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -60,10 +82,12 @@ export default function ConsultHome() {
 
   const ensureSession = async () => {
     if (sessionId) return sessionId;
+    // 行业 code 用作 project_id（后端会按 industry 加载 L1 模板）
+    const projectId = industry || 'default';
     const r = await fetch(`${API_BASE}/api/v1/architect/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project_id: 'default', sample_texts: [] }),
+      body: JSON.stringify({ project_id: projectId, sample_texts: [] }),
     });
     if (!r.ok) throw new Error(`create session failed: ${r.status}`);
     const d = await r.json();
@@ -147,15 +171,35 @@ export default function ConsultHome() {
         titleKey="consult.heroTitle"
         subtitleKey="consult.heroSub"
         rightSlot={
-          <button
-            type="button"
-            disabled={!sessionId}
-            onClick={downloadDraft}
-            className="kap-btn"
-          >
-            <FileDown size={13} />
-            {t('consult.downloadDraft')}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                clearSavedIndustry();
+                setIndustry(null);
+                setIndustryLabel('');
+                setSessionId(null);
+                setMessages([
+                  { id: shortId(), role: 'system', content: t('consult.greeting'), ts: new Date() },
+                ]);
+                setStage('W1');
+              }}
+              className="kap-btn"
+              title={industryLabel || industry || ''}
+            >
+              <Sparkles size={13} />
+              {industryLabel || industry} · {t('consult.changeIndustry')}
+            </button>
+            <button
+              type="button"
+              disabled={!sessionId}
+              onClick={downloadDraft}
+              className="kap-btn"
+            >
+              <FileDown size={13} />
+              {t('consult.downloadDraft')}
+            </button>
+          </>
         }
       />
 

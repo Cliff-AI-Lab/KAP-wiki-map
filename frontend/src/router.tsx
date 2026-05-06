@@ -14,6 +14,7 @@ const ProjectListPage = lazy(() => import('@/pages/ProjectListPage'));
 // V15 双模式页
 const ReaderHome = lazy(() => import('@/pages/v15/ReaderHome'));
 const ConsultHome = lazy(() => import('@/pages/v15/ConsultHome'));
+const OverviewHome = lazy(() => import('@/pages/v15/OverviewHome'));
 const GovernanceHome = lazy(() => import('@/pages/v15/GovernanceHome'));
 const GovernanceMatrix = lazy(() => import('@/pages/v15/GovernanceMatrix'));
 const WikiReader = lazy(() => import('@/pages/v15/WikiReader'));
@@ -50,14 +51,17 @@ function L({ children }: { children: React.ReactNode }) {
 }
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/projects" replace /> },
+  // M21 #9 · 登录后默认进概览页
+  { path: '/', element: <Navigate to="/v15/overview" replace /> },
 
   // V15 一体化入口 — 所有 V15 页都在同一个 V15Layout 下
   {
     path: '/v15',
     element: <V15Layout />,
     children: [
-      { index: true, element: <Navigate to="read" replace /> },
+      // M21 #9 · 默认到概览页
+      { index: true, element: <Navigate to="overview" replace /> },
+      { path: 'overview',      element: <L><OverviewHome /></L> },
 
       // 消费模式
       // M21 #1 · 咨询中心入口

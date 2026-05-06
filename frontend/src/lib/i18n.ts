@@ -93,6 +93,53 @@ export type TranslationKey =
   | 'consult.upload.kept'
   | 'consult.upload.archived'
   | 'consult.upload.discarded'
+  | 'mode.overview'
+  | 'overview.title'
+  | 'overview.eyebrow'
+  | 'overview.subtitle'
+  | 'overview.consult.title'
+  | 'overview.consult.desc'
+  | 'overview.consult.feature1'
+  | 'overview.consult.feature2'
+  | 'overview.consult.feature3'
+  | 'overview.consult.cta'
+  | 'overview.manage.title'
+  | 'overview.manage.desc'
+  | 'overview.manage.feature1'
+  | 'overview.manage.feature2'
+  | 'overview.manage.feature3'
+  | 'overview.manage.cta'
+  | 'overview.read.title'
+  | 'overview.read.desc'
+  | 'overview.read.feature1'
+  | 'overview.read.feature2'
+  | 'overview.read.feature3'
+  | 'overview.read.cta'
+  | 'overview.flow'
+  | 'consult.industry.title'
+  | 'consult.industry.subtitle'
+  | 'consult.industry.next'
+  | 'consult.industry.skip'
+  | 'consult.industry.manufacturing'
+  | 'consult.industry.energy'
+  | 'consult.industry.finance'
+  | 'consult.industry.medical'
+  | 'consult.industry.it'
+  | 'consult.industry.retail'
+  | 'consult.industry.education'
+  | 'consult.industry.gov'
+  | 'consult.industry.custom'
+  | 'consult.industry.customPlaceholder'
+  | 'consult.industry.manufacturing.desc'
+  | 'consult.industry.energy.desc'
+  | 'consult.industry.finance.desc'
+  | 'consult.industry.medical.desc'
+  | 'consult.industry.it.desc'
+  | 'consult.industry.retail.desc'
+  | 'consult.industry.education.desc'
+  | 'consult.industry.gov.desc'
+  | 'consult.industry.custom.desc'
+  | 'consult.changeIndustry'
   | 'topbar.settings'
   // ReaderHome
   | 'reader.title'
@@ -474,6 +521,53 @@ const zh: Dict = {
   'consult.upload.kept': '保留',
   'consult.upload.archived': '归档',
   'consult.upload.discarded': '丢弃',
+  'mode.overview': '概览',
+  'overview.eyebrow': 'KAP · 三中心总览',
+  'overview.title': '一体化知识智能体平台',
+  'overview.subtitle': '从「上传材料 → 体系建立 → 入库存储 → 渐进消费」全链路 / 三中心松耦合可独立使用',
+  'overview.consult.title': '咨询中心',
+  'overview.consult.desc': 'AI 知识架构师陪同建知识体系。上传材料即可识别行业、生成本体、编织 Wiki。',
+  'overview.consult.feature1': '5 工位流水：项目 → 上传 → 去噪 → 体系 → Wiki',
+  'overview.consult.feature2': '支持 PDF / Word / Excel / Markdown / TXT 拖入',
+  'overview.consult.feature3': '一键提交至知识中心落 L2 本体',
+  'overview.consult.cta': '开始咨询',
+  'overview.manage.title': '知识中心',
+  'overview.manage.desc': '把咨询中心产物变成可检索的企业资产：向量化 + 图谱化 + 治理审核。',
+  'overview.manage.feature1': '6 工位 + 4×6 矩阵审核台（DG/SME/SEC/AIOps）',
+  'overview.manage.feature2': '双层本体（L1+L2）演化 / 全量重抽影子库',
+  'overview.manage.feature3': '7 天观察期 + 一键回滚',
+  'overview.manage.cta': '进入知识中心',
+  'overview.read.title': '消费中心',
+  'overview.read.desc': '渐进式三路并行召回，让一线员工直接拿答案。',
+  'overview.read.feature1': 'Wiki 快路径（直答高置信） → RAG 深检索（语义向量）',
+  'overview.read.feature2': '图谱跨域召回（关系穿透）',
+  'overview.read.feature3': '运营仪表盘 / 召回评估 / 用户反馈闭环',
+  'overview.read.cta': '打开消费门户',
+  'overview.flow': '咨询 → 知识 → 消费 · 三中心可串联使用，亦可单独部署',
+  'consult.industry.title': '选择行业模板',
+  'consult.industry.subtitle': '咨询师将基于行业 L1 本体（实体类型 / 关系类型 / 标准引用）展开对话',
+  'consult.industry.next': '下一步：开始咨询',
+  'consult.industry.skip': '跳过 / 自定义',
+  'consult.industry.manufacturing': '制造业',
+  'consult.industry.energy': '能源行业',
+  'consult.industry.finance': '金融',
+  'consult.industry.medical': '医疗健康',
+  'consult.industry.it': '信息技术',
+  'consult.industry.retail': '零售',
+  'consult.industry.education': '教育',
+  'consult.industry.gov': '政府 / 公共事业',
+  'consult.industry.custom': '自定义行业',
+  'consult.industry.customPlaceholder': '输入行业名称（如：航天 / 化工 / 物流 / ...）',
+  'consult.industry.manufacturing.desc': '工艺 / 设备 / 质量 / 标准',
+  'consult.industry.energy.desc': '电力 / 油气 / 巡检 / 安全',
+  'consult.industry.finance.desc': '风控 / 合规 / 产品 / 客户',
+  'consult.industry.medical.desc': '诊疗 / 用药 / 法规 / 病例',
+  'consult.industry.it.desc': '研发 / 运维 / 安全 / 文档',
+  'consult.industry.retail.desc': '商品 / 供应链 / 营销 / 售后',
+  'consult.industry.education.desc': '课程 / 教研 / 学情 / 评估',
+  'consult.industry.gov.desc': '政策 / 法规 / 流程 / 监管',
+  'consult.industry.custom.desc': '没有合适的？自定义行业模板',
+  'consult.changeIndustry': '切换行业',
   'topbar.settings': '设置',
 
   'reader.title': '你好，在查什么？',
@@ -852,6 +946,53 @@ const en: Dict = {
   'consult.upload.kept': 'Kept',
   'consult.upload.archived': 'Archived',
   'consult.upload.discarded': 'Discarded',
+  'mode.overview': 'Overview',
+  'overview.eyebrow': 'KAP · Platform Overview',
+  'overview.title': 'Unified Knowledge Agent Platform',
+  'overview.subtitle': 'End-to-end: Upload materials → Build schema → Store + index → Progressive consumption / 3 centers loosely coupled',
+  'overview.consult.title': 'Consult Center',
+  'overview.consult.desc': 'AI knowledge architect builds a fitting schema with you: identify industry, propose ontology, weave Wiki.',
+  'overview.consult.feature1': '5-stage pipeline: Project → Upload → Denoise → Schema → Wiki',
+  'overview.consult.feature2': 'Drag-in PDF / Word / Excel / Markdown / TXT',
+  'overview.consult.feature3': 'One-click commit to Knowledge Center as L2 ontology',
+  'overview.consult.cta': 'Start consulting',
+  'overview.manage.title': 'Knowledge Center',
+  'overview.manage.desc': 'Turn consult artifacts into queryable enterprise assets: vector + graph + governance.',
+  'overview.manage.feature1': '6 stations + 4×6 governance matrix (DG/SME/SEC/AIOps)',
+  'overview.manage.feature2': '2-layer ontology (L1+L2) evolution + shadow re-extract',
+  'overview.manage.feature3': '7-day observation + 1-click rollback',
+  'overview.manage.cta': 'Enter Knowledge',
+  'overview.read.title': 'Consume Center',
+  'overview.read.desc': 'Progressive 3-path retrieval lets frontline get answers directly.',
+  'overview.read.feature1': 'Wiki fast path (direct, high-confidence) → RAG deep search (semantic vector)',
+  'overview.read.feature2': 'Graph cross-domain retrieval (relation traversal)',
+  'overview.read.feature3': 'Operations dashboard / recall eval / user feedback loop',
+  'overview.read.cta': 'Open Portal',
+  'overview.flow': 'Consult → Knowledge → Consume · Centers can be chained or used standalone',
+  'consult.industry.title': 'Choose industry template',
+  'consult.industry.subtitle': 'Architect will engage based on industry L1 ontology (entity / relation types / standards)',
+  'consult.industry.next': 'Next: start consult',
+  'consult.industry.skip': 'Skip / custom',
+  'consult.industry.manufacturing': 'Manufacturing',
+  'consult.industry.energy': 'Energy',
+  'consult.industry.finance': 'Finance',
+  'consult.industry.medical': 'Healthcare',
+  'consult.industry.it': 'IT',
+  'consult.industry.retail': 'Retail',
+  'consult.industry.education': 'Education',
+  'consult.industry.gov': 'Government / Public',
+  'consult.industry.custom': 'Custom industry',
+  'consult.industry.customPlaceholder': 'Enter industry name (e.g. aerospace / chemical / logistics / ...)',
+  'consult.industry.manufacturing.desc': 'Process / equipment / quality / standards',
+  'consult.industry.energy.desc': 'Power / oil & gas / inspection / safety',
+  'consult.industry.finance.desc': 'Risk / compliance / product / customer',
+  'consult.industry.medical.desc': 'Diagnostics / drugs / regulations / cases',
+  'consult.industry.it.desc': 'R&D / DevOps / security / docs',
+  'consult.industry.retail.desc': 'Items / supply / marketing / after-sales',
+  'consult.industry.education.desc': 'Curriculum / pedagogy / learning analytics',
+  'consult.industry.gov.desc': 'Policy / regulation / process / oversight',
+  'consult.industry.custom.desc': 'No fit? Define a custom industry',
+  'consult.changeIndustry': 'Change industry',
   'topbar.settings': 'Settings',
 
   'reader.title': 'What are you looking for?',

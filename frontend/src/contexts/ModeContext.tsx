@@ -9,7 +9,7 @@
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-export type Mode = 'consult' | 'manage' | 'read';
+export type Mode = 'overview' | 'consult' | 'manage' | 'read';
 
 const STORAGE_KEY = 'wikimap-mode';
 
@@ -22,13 +22,13 @@ interface ModeContextValue {
 const ModeContext = createContext<ModeContextValue | null>(null);
 
 function readInitialMode(): Mode {
-  if (typeof window === 'undefined') return 'read';
+  if (typeof window === 'undefined') return 'overview';
   const v = window.localStorage.getItem(STORAGE_KEY);
-  if (v === 'consult' || v === 'manage' || v === 'read') return v;
-  return 'read';
+  if (v === 'overview' || v === 'consult' || v === 'manage' || v === 'read') return v;
+  return 'overview';
 }
 
-const _MODE_ORDER: Mode[] = ['consult', 'manage', 'read'];
+const _MODE_ORDER: Mode[] = ['overview', 'consult', 'manage', 'read'];
 
 export function ModeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<Mode>(readInitialMode);

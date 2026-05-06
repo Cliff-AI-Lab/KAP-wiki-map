@@ -8,7 +8,7 @@
  * 配色：Slate (zinc 同族) — 微冷灰，商务沉稳，背景近黑、卡片近深灰、强调蓝。
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+/* M21 #9 · 字体加载改 index.html <link> 非阻塞，避免 @import 阻塞首屏 */
 
 :root {
     /* shadcn slate · dark — 全局唯一主题 */

@@ -7,9 +7,11 @@ import { useMode, type Mode } from '@/contexts/ModeContext';
 import { useLocale } from '@/contexts/LocaleContext';
 
 function inferModeFromPath(pathname: string): Mode {
+  if (pathname.startsWith('/v15/overview')) return 'overview';
   if (pathname.startsWith('/v15/consult') || pathname.startsWith('/agent/architect')) return 'consult';
   if (pathname.startsWith('/v15/manage')) return 'manage';
-  return 'read';
+  if (pathname.startsWith('/v15/read')) return 'read';
+  return 'overview';
 }
 
 export function EditionPill() {
@@ -25,15 +27,17 @@ export function EditionPill() {
 
   const handleClick = (value: Mode) => {
     setMode(value);
-    if (value === 'consult') navigate('/v15/consult');
+    if (value === 'overview') navigate('/v15/overview');
+    else if (value === 'consult') navigate('/v15/consult');
     else if (value === 'manage') navigate('/v15/manage');
     else navigate('/v15/read');
   };
 
   const OPTIONS: { value: Mode; label: string }[] = [
-    { value: 'consult', label: t('mode.consult') },
-    { value: 'manage',  label: t('mode.manage') },
-    { value: 'read',    label: t('mode.read') },
+    { value: 'overview', label: t('mode.overview') },
+    { value: 'consult',  label: t('mode.consult') },
+    { value: 'manage',   label: t('mode.manage') },
+    { value: 'read',     label: t('mode.read') },
   ];
 
   return (
