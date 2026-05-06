@@ -60,7 +60,14 @@ export default function ConsultHome() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // 未选行业 → 显示行业选择
+  // 所有 hook 必须在条件 return 前调用（React Hooks 规则）
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, sending]);
+
+  // 未选行业 → 显示行业选择（hooks 全部 declared 后再 return）
   if (!industry) {
     return (
       <CenterShell>
@@ -73,12 +80,6 @@ export default function ConsultHome() {
       </CenterShell>
     );
   }
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, sending]);
 
   const ensureSession = async () => {
     if (sessionId) return sessionId;
