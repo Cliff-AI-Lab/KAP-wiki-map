@@ -64,15 +64,15 @@
 ## 当前阶段
 
 ```
-[M0 KAP-Lite]──→...──→[M18 Wiki质量闭环+前端管理面板]──→[M19 Wiki质量PG+W4诊断+部署收口]──→[M20 W4诊断PG+L2迁移工具]──→ 部署期 / M21⬜
+[M0 KAP-Lite]──→...──→[M19 Wiki质量PG+W4诊断+部署收口]──→[M20 W4诊断PG+L2迁移工具]──→[M21 三中心拆分+UI重做]──→ M22 多模态解析+知识中心补强⬜
 ```
 
 进程链（按时间正序，每份是独立快照）：
-[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → [M9-评估持久化与趋势告警](docs/progress/M9-评估持久化与趋势告警.md) → [M10-评估深化与前端仪表盘](docs/progress/M10-评估深化与前端仪表盘.md) → [M11-自学习闭环与GT工作流](docs/progress/M11-自学习闭环与GT工作流.md) → [M12-自学习闭环到端+前端深耕](docs/progress/M12-自学习闭环到端%20%2B%20前端深耕.md) → [M13-真LLM测试与端到端深耕](docs/progress/M13-真LLM测试与端到端深耕.md) → [M14-大规模优化与端到端补强](docs/progress/M14-大规模优化与端到端补强.md) → [M15-真LLM扩展+反馈告警+多语言](docs/progress/M15-真LLM扩展%2B反馈告警%2B多语言.md) → [M16-i18n+自学习闭环+反馈细分+Wiki可视化](docs/progress/M16-i18n%2B自学习闭环%2B反馈细分%2BWiki可视化.md) → [M17-i18n铺开+自动tune+Wiki质量](docs/progress/M17-i18n铺开%2B自动tune%2BWiki质量.md) → [M18-Wiki质量闭环+前端管理面板](docs/progress/M18-Wiki质量闭环%2B前端管理面板.md) → [M19-Wiki质量PG+W4诊断+部署收口](docs/progress/M19-Wiki质量PG%2BW4诊断%2B部署收口.md) → [M20-W4诊断PG+L2迁移工具](docs/progress/M20-W4诊断PG%2BL2迁移工具.md) → **部署期 / M21（待启动）**
+[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → [M9-评估持久化与趋势告警](docs/progress/M9-评估持久化与趋势告警.md) → [M10-评估深化与前端仪表盘](docs/progress/M10-评估深化与前端仪表盘.md) → [M11-自学习闭环与GT工作流](docs/progress/M11-自学习闭环与GT工作流.md) → [M12-自学习闭环到端+前端深耕](docs/progress/M12-自学习闭环到端%20%2B%20前端深耕.md) → [M13-真LLM测试与端到端深耕](docs/progress/M13-真LLM测试与端到端深耕.md) → [M14-大规模优化与端到端补强](docs/progress/M14-大规模优化与端到端补强.md) → [M15-真LLM扩展+反馈告警+多语言](docs/progress/M15-真LLM扩展%2B反馈告警%2B多语言.md) → [M16-i18n+自学习闭环+反馈细分+Wiki可视化](docs/progress/M16-i18n%2B自学习闭环%2B反馈细分%2BWiki可视化.md) → [M17-i18n铺开+自动tune+Wiki质量](docs/progress/M17-i18n铺开%2B自动tune%2BWiki质量.md) → [M18-Wiki质量闭环+前端管理面板](docs/progress/M18-Wiki质量闭环%2B前端管理面板.md) → [M19-Wiki质量PG+W4诊断+部署收口](docs/progress/M19-Wiki质量PG%2BW4诊断%2B部署收口.md) → [M20-W4诊断PG+L2迁移工具](docs/progress/M20-W4诊断PG%2BL2迁移工具.md) → [M21-三中心拆分+UI重做](docs/progress/M21-三中心拆分%2BUI重做.md) → **M22 多模态解析增强 + 知识中心补强（候选）⬜**（[候选清单](docs/progress/M22-多模态解析增强（候选）.md)）
 
-**KAP 累计**：~148 commits / 测试 1048/1050 ✓ + 58 前端 tests ✓ + 12 live_llm（默认 deselect）/ 实际 ~116h vs Opus 估 ~620h，节省 ~81%。
+**KAP 累计**：~159 commits / 测试 1048/1050 ✓ + 58 前端 tests ✓ + 12 live_llm（默认 deselect）/ 实际 ~126h vs Opus 估 ~680h，节省 ~81%。
 
-### 整体进度看板（M0-M20 ✓ / 部署期 + M21+ ⬜）
+### 整体进度看板（M0-M21 ✓ / M22 + 部署期 ⬜）
 
 | 维度                       | 状态 | 来自里程碑              |
 |:---------------------------|:---:|:-----------------------|
@@ -139,11 +139,34 @@
 | W4 抽取诊断 PG 持久化 + 趋势 API | ✓ | M20                  |
 | L2 本体跨项目迁移工具（API+CLI）| ✓   | M20                    |
 | 6 个 observability 表全 PG 持久化| ✓ | M20（DecisionLog/QueryLog/RecallEval/PromptVersion/WikiQuality/ExtractionQuality）|
+| 三中心独立部署（architect/storage/portal） | ✓ | M21 #1                |
+| 服务间 HTTP SDK（StorageClient/ArchitectClient/PortalClient） | ✓ | M21 #1 |
+| 三中心前端 tab + 统一设计语言（Nordic + shadcn） | ✓ | M21 #2-#5  |
+| 亮色 / 暗色主题切换（首帧不闪）       | ✓   | M21 #6                |
+| 概览页 + 咨询中心行业前置             | ✓   | M21 #9                |
+| 多格式上传（Excel/CSV/.doc/.pptx + 二进制守卫） | ✓ | M21 #7+#11    |
+| 三中心部署资源清单 v1.0（Word + zip）   | ✓   | M21 #8                |
+| UI 配置热加载（JSON ↔ env ↔ 默认）    | ✓   | M21 #11               |
+| httpx 超时 + Windows 代理隔离         | ✓   | M21 #11               |
+| raw_store 老 schema PK 自动迁移        | ✓   | M21 #11               |
+| Secret 隔离与模板化（llm_settings.json.example） | ✓ | M21 #11      |
 | 独立物理 Neo4j 实例（实际切换） | ⬜   | 部署期                 |
 | ISS-Job 真实环境联调          | ⬜   | 部署期（接通真 ISS）   |
 | 首批客户 PoC 上线             | ⬜   | 部署期                 |
+| 多模态 PDF 解析（MinerU）     | ⬜   | M22 #1（候选）         |
+| 表格 / 公式专用 parser        | ⬜   | M22 #2（候选）         |
+| Context-Aware Chunking        | ⬜   | M22 #3（候选）         |
+| ISS 解析结果 bypass 入口      | ⬜   | M22 #4（候选）         |
+| 关系抽取 + 实体消歧           | ⬜   | M22 #5（候选）         |
+| W6 入库可观测性（5 阶段耗时 + 错误分桶） | ⬜ | M22 #6（候选）       |
+| 增量重抽 lite 模式（影响面分析）| ⬜   | M22 #7（候选）         |
 
-**下一阶段 部署期 / M21 候选**：真实环境上线（按 deployment/checklist.md）/ 首批客户 PoC / 多模态文档解析 lite / 横向多租户基础（tenant_id 隔离）/ 前端 W4 诊断看板 + L2 迁移向导 UI / Neo4j Enterprise 多 DB 影子库 / 真 LLM 测试覆盖 conflict_detector + facet_advisor + llm_router。
+**下一阶段 M22 候选**：详见 [docs/progress/M22-多模态解析增强（候选）.md](docs/progress/M22-多模态解析增强（候选）.md)
+- A 主线（借鉴 RAG-Anything）：MinerU 高保真 PDF / table_parser + equation_parser / context-aware chunker / ISS 解析结果 bypass 入口
+- B 补强（KAP 自驱薄弱项）：relation_extractor + entity_resolver / W6 入库 ingest_metrics PG / 增量重抽 lite
+- 估时 22-28h（Opus 估 110-140h，节省 ~80%）
+
+**后续候选（M23+）**：跨模态实体进 KG / VLM 图像处理器 / 召回三路融合权重动态学习 / 文档版本演化 + chunk 级 diff / 横向多租户基础（tenant_id 隔离）/ 大规模性能基线（10万 / 100万 文档压测）/ 真 LLM 测试覆盖 conflict_detector + facet_advisor + llm_router。
 
 **新约束** (M12 收尾时由用户提出)：涉及 LLM 的测试改用真实 LLM（不 mock acall_llm_json）；老 mock 测试不强制重写，新增遵循。
 
