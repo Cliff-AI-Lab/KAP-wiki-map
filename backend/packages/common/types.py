@@ -60,6 +60,11 @@ class ChunkStrategy(str, Enum):
     FIXED = "fixed"
     PARENT_CHILD = "parent_child"
     SEMANTIC = "semantic"
+    # M22 #2 · 多模态独立切片：表格 / 公式 / 图像 caption
+    # 这些不是"切分策略"语义，但占用同字段以保留 KnowledgeChunk 类型契约
+    TABLE_ROW = "table_row"
+    EQUATION = "equation"
+    IMAGE_CAPTION = "image_caption"
 
 
 # ── 数据模型 ──────────────────────────────────────────
