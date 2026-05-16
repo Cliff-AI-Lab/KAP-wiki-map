@@ -29,13 +29,16 @@ log = get_logger("observability.decision_log")
 
 
 DecisionType = Literal[
-    "approve_proposal",   # 本体提议批准
-    "reject_proposal",    # 本体提议驳回
-    "promote",            # 灰度切换
-    "rollback",           # 回滚
-    "alert_acknowledged", # SME 确认观察期告警
-    "facet_approved",     # 4×6 矩阵审核通过
-    "facet_rejected",     # 4×6 矩阵审核驳回
+    "approve_proposal",       # 本体提议批准
+    "reject_proposal",        # 本体提议驳回
+    "promote",                # 灰度切换
+    "rollback",               # 回滚
+    "alert_acknowledged",     # SME 确认观察期告警
+    "facet_approved",         # 4×6 矩阵审核通过
+    "facet_rejected",         # 4×6 矩阵审核驳回
+    # M22 #5 · 实体消歧合并决策（SME 仲裁）
+    "entity_merge_approved",  # 同意合并候选对
+    "entity_merge_rejected",  # 拒绝合并候选对
 ]
 
 

@@ -241,3 +241,81 @@ async def run_agent(
              scanned=result.scanned, produced=result.produced,
              ok=result.ok, errors=len(result.errors))
     return result.to_dict()
+
+
+# ── M22 #5 · 实体消歧合并决策 ──────────────────────────
+
+
+class EntityMergeDecisionBody(BaseModel):
+    """SME 对实体合并候选对的决策。"""
+    project_id: str
+    candidate_id: str = ""  # entity_a_id::entity_b_id 形式; 也可为 governance queue item_id
+    entity_a_id: str
+    entity_b_id: str
+    decision: str  # approve / reject
+    actor: str = "admin"
+    note: str = ""
+
+
+class EntityMergeDecisionResponse(BaseModel):
+    status: str = "ok"
+    decision_type: str
+    target_id: str
+    project_id: str
+    actor: str
+
+
+@router.post("/entity-merge-decision", response_model=EntityMergeDecisionResponse)
+async def entity_merge_decision(body: EntityMergeDecisionBody) -> EntityMergeDecisionResponse:
+    """M22 #5 · SME 对实体合并候选对的最终仲裁。
+
+    工作流:
+      1. extraction.entity_resolver.find_merge_candidates 产出 MergeCandidate 列表
+      2. caller 把候选对入 4×6 矩阵审核台（W6 / SME 队列）
+      3. SME 经 UI 审核, 点 "同意合并" 或 "拒绝合并", 前端调本端点
+      4. 本端点写决策日志（entity_merge_approved / entity_merge_rejected）
+      5. 实际图谱合并由后置任务读决策日志执行（M22 #5 lite 不动图）
+    """
+    from packages.observability.decision_log import arecord_decision
+
+    decision = (body.decision or "").lower()
+    if decision not in ("approve", "reject"):
+        raise HTTPException(
+            status_code=400,
+            detail="decision 必须为 approve 或 reject",
+        )
+
+    decision_type = (
+        "entity_merge_approved" if decision == "approve"
+        else "entity_merge_rejected"
+    )
+    target_id = body.candidate_id or f"{body.entity_a_id}::{body.entity_b_id}"
+
+    note_parts = [f"a={body.entity_a_id}", f"b={body.entity_b_id}"]
+    if body.note:
+        note_parts.append(body.note[:200])
+    note = " | ".join(note_parts)
+
+    event = await arecord_decision(
+        project_id=body.project_id,
+        decision_type=decision_type,  # type: ignore[arg-type]
+        actor=body.actor,
+        target_id=target_id,
+        note=note,
+    )
+
+    log.info(
+        "entity_merge_decision_recorded",
+        project=body.project_id,
+        decision=decision_type,
+        target=target_id,
+        actor=body.actor,
+    )
+
+    return EntityMergeDecisionResponse(
+        status="ok",
+        decision_type=decision_type,
+        target_id=target_id,
+        project_id=body.project_id,
+        actor=event.actor,
+    )
