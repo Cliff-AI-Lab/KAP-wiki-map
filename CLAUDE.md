@@ -64,15 +64,15 @@
 ## 当前阶段
 
 ```
-[M0 KAP-Lite]──→...──→[M19 Wiki质量PG+W4诊断+部署收口]──→[M20 W4诊断PG+L2迁移工具]──→[M21 三中心拆分+UI重做]──→ M22 多模态解析+知识中心补强⬜
+[M0 KAP-Lite]──→...──→[M20 W4诊断PG+L2迁移工具]──→[M21 三中心拆分+UI重做]──→[M22 多模态解析+知识中心补强]──→ M23 / 部署期⬜
 ```
 
 进程链（按时间正序，每份是独立快照）：
-[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → [M9-评估持久化与趋势告警](docs/progress/M9-评估持久化与趋势告警.md) → [M10-评估深化与前端仪表盘](docs/progress/M10-评估深化与前端仪表盘.md) → [M11-自学习闭环与GT工作流](docs/progress/M11-自学习闭环与GT工作流.md) → [M12-自学习闭环到端+前端深耕](docs/progress/M12-自学习闭环到端%20%2B%20前端深耕.md) → [M13-真LLM测试与端到端深耕](docs/progress/M13-真LLM测试与端到端深耕.md) → [M14-大规模优化与端到端补强](docs/progress/M14-大规模优化与端到端补强.md) → [M15-真LLM扩展+反馈告警+多语言](docs/progress/M15-真LLM扩展%2B反馈告警%2B多语言.md) → [M16-i18n+自学习闭环+反馈细分+Wiki可视化](docs/progress/M16-i18n%2B自学习闭环%2B反馈细分%2BWiki可视化.md) → [M17-i18n铺开+自动tune+Wiki质量](docs/progress/M17-i18n铺开%2B自动tune%2BWiki质量.md) → [M18-Wiki质量闭环+前端管理面板](docs/progress/M18-Wiki质量闭环%2B前端管理面板.md) → [M19-Wiki质量PG+W4诊断+部署收口](docs/progress/M19-Wiki质量PG%2BW4诊断%2B部署收口.md) → [M20-W4诊断PG+L2迁移工具](docs/progress/M20-W4诊断PG%2BL2迁移工具.md) → [M21-三中心拆分+UI重做](docs/progress/M21-三中心拆分%2BUI重做.md) → **M22 多模态解析增强 + 知识中心补强（候选）⬜**（[候选清单](docs/progress/M22-多模态解析增强（候选）.md)）
+[M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → [M9-评估持久化与趋势告警](docs/progress/M9-评估持久化与趋势告警.md) → [M10-评估深化与前端仪表盘](docs/progress/M10-评估深化与前端仪表盘.md) → [M11-自学习闭环与GT工作流](docs/progress/M11-自学习闭环与GT工作流.md) → [M12-自学习闭环到端+前端深耕](docs/progress/M12-自学习闭环到端%20%2B%20前端深耕.md) → [M13-真LLM测试与端到端深耕](docs/progress/M13-真LLM测试与端到端深耕.md) → [M14-大规模优化与端到端补强](docs/progress/M14-大规模优化与端到端补强.md) → [M15-真LLM扩展+反馈告警+多语言](docs/progress/M15-真LLM扩展%2B反馈告警%2B多语言.md) → [M16-i18n+自学习闭环+反馈细分+Wiki可视化](docs/progress/M16-i18n%2B自学习闭环%2B反馈细分%2BWiki可视化.md) → [M17-i18n铺开+自动tune+Wiki质量](docs/progress/M17-i18n铺开%2B自动tune%2BWiki质量.md) → [M18-Wiki质量闭环+前端管理面板](docs/progress/M18-Wiki质量闭环%2B前端管理面板.md) → [M19-Wiki质量PG+W4诊断+部署收口](docs/progress/M19-Wiki质量PG%2BW4诊断%2B部署收口.md) → [M20-W4诊断PG+L2迁移工具](docs/progress/M20-W4诊断PG%2BL2迁移工具.md) → [M21-三中心拆分+UI重做](docs/progress/M21-三中心拆分%2BUI重做.md) → [M22-多模态解析+知识中心补强](docs/progress/M22-多模态解析%2B知识中心补强.md) → **M23 / 部署期⬜**
 
-**KAP 累计**：~159 commits / 测试 1048/1050 ✓ + 58 前端 tests ✓ + 12 live_llm（默认 deselect）/ 实际 ~126h vs Opus 估 ~680h，节省 ~81%。
+**KAP 累计**：~167 commits / 测试 1110/1115 ✓ + 58 前端 tests ✓ + 12 live_llm（默认 deselect）/ 实际 ~132h vs Opus 估 ~820h，节省 ~84%。
 
-### 整体进度看板（M0-M21 ✓ / M22 + 部署期 ⬜）
+### 整体进度看板（M0-M22 ✓ / M23 + 部署期 ⬜）
 
 | 维度                       | 状态 | 来自里程碑              |
 |:---------------------------|:---:|:-----------------------|
@@ -150,23 +150,44 @@
 | httpx 超时 + Windows 代理隔离         | ✓   | M21 #11               |
 | raw_store 老 schema PK 自动迁移        | ✓   | M21 #11               |
 | Secret 隔离与模板化（llm_settings.json.example） | ✓ | M21 #11      |
+| 多模态 PDF 解析（MinerU 多后端切换） | ✓   | M22 #1                |
+| ParsedContent tables/equations/images 字段 | ✓ | M22 #1            |
+| table_parser 行级 chunk + 表头注入   | ✓   | M22 #2                |
+| equation_parser LaTeX + 周边文本    | ✓   | M22 #2                |
+| multimodal_chunker 协调函数         | ✓   | M22 #2                |
+| ChunkStrategy 扩 TABLE_ROW/EQUATION/IMAGE_CAPTION | ✓ | M22 #2     |
+| Context-Aware Chunking（build_context_window）| ✓ | M22 #3           |
+| entity_extractor context 参数注入   | ✓   | M22 #3                |
+| ISS 解析结果 bypass 入口（POST /structured-chunks） | ✓ | M22 #4   |
+| relation_extractor 独立模块          | ✓   | M22 #5                |
+| entity_resolver 候选合并 lite        | ✓   | M22 #5                |
+| POST /governance/entity-merge-decision | ✓ | M22 #5                |
+| DecisionType 扩 entity_merge_approved/rejected | ✓ | M22 #5         |
+| W6 入库可观测性 ingest_metrics（5 阶段 + 错误分桶 + p95） | ✓ | M22 #6 |
+| pg_ingest_metrics PG 持久化（仿 M20 #1） | ✓ | M22 #6                |
+| GET /observability/ingest-metrics/trend | ✓ | M22 #6              |
+| 增量重抽 lite（RebuildPlan + 影响面分析） | ✓ | M22 #7                |
+| POST /rebuild/incremental dry-run API | ✓ | M22 #7                |
+| scripts-backend/rebuild_incremental.py CLI | ✓ | M22 #7           |
 | 独立物理 Neo4j 实例（实际切换） | ⬜   | 部署期                 |
 | ISS-Job 真实环境联调          | ⬜   | 部署期（接通真 ISS）   |
 | 首批客户 PoC 上线             | ⬜   | 部署期                 |
-| 多模态 PDF 解析（MinerU）     | ⬜   | M22 #1（候选）         |
-| 表格 / 公式专用 parser        | ⬜   | M22 #2（候选）         |
-| Context-Aware Chunking        | ⬜   | M22 #3（候选）         |
-| ISS 解析结果 bypass 入口      | ⬜   | M22 #4（候选）         |
-| 关系抽取 + 实体消歧           | ⬜   | M22 #5（候选）         |
-| W6 入库可观测性（5 阶段耗时 + 错误分桶） | ⬜ | M22 #6（候选）       |
-| 增量重抽 lite 模式（影响面分析）| ⬜   | M22 #7（候选）         |
+| MinerU 实际 entry function 对接 | ⬜   | M23 候选（mineru>=2.0 API 演进中） |
+| entity_resolver LLM 仲裁高歧义对 | ⬜   | M23 候选              |
+| 图像 VLM 语义处理器（跨模态实体进 KG） | ⬜ | M23 候选              |
+| rebuild_incremental 实际执行接 rebuild_orchestrator | ⬜ | M23 候选 |
+| 前端 W4 诊断 + W6 入库 metrics + RebuildPlan 看板 | ⬜ | M23 候选         |
+| 文档版本演化 + chunk 级 diff   | ⬜   | M23 候选              |
+| 召回三路融合权重动态学习       | ⬜   | M23 候选              |
+| 大规模性能基线（10万 / 100万 文档压测） | ⬜ | M23 候选              |
+| 横向多租户基础（tenant_id 隔离）| ⬜   | M23 候选              |
+| 真 LLM 测试覆盖 conflict_detector + facet_advisor + llm_router | ⬜ | M23 候选 |
 
-**下一阶段 M22 候选**：详见 [docs/progress/M22-多模态解析增强（候选）.md](docs/progress/M22-多模态解析增强（候选）.md)
-- A 主线（借鉴 RAG-Anything）：MinerU 高保真 PDF / table_parser + equation_parser / context-aware chunker / ISS 解析结果 bypass 入口
-- B 补强（KAP 自驱薄弱项）：relation_extractor + entity_resolver / W6 入库 ingest_metrics PG / 增量重抽 lite
-- 估时 22-28h（Opus 估 110-140h，节省 ~80%）
-
-**后续候选（M23+）**：跨模态实体进 KG / VLM 图像处理器 / 召回三路融合权重动态学习 / 文档版本演化 + chunk 级 diff / 横向多租户基础（tenant_id 隔离）/ 大规模性能基线（10万 / 100万 文档压测）/ 真 LLM 测试覆盖 conflict_detector + facet_advisor + llm_router。
+**下一阶段 M23 / 部署期 候选**（详见 [docs/progress/M22-多模态解析+知识中心补强.md](docs/progress/M22-多模态解析%2B知识中心补强.md) "M22 未做"段）：
+- 多模态深化：MinerU 实际 API 绑定 / 图像 VLM 处理器 / 跨模态实体进 KG / LLM 仲裁高歧义对
+- 工程化：rebuild_incremental 实际执行 / 前端 metrics 看板 / 文档版本演化 + chunk diff
+- 部署期：独立物理 Neo4j / ISS-Job 真实环境联调 / 首批客户 PoC 上线
+- 长尾：召回融合权重动态学习 / 多租户基础 / 真 LLM 测试覆盖扩展 / 大规模性能基线
 
 **新约束** (M12 收尾时由用户提出)：涉及 LLM 的测试改用真实 LLM（不 mock acall_llm_json）；老 mock 测试不强制重写，新增遵循。
 
