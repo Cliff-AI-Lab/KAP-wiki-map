@@ -42,11 +42,20 @@ def _get_openai():
         from openai import OpenAI
         import httpx
 
-        http_client = httpx.Client(verify=settings.llm_verify_ssl)
+        # httpx 默认 5s 超时，远小于网关大模型的 30-60s 推理时间，会触发 SDK 重试
+        # 把超时统一抬到 settings.llm_http_timeout（默认 120s，配置可调）
+        # trust_env=False: 关掉 Windows / shell 的 HTTP_PROXY 自动注入；
+        #   开发机常装 V2Ray/Clash，会把请求引到 127.0.0.1:10808 一直挂等
+        http_client = httpx.Client(
+            verify=settings.llm_verify_ssl,
+            timeout=settings.llm_http_timeout,
+            trust_env=False,
+        )
         _openai_client = OpenAI(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
             http_client=http_client,
+            timeout=settings.llm_http_timeout,
         )
     return _openai_client
 
@@ -74,11 +83,16 @@ def _get_async_openai():
         from openai import AsyncOpenAI
         import httpx
 
-        http_client = httpx.AsyncClient(verify=settings.llm_verify_ssl)
+        http_client = httpx.AsyncClient(
+            verify=settings.llm_verify_ssl,
+            timeout=settings.llm_http_timeout,
+            trust_env=False,
+        )
         _async_openai_client = AsyncOpenAI(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
             http_client=http_client,
+            timeout=settings.llm_http_timeout,
         )
     return _async_openai_client
 

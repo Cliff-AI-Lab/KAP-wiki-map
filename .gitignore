@@ -43,6 +43,9 @@ dist/
 *.pem
 *.key
 auth.json
+# LLM 网关本地配置（UI 写入，含真实 API Key，绝不入 git）
+backend/configs/llm_settings.json
+!backend/configs/llm_settings.json.example
 
 # --- IDE ---
 .vscode/

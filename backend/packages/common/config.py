@@ -1,9 +1,22 @@
-"""全局配置管理，通过环境变量或 .env 文件加载。"""
+"""全局配置管理，通过环境变量或 .env 文件加载。
+
+LLM 部分还会叠加 backend/configs/llm_settings.json — 由设置 UI 写入，
+让前端保存的模型/Key/网关地址在重启后立即生效。
+"""
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# UI 保存的 LLM 配置文件（与 api/routers/settings.py 同源）
+_LLM_SETTINGS_JSON = Path(__file__).resolve().parents[2] / "configs" / "llm_settings.json"
+
+# 睿动 (iruidong) 是 OpenAI 兼容网关，LLM 客户端按 openai 分支调用
+_LLM_PROVIDER_ALIAS = {"ruidong": "openai"}
 
 # M0 三环境枚举（决策书 §10.3 + 用户全局 ruidong-agent-dev 规约）
 KAP_ENV_DEV = "dev"
@@ -40,8 +53,11 @@ class Settings(BaseSettings):
         description="HTTPS 证书校验（坑 D）。dev 可设 False；sandbox/prod 由 model_post_init 强制 True",
     )
     llm_http_timeout: float = Field(
-        default=60.0,
-        description="LLM HTTP 请求超时（秒），统一 openai/anthropic（原 60/10 不一致已修复）",
+        default=120.0,
+        description=(
+            "LLM HTTP 请求超时（秒）。睿动 / 大模型推理常 30-60s, 4 并发还会排队, "
+            "60s 偏紧, 默认 120s; 原值 60 已撞过 timeout 导致 librarian 全失败"
+        ),
     )
     llm_max_concurrency: int = Field(
         default=4,
@@ -62,6 +78,9 @@ class Settings(BaseSettings):
         M0-tech-debt 坑 D / 坑 F 接入：sandbox / prod 必须严格 SSL 校验、
         必须禁用 mock fallback，无视用户输入。dev 保留宽松配置便于本地调试。
         """
+        # 0. 叠加 UI 保存的 llm_settings.json (前端"系统设置"页改的 Key/Provider/Model 在此生效)
+        self._apply_llm_settings_json()
+
         # 1. 睿动规范 MUST-2: 沙箱环境用 SANDBOX_API_BASE 覆盖外网 URL
         if self.sandbox_api_base:
             object.__setattr__(self, "openai_base_url", self.sandbox_api_base)
@@ -380,6 +399,46 @@ class Settings(BaseSettings):
     # --- 服务 ---
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+
+    def _apply_llm_settings_json(self) -> None:
+        """把 backend/configs/llm_settings.json 的内容叠加到 settings 上。
+
+        前端"系统设置"页通过 /api/v1/settings 写入这个文件，但历史代码只把它当 UI
+        持久化用，没有反向应用到 Settings —— 导致用户配的 Key / 网关 URL / 模型名
+        在重启后失效，蒸馏管线被迫报 missing api_key 或敲到错误的网关。
+
+        优先级: 这里 JSON 直接覆盖 env / .env / 默认值。原因: KAP 是私有化部署
+        平台，运维通过设置 UI 配置 LLM 是主路径；shell 里的 OPENAI_API_KEY 多半
+        是开发机其他项目（GLM / Anthropic 等）残留，让它们压制 UI 配置就会出
+        现"明明改了 Key 还是 401"的诡异现象。要 prod 用 env 强制时把 JSON 删掉。
+        """
+        if not _LLM_SETTINGS_JSON.exists():
+            return
+        try:
+            data = json.loads(_LLM_SETTINGS_JSON.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+
+        # provider 别名规整：ruidong -> openai (iruidong 是 OpenAI 兼容网关)
+        provider = data.get("llm_provider")
+        if provider:
+            provider = _LLM_PROVIDER_ALIAS.get(provider, provider)
+            object.__setattr__(self, "llm_provider", provider)
+        if data.get("openai_api_key"):
+            object.__setattr__(self, "openai_api_key", data["openai_api_key"])
+        if data.get("openai_base_url"):
+            object.__setattr__(self, "openai_base_url", data["openai_base_url"])
+        if data.get("llm_model"):
+            object.__setattr__(self, "llm_model", data["llm_model"])
+        if data.get("embedding_provider"):
+            object.__setattr__(self, "embedding_provider", data["embedding_provider"])
+        if data.get("embedding_model"):
+            object.__setattr__(self, "embedding_model", data["embedding_model"])
+        if data.get("embedding_dim"):
+            try:
+                object.__setattr__(self, "embedding_dim", int(data["embedding_dim"]))
+            except (TypeError, ValueError):
+                pass
 
     def validate_dependencies(self) -> dict[str, dict]:
         """检测外部依赖连通性，返回各组件状态。"""

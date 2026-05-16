@@ -119,11 +119,16 @@ class RuidongEmbeddingProvider(EmbeddingProvider):
         if self._sync_client is None:
             from openai import OpenAI
             import httpx
-            http_client = httpx.Client(verify=settings.llm_verify_ssl)
+            http_client = httpx.Client(
+                verify=settings.llm_verify_ssl,
+                timeout=settings.llm_http_timeout,
+                trust_env=False,
+            )
             self._sync_client = OpenAI(
                 api_key=settings.openai_api_key,
                 base_url=settings.openai_base_url,
                 http_client=http_client,
+                timeout=settings.llm_http_timeout,
             )
         return self._sync_client
 
@@ -131,11 +136,16 @@ class RuidongEmbeddingProvider(EmbeddingProvider):
         if self._async_client is None:
             from openai import AsyncOpenAI
             import httpx
-            http_client = httpx.AsyncClient(verify=settings.llm_verify_ssl)
+            http_client = httpx.AsyncClient(
+                verify=settings.llm_verify_ssl,
+                timeout=settings.llm_http_timeout,
+                trust_env=False,
+            )
             self._async_client = AsyncOpenAI(
                 api_key=settings.openai_api_key,
                 base_url=settings.openai_base_url,
                 http_client=http_client,
+                timeout=settings.llm_http_timeout,
             )
         return self._async_client
 

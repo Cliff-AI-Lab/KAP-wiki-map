@@ -1,0 +1,9 @@
+{
+  "llm_provider": "ruidong",
+  "llm_model": "",
+  "openai_api_key": "",
+  "openai_base_url": "https://iruidong.com/v1",
+  "embedding_provider": "ruidong",
+  "embedding_model": "",
+  "embedding_dim": 4096
+}

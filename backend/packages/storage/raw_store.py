@@ -60,7 +60,7 @@ class RawStore:
             self._use_memory = True
 
     async def _create_tables(self) -> None:
-        """创建原始文档表。"""
+        """创建原始文档表 + 老 schema PK 迁移。"""
         assert self._conn is not None
         async with self._conn.cursor() as cur:
             await cur.execute("""
@@ -77,7 +77,26 @@ class RawStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_raw_project ON raw_documents(project_id);
             """)
-            await self._conn.commit()  # DDL 语句始终 commit
+            await self._conn.commit()
+
+            # 老 schema 迁移: 历史版本 PK 只挂 doc_id, save_raw 的
+            # ON CONFLICT (doc_id, project_id) 会报"没有匹配的唯一/排除约束"
+            await cur.execute("""
+                SELECT array_agg(a.attname ORDER BY a.attnum)
+                FROM pg_index i
+                JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+                WHERE i.indrelid = 'raw_documents'::regclass AND i.indisprimary
+            """)
+            row = await cur.fetchone()
+            pk_cols = list(row[0]) if row and row[0] else []
+            if pk_cols == ["doc_id"]:
+                log.warning("raw_store_pk_migration", from_pk=pk_cols, to_pk=["doc_id", "project_id"])
+                await cur.execute("ALTER TABLE raw_documents DROP CONSTRAINT raw_documents_pkey")
+                await cur.execute(
+                    "ALTER TABLE raw_documents ADD CONSTRAINT raw_documents_pkey "
+                    "PRIMARY KEY (doc_id, project_id)"
+                )
+                await self._conn.commit()
 
     async def _commit(self) -> None:
         """安全 commit: DML 写操作时调用。外部连接也需 commit 以持久化数据。"""

@@ -1232,7 +1232,55 @@ async def _parse_upload_file(f: UploadFile) -> str:
                     )
             raise ValueError(f"Excel 解析失败 ({f.filename}): {e}")
 
+    # ── PowerPoint pptx ──
+    if filename.endswith(".pptx"):
+        try:
+            import io
+            from pptx import Presentation
+            prs = Presentation(io.BytesIO(raw))
+            parts: list[str] = []
+            for idx, slide in enumerate(prs.slides, start=1):
+                parts.append(f"## Slide {idx}")
+                for shape in slide.shapes:
+                    # 文本框
+                    if shape.has_text_frame:
+                        for para in shape.text_frame.paragraphs:
+                            text = "".join(run.text for run in para.runs).strip()
+                            if text:
+                                parts.append(text)
+                    # 表格
+                    if shape.has_table:
+                        for row in shape.table.rows:
+                            cells = [c.text.strip() for c in row.cells]
+                            cells = [c for c in cells if c]
+                            if cells:
+                                parts.append(" | ".join(cells))
+                # 备注
+                if slide.has_notes_slide:
+                    notes = slide.notes_slide.notes_text_frame.text.strip()
+                    if notes:
+                        parts.append(f"[备注] {notes}")
+                parts.append("")  # 空行分隔
+            text = "\n".join(parts)
+            if not text.strip():
+                raise ValueError(f"PPT 文件 {f.filename} 解析后为空")
+            return text
+        except ImportError:
+            raise ValueError("需要安装 python-pptx: pip install python-pptx")
+
+    # ── PowerPoint 老 ppt（OLE2 二进制）──
+    if filename.endswith(".ppt"):
+        raise ValueError(
+            "暂不支持 .ppt（OLE2 老格式），请另存为 .pptx 后重传。"
+        )
+
     # 其他未知扩展名 — 尝试当作文本（降级，含 BOM/编码探测）
+    # 守卫: 拒绝二进制（zip/OLE2/PDF 等魔数），避免乱码污染知识库
+    if raw[:4] in (b"PK\x03\x04", b"PK\x05\x06") or raw[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" or raw[:4] == b"%PDF":
+        raise ValueError(
+            f"不支持的二进制文件格式 ({f.filename})。"
+            f"支持的格式: txt / md / csv / docx / pdf / xlsx / pptx"
+        )
     for enc in ("utf-8-sig", "utf-8", "gbk", "gb18030"):
         try:
             return raw.decode(enc)
