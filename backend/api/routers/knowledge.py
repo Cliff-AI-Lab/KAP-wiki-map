@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File, 
 
 from api.deps import (
     get_archive_store,
+    get_audit_logger,
     get_domain_store,
     get_graph_store,
     get_metadata_store,
@@ -29,6 +30,10 @@ from api.schemas.knowledge import (
     PaginatedDocuments,
     SearchHit,
     SearchResponse,
+    StructuredChunkInput,
+    StructuredChunksRequest,
+    StructuredChunksResponse,
+    _ALLOWED_CONTENT_TYPES,
 )
 from packages.common.types import AccessLevel
 
@@ -1539,3 +1544,183 @@ async def finalize_batch(
         "vector_chunks": total_chunks,
         "wiki_pages": wiki_pages_compiled,
     }
+
+
+# ── M22 #4 · ISS 解析结果 bypass 入口 ──────────────────
+
+
+def _content_type_to_chunk_strategy(content_type: str) -> str:
+    """把 schema 的 content_type 映射到 KnowledgeChunk.chunk_strategy 值。
+
+    M22 #2 给 ChunkStrategy 加了 TABLE_ROW / EQUATION / IMAGE_CAPTION 三个值。
+    text 默认走 fixed（与 chunker.chunk_document 同语义）。
+    """
+    from packages.common.types import ChunkStrategy
+    mapping = {
+        "text": ChunkStrategy.FIXED.value,
+        "table_row": ChunkStrategy.TABLE_ROW.value,
+        "equation": ChunkStrategy.EQUATION.value,
+        "image_caption": ChunkStrategy.IMAGE_CAPTION.value,
+    }
+    return mapping.get(content_type, ChunkStrategy.FIXED.value)
+
+
+@router.post("/structured-chunks", response_model=StructuredChunksResponse)
+async def ingest_structured_chunks(
+    request: Request,
+    payload: StructuredChunksRequest,
+) -> StructuredChunksResponse:
+    """M22 #4 · 直接吃外部已解析的 chunks, 跳过 KAP 自带解析器与蒸馏。
+
+    适用客户已有 ABBYY / TextIn / 自部署 MinerU 解析能力, 想复用其产物。
+    本端点：
+      - 不走 distillation pipeline（不做 KEEP/ARCHIVE/DISCARD 判定, 信任外部）
+      - 不走 4×6 矩阵审核（信任外部, 但记审计）
+      - 直接 embedding + vec.insert_chunks + raw_store.save_raw + metadata.upsert
+      - 实体抽取 / 图谱入库 留 M22 #5 完成后接通
+
+    安全：登录用户必填; parser_name 必填用于审计追溯。
+    """
+    from datetime import datetime, timezone
+    import hashlib
+
+    from api.deps import get_raw_store
+    from packages.common.audit import AuditAction, AuditEntry
+    from packages.common.types import (
+        KnowledgeChunk,
+        RawDocument,
+        SourceSystem,
+    )
+    from packages.storage.embedder import aembed_texts
+
+    user = get_current_user(request)
+    started_at = time.perf_counter()
+
+    # 1. content_type 全部校验合法（fail-fast）
+    bad_types = {c.content_type for c in payload.chunks
+                 if c.content_type not in _ALLOWED_CONTENT_TYPES}
+    if bad_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"非法 content_type: {sorted(bad_types)}；"
+                   f"合法值: {sorted(_ALLOWED_CONTENT_TYPES)}",
+        )
+
+    # 2. 转 KnowledgeChunk 列表
+    now = datetime.now(timezone.utc)
+    chunks: list[KnowledgeChunk] = []
+    for idx, c in enumerate(payload.chunks):
+        chunk_id = hashlib.md5(
+            f"{payload.doc_id}::{idx}::{c.content[:64]}".encode()
+        ).hexdigest()[:16]
+        chunks.append(KnowledgeChunk(
+            chunk_id=chunk_id,
+            doc_id=payload.doc_id,
+            chunk_index=idx,
+            content=c.content,
+            chunk_strategy=_content_type_to_chunk_strategy(c.content_type),
+            category_path=c.category_path or payload.category_path,
+            domain_id=c.domain_id or payload.domain_id,
+            doc_type=payload.doc_type,
+            source_system=payload.source_system,
+            access_level=payload.access_level,
+            updated_at=now,
+            org_id=payload.project_id,
+        ))
+
+    # 3. 计算 embeddings + 写 vector store
+    vec = get_vector_store()
+    try:
+        embeddings = await aembed_texts([c.content for c in chunks])
+        for chunk, emb in zip(chunks, embeddings):
+            chunk.embedding = emb
+        await vec.insert_chunks(chunks)
+    except Exception as e:
+        log.warning("structured_chunks_vector_failed",
+                    doc_id=payload.doc_id, error=str(e))
+        raise HTTPException(status_code=502, detail=f"向量化或入库失败: {e}")
+
+    # 4. 拼合 chunks → RawDocument 存 raw_store
+    raw_store = get_raw_store()
+    full_content = "\n\n".join(c.content for c in chunks)
+    try:
+        await raw_store.save_raw(
+            RawDocument(
+                doc_id=payload.doc_id,
+                title=payload.doc_title or payload.doc_id,
+                content=full_content,
+                source_system=SourceSystem.LOCAL if hasattr(SourceSystem, "LOCAL")
+                              else SourceSystem.FEISHU,
+                org_id=payload.project_id,
+                created_at=now,
+                updated_at=now,
+                file_size=len(full_content),
+                metadata={
+                    "external_parser": payload.parser_name,
+                    "structured_chunks": True,
+                    "chunk_count": len(chunks),
+                },
+            ),
+            project_id=payload.project_id,
+        )
+    except Exception as e:
+        log.warning("structured_chunks_raw_save_failed",
+                    doc_id=payload.doc_id, error=str(e))
+
+    # 5. 写 metadata_store 让 /knowledge/documents 能查到
+    meta = get_metadata_store()
+    try:
+        await meta.upsert_document({
+            "id": payload.doc_id, "title": payload.doc_title or payload.doc_id,
+            "source_system": payload.source_system, "doc_type": payload.doc_type,
+            "version_id": None, "status": "ACTIVE",
+            "decision": "KEEP",  # bypass 入口默认 KEEP（外部已 pre-filtered）
+            "summary": full_content[:200],
+            "keywords": "", "category_path": payload.category_path,
+            "org_id": payload.project_id, "created_at": None, "updated_at": None,
+            "access_level": payload.access_level,
+            "department_id": getattr(user, "dept_id", "") or "",
+            "dept_id": getattr(user, "dept_id", None),
+            "created_by": (getattr(user, "user_id", "") or "").replace("anonymous", ""),
+        })
+    except Exception as e:
+        log.warning("structured_chunks_meta_failed",
+                    doc_id=payload.doc_id, error=str(e))
+
+    # 6. 审计落地
+    audit = get_audit_logger()
+    audit_logged = False
+    try:
+        await audit.log(AuditEntry(
+            action=AuditAction.DOCUMENT_INGESTED,
+            user_id=getattr(user, "user_id", "") or "",
+            org_id=payload.project_id,
+            resource_type="document",
+            resource_id=payload.doc_id,
+            details={
+                "via": "structured_chunks",
+                "parser_name": payload.parser_name,
+                "source_system": payload.source_system,
+                "chunk_count": len(chunks),
+                "content_types": dict(Counter(c.content_type for c in payload.chunks)),
+            },
+            duration_ms=int((time.perf_counter() - started_at) * 1000),
+        ))
+        audit_logged = True
+    except Exception as e:
+        log.warning("structured_chunks_audit_failed",
+                    doc_id=payload.doc_id, error=str(e))
+
+    log.info(
+        "structured_chunks_ingested",
+        doc_id=payload.doc_id, parser=payload.parser_name,
+        chunks=len(chunks), project=payload.project_id,
+    )
+
+    return StructuredChunksResponse(
+        status="ok",
+        doc_id=payload.doc_id,
+        chunks_stored=len(chunks),
+        parser_name=payload.parser_name,
+        audit_logged=audit_logged,
+    )

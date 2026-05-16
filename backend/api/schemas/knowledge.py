@@ -122,3 +122,63 @@ class SearchResponse(BaseModel):
     total_hits: int = 0
     results: list[SearchHit] = Field(default_factory=list)
     latency_ms: int = 0
+
+
+# ── M22 #4 · ISS 解析结果 bypass 入口 ──
+
+
+# 合法 content_type 与 ChunkStrategy 一一对应
+_ALLOWED_CONTENT_TYPES = {
+    "text",           # 普通文本 chunk（fixed / parent_child / semantic 都映射这里）
+    "table_row",      # 表格行级 chunk（M22 #2）
+    "equation",       # 公式 chunk（M22 #2）
+    "image_caption",  # 图像 caption chunk（M22 #2）
+}
+
+
+class StructuredChunkInput(BaseModel):
+    """外部已解析的单个 chunk。"""
+
+    content: str = Field(..., min_length=1, max_length=20000)
+    content_type: str = Field(
+        default="text",
+        description=f"chunk 类型: {' / '.join(sorted(_ALLOWED_CONTENT_TYPES))}",
+    )
+    # 可选属性，写进 KnowledgeChunk 同名字段
+    category_path: str = ""
+    domain_id: str = ""
+
+
+class StructuredChunksRequest(BaseModel):
+    """M22 #4 bypass 入口请求 — 跳过 KAP 自有解析器, 直接吃外部送来的结构化 chunks。
+
+    适用场景:
+    1. 客户用商用 OCR / 解析平台（ABBYY / TextIn / MinerU 自部署）
+    2. ISS-Knowledge-Parser 已有产物复用, 避免重复解析
+    3. 单元测试 / 调试时跳过解析直接喂语料
+
+    本端点 **不走** distillation pipeline / 4×6 矩阵审核台 — 信任外部解析结果。
+    实体抽取 + 图谱入库留给 W6 后置异步任务（M22 #5 relation_extractor 完成后接通）。
+    """
+
+    doc_id: str = Field(..., min_length=1, max_length=128)
+    doc_title: str = ""
+    project_id: str = Field(default="default")
+    parser_name: str = Field(..., min_length=1, max_length=128,
+                             description="外部解析器名 + 版本, 用于审计追溯")
+    source_system: str = Field(default="external")
+    doc_type: str = ""
+    category_path: str = ""
+    domain_id: str = ""
+    access_level: str = "INTERNAL"
+    chunks: list[StructuredChunkInput] = Field(..., min_length=1, max_length=2000)
+
+
+class StructuredChunksResponse(BaseModel):
+    """bypass 入口响应。"""
+
+    status: str = "ok"
+    doc_id: str
+    chunks_stored: int = 0
+    parser_name: str = ""
+    audit_logged: bool = False
