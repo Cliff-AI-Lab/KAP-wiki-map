@@ -61,6 +61,14 @@
   - `--task-type light` → claude-haiku-4-5-20251001（重命名/格式化）
 - `scripts/README.md` — 完整用法
 
+## 项目 Skills（重复操作的标准流程）
+
+涉及以下触发词时，先读对应 skill 文档再执行，避免重新踩坑：
+
+| 触发词 | Skill 文档 |
+|:---|:---|
+| "推到 github" / "push 到 github" / "上传 github" | [docs/skills/kap-github-push.md](docs/skills/kap-github-push.md) — SSH/HTTPS 选择 + rebase 整合 Initial commit + env vars 注入身份 + secret 隔离 + 应急清理 |
+
 ## 当前阶段
 
 ```
