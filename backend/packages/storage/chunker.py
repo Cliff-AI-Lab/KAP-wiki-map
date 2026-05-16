@@ -336,3 +336,57 @@ def _split_by_sections(text: str, max_section_size: int) -> list[str]:
                 result.append(current.strip())
 
     return result
+
+
+# ── 上下文窗口（M22 #3）─────────────────────────────────
+
+
+def build_context_window(
+    chunks: list[KnowledgeChunk],
+    target_chunk_id: str,
+    window_size: int | None = None,
+    max_chars: int = 1500,
+) -> str:
+    """构造目标 chunk 的"上下文窗口" — 前后各 N 个 chunk 的内容拼接。
+
+    给 LLM 抽实体 / 关系时附加, 让模型看到表/图/公式周围的文字, 大幅减少
+    "孤立 chunk 推不出实体类型" 的误抽。
+
+    Args:
+        chunks: 同文档所有 chunks（已按 chunk_index 排序）
+        target_chunk_id: 目标 chunk 的 chunk_id
+        window_size: 前后各取 N 个 chunk; None 时读 settings.context_window_size
+        max_chars: 上下文总字符上限, 超长截断（防 prompt 爆掉）
+
+    Returns:
+        拼好的上下文文本; 找不到目标 chunk 或 window_size=0 时返回空串
+    """
+    if window_size is None:
+        window_size = settings.context_window_size
+    if window_size <= 0:
+        return ""
+
+    # 找目标 chunk 在列表中的位置（按 chunk_index 而非 chunk_id 排序后查 id）
+    sorted_chunks = sorted(chunks, key=lambda c: c.chunk_index)
+    target_idx = next(
+        (i for i, c in enumerate(sorted_chunks) if c.chunk_id == target_chunk_id),
+        -1,
+    )
+    if target_idx < 0:
+        return ""
+
+    lo = max(0, target_idx - window_size)
+    hi = min(len(sorted_chunks), target_idx + window_size + 1)
+
+    parts: list[str] = []
+    for i in range(lo, hi):
+        if i == target_idx:
+            continue  # 目标自身不算 context
+        c = sorted_chunks[i]
+        marker = "前文" if i < target_idx else "后文"
+        parts.append(f"[{marker} chunk_index={c.chunk_index}]\n{c.content}")
+
+    ctx = "\n\n".join(parts)
+    if len(ctx) > max_chars:
+        ctx = ctx[:max_chars] + " …(截断)"
+    return ctx

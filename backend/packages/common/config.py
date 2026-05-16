@@ -264,6 +264,14 @@ class Settings(BaseSettings):
     )
 
     # --- 切片策略 ---
+    context_window_size: int = Field(
+        default=2,
+        description=(
+            "M22 #3 · 上下文窗口大小（前后各 N 个 chunk 拼成 context 给 LLM）。"
+            "图/表/公式 chunk 抽实体时, 给 LLM 周围文本可大幅减少误抽; "
+            "0 = 关闭, 与 M0-M21 行为一致"
+        ),
+    )
     chunk_strategy: str = Field(default="fixed", description="切片策略: fixed, parent_child, semantic")
     chunk_size: int = Field(default=500, description="固定切片大小(字符)")
     chunk_overlap: int = Field(default=100, description="固定切片重叠(字符)")

@@ -52,7 +52,7 @@ W4_EXTRACT_USER = """## 允许实体类型
 
 ## 允许关系类型
 {relation_types}
-
+{context_section}
 ## 文档片段
 {content}
 
@@ -159,6 +159,8 @@ async def extract_entities_and_relations(
     industry_code: str,
     project_id: str = "",
     content_chars_limit: int = 3000,
+    context: str = "",
+    context_chars_limit: int = 1500,
 ) -> ExtractionResult:
     """从文档抽取实体 + 关系（决策书 §5.2 W4 工位）。
 
@@ -168,6 +170,9 @@ async def extract_entities_and_relations(
         industry_code: 行业 code（查 L1）
         project_id: 项目 id（查 L2）
         content_chars_limit: prompt 截断长度（默认 3000，防 LLM 上下文超）
+        context: M22 #3 · 周边上下文文本（前后 chunk 的 content 拼接）
+            空字符串时与 M0-M21 行为一致；非空时插入到 prompt 中
+        context_chars_limit: context 字符上限, 防 prompt 爆
 
     Returns:
         ExtractionResult — LLM 失败时返回空（含 error 字段）
@@ -188,9 +193,18 @@ async def extract_entities_and_relations(
             error=f"未找到 L1 (industry={industry_code}) 或 L2 (project={project_id}) 本体",
         )
 
+    # M22 #3 · 周边上下文段（可选, 非空才插入）
+    context_section = ""
+    if context and context.strip():
+        truncated_ctx = context[:context_chars_limit]
+        if len(context) > context_chars_limit:
+            truncated_ctx += " …(截断)"
+        context_section = f"\n## 周边上下文（参考用，不是抽取对象）\n{truncated_ctx}\n"
+
     user_prompt = W4_EXTRACT_USER.format(
         entity_types=_format_types(entity_types_list),
         relation_types=_format_relations(relation_types_list),
+        context_section=context_section,
         content=content[:content_chars_limit],
     )
 
