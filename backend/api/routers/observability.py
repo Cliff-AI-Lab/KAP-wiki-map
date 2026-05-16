@@ -639,6 +639,25 @@ async def extraction_quality_trend_endpoint(
     )
 
 
+@router.get("/ingest-metrics/trend")
+async def ingest_metrics_trend_endpoint(
+    project_id: str = Query(default=""),
+    bucket_hours: int = Query(default=1, ge=1, le=168),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[dict]:
+    """M22 #6 · W6 入库诊断按时间桶趋势。
+
+    每桶含: total / success / failed / avg_total_ms / p95_total_ms / error_kinds.
+    监控 MinerU 接入后单文档解析延迟变大的真实影响, 错误分桶看哪类失败居多。
+    """
+    from packages.observability.ingest_metrics import compute_ingest_trend
+    return compute_ingest_trend(
+        project_id=project_id,
+        bucket_hours=bucket_hours,
+        limit=limit,
+    )
+
+
 @router.get("/condition-health", response_model=dict[str, ConditionHealth])
 async def condition_health_endpoint(
     project_id: str | None = Query(default=None),
