@@ -11,14 +11,26 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from packages.common import config as config_mod
 from packages.common.config import (
     KAP_ENV_DEV,
     KAP_ENV_PROD,
     KAP_ENV_SANDBOX,
     Settings,
 )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_llm_settings_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    """M21 #11 引入 _apply_llm_settings_json 后，开发机上若存在
+    backend/configs/llm_settings.json 会污染所有 Settings() 实例（embedding_provider /
+    api_key / 超时被本地配置覆盖）。测试需要纯净 default，把 JSON 路径重定向到
+    不存在的位置即可绕过加载。"""
+    monkeypatch.setattr(config_mod, "_LLM_SETTINGS_JSON", Path("/__nonexistent__/llm.json"))
 
 
 # ────────── kap_env 枚举校验 ──────────
@@ -152,8 +164,9 @@ class TestSandboxApiBaseOverride:
 
 class TestNewFieldDefaults:
     def test_llm_http_timeout_default(self) -> None:
+        # M21 #11 把默认从 60 抬到 120（睿动大模型推理 30-60s + 排队, 60 偏紧）
         s = Settings(_env_file=None)
-        assert s.llm_http_timeout == 60.0
+        assert s.llm_http_timeout == 120.0
 
     def test_llm_max_concurrency_default(self) -> None:
         s = Settings(_env_file=None)

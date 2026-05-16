@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # UI 保存的 LLM 配置文件（与 api/routers/settings.py 同源）
@@ -248,6 +248,18 @@ class Settings(BaseSettings):
             "是否允许 mock embedding（坑 6）。"
             "False 时 mock provider/无 Key/异常都直接抛 EmbeddingError，"
             "禁止伪向量污染 Milvus。dev 可设 True；sandbox/prod 强制 False"
+        ),
+    )
+
+    # --- 多模态文档解析（M22 #1） ---
+    pdf_parser_backend: str = Field(
+        default="pdfplumber",
+        validation_alias=AliasChoices("KAP_PDF_PARSER", "pdf_parser_backend"),
+        description=(
+            "PDF 解析后端：mineru / pdfplumber / mock。"
+            "mineru 保留版式+公式+表格但需 ~3GB 模型；"
+            "pdfplumber 仅纯文本，M0-M21 兼容默认；"
+            "mock 无库时占位。env: KAP_PDF_PARSER"
         ),
     )
 

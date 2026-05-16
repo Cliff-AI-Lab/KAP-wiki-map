@@ -44,6 +44,19 @@ local-models = [
     "torch>=2.5.0",
     "sentence-transformers>=3.3.0",
 ]
+# M22 #1 · MinerU 多模态 PDF 解析（保留版式/公式/表格）
+# 私有化部署需评估 ~3GB 模型 + ~2GB 内存增量, 镜像可挂 volume 复用
+# 安装：pip install "kap-backend[mineru]" 后设 KAP_PDF_PARSER=mineru
+mineru = [
+    "mineru>=2.0",
+]
+# M21 #7+#11 · 多格式文档解析（Excel / PPT / 老 .doc 等）
+parsers = [
+    "openpyxl>=3.1.0",
+    "xlrd>=2.0.1",
+    "python-pptx>=1.0.0",
+    "pdfplumber>=0.11.0",
+]
 
 [build-system]
 requires = ["setuptools>=68.0"]
