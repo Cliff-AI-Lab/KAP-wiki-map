@@ -280,3 +280,66 @@ async def query_as_of(
         "entities": s.entities_as_of(project_id, version, before),
         "relations": s.relations_as_of(project_id, version, before),
     }
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  M22 #7 · 增量重抽 lite — 影响面分析 + RebuildPlan dry-run
+# ════════════════════════════════════════════════════════════════════════
+
+
+class IncrementalRebuildBody(BaseModel):
+    """增量重抽请求。"""
+    project_id: str
+    version_from: str
+    version_to: str
+    l1_changed: bool = False    # True 时强制全量重抽
+    dry_run: bool = True        # M22 #7 lite: 默认 dry-run, 只算 plan 不执行
+    doc_to_types_override: dict[str, list[str]] | None = None
+
+
+@router.post("/incremental")
+async def incremental_rebuild(body: IncrementalRebuildBody) -> dict:
+    """M22 #7 · 增量重抽 lite — 基于本体 diff 输出 RebuildPlan。
+
+    工作流:
+      1. 从两 OntologyVersion 算 OntologyDiff（caller 提供版本或 override doc 索引）
+      2. 拉 doc → type_ids 索引（M22 #7 lite 仅支持 override; 真实接 graph_store 留 M23）
+      3. analyze_impact → RebuildPlan(full / partial / skipped) + 成本估算
+      4. dry_run=True 时仅返回 plan; 实际执行留 M23 候选（涉及影子库 + 灰度路径）
+
+    7 天观察期 + 灰度切换路径完全不变（D8 锁定）。
+    """
+    from packages.common.types import OntologyDiff
+    from packages.rebuild.incremental import analyze_impact
+
+    # OntologyStore.diff 在 M22 #7 lite 阶段需要 caller 提供版本对象;
+    # 当前简化处理: 若 caller 提供 doc_to_types_override 则用空 diff 直接走,
+    # 真实接入留 M23（绑定 OntologyRegistry.get_l2_version 等）
+    diff = OntologyDiff(
+        from_version=body.version_from, to_version=body.version_to,
+    )
+
+    if body.doc_to_types_override is None:
+        raise HTTPException(
+            status_code=400,
+            detail="M22 #7 lite: 必须提供 doc_to_types_override (M23 接入"
+                   " OntologyRegistry + graph_store 后可省)",
+        )
+    doc_to_types = {k: set(v) for k, v in body.doc_to_types_override.items()}
+
+    plan = analyze_impact(
+        diff=diff, doc_to_types=doc_to_types,
+        project_id=body.project_id, l1_changed=body.l1_changed,
+    )
+
+    response: dict = {"dry_run": body.dry_run, "plan": plan.to_dict()}
+    if not body.dry_run:
+        response["execution"] = (
+            "M22 #7 lite: 实际执行留 M23（接 rebuild_orchestrator + 灰度路径）"
+        )
+
+    log.info("incremental_rebuild_invoked",
+             project=body.project_id, dry_run=body.dry_run,
+             full=len(plan.full_docs), partial=len(plan.partial_docs),
+             skipped=len(plan.skipped_docs))
+    return response
