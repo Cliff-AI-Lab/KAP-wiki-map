@@ -22,6 +22,7 @@ import IndustryPicker, {
 import ReviewStep from '@/pages/v15/import/ReviewStep';
 import TaxonomyStep from '@/pages/v15/import/TaxonomyStep';
 import CompiledStep from '@/pages/v15/import/CompiledStep';
+import type { IngestDocResult } from '@/services/api';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
@@ -61,6 +62,8 @@ export default function ConsultHome() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // M22 #12: 最近一次上传的 per-doc 详情, 跨 stage 共享给 W3 ReviewStep 上方展示
+  const [recentDocs, setRecentDocs] = useState<IngestDocResult[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -298,6 +301,63 @@ export default function ConsultHome() {
         {/* 左中央：W1/W2 对话 | W3 去噪 | W4 体系 | W5 编织 */}
         {stage === 'W3' && (
           <KapCard eyebrow={`▶ ${t('consult.w3.label')}`} frost>
+            {/* M22 #12: 刚刚上传的 LLM 判定结果, 让用户在 W3 看到完整识别+分类推荐 */}
+            {recentDocs.length > 0 && (
+              <div className="mb-4 p-3 rounded-btn"
+                   style={{
+                     background: 'hsl(var(--muted) / 0.4)',
+                     border: '1px solid hsl(var(--border))',
+                   }}>
+                <div className="kap-mono-tag mb-2"
+                     style={{ color: 'hsl(var(--primary))' }}>
+                  ◇ 本次上传 LLM 自动识别 + 入库分类 ({recentDocs.length} 个文档)
+                </div>
+                <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {recentDocs.map(d => {
+                    const tone = d.decision === 'KEEP'    ? 'hsl(var(--success))'
+                               : d.decision === 'ARCHIVE' ? 'hsl(var(--warning))'
+                               : d.decision === 'DISCARD' ? 'hsl(var(--destructive))'
+                               : 'hsl(var(--muted-foreground))';
+                    return (
+                      <li key={d.doc_id} className="text-xs"
+                          style={{ lineHeight: 1.5 }}>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="kap-badge"
+                                style={{ color: tone, borderColor: tone, fontSize: 10 }}>
+                            {d.decision}
+                          </span>
+                          <span className="flex-1 truncate" style={{ fontWeight: 500 }}>
+                            {d.title}
+                          </span>
+                          <span className="kap-mono-tag" style={{ fontSize: 10 }}>
+                            {(d.confidence * 100).toFixed(0)}%
+                          </span>
+                          {d.needs_review && (
+                            <span className="kap-badge kap-badge-warning"
+                                  style={{ fontSize: 10 }}>待审</span>
+                          )}
+                        </div>
+                        {d.category_path && (
+                          <div className="kap-mono-tag"
+                               style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10 }}>
+                            → 推荐入: {d.category_path}
+                          </div>
+                        )}
+                        {d.reasoning && (
+                          <div className="mt-0.5"
+                               style={{
+                                 color: 'hsl(var(--muted-foreground))',
+                                 fontSize: 10.5, lineHeight: 1.5,
+                               }}>
+                            {d.reasoning.length > 200 ? d.reasoning.slice(0, 200) + '...' : d.reasoning}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
             <ReviewStep
               projectId={industry || 'default'}
               embedded
@@ -436,6 +496,7 @@ export default function ConsultHome() {
               projectId={industry || 'default'}
               onUploaded={async (r, files) => {
                 // M22 #11+#12: 上传完通知 LLM (含 per-doc 识别结果) 然后推 W3
+                if (r.documents) setRecentDocs(r.documents);
                 const names = files.map(f => f.name);
                 await sendUploadNotification(names, files.length, r.documents);
                 setStage('W3');
