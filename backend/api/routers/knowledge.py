@@ -1075,8 +1075,24 @@ async def ingest_files(
     except Exception as e:
         log.warning("ingest_wiki_compilation_failed", error=str(e), exc_info=True)
 
+    # M22 #14: domain_id → 中文 label 链 (e.g. "manufacturing/quality/inspection"
+    # → "制造业 / 质量管理 / 检验"), 让用户看到文档归属到行业体系哪一级
+    def _build_domain_label_path(d_id: str) -> str:
+        if not d_id:
+            return ""
+        parts = d_id.split("/")
+        labels = []
+        cum = ""
+        for seg in parts:
+            cum = f"{cum}/{seg}" if cum else seg
+            # 查 DomainStore 找 (domain_id, project_id) 的 name
+            dom = domain_store._domains.get((cum, project_id))  # type: ignore[reportPrivateUsage]
+            labels.append(dom.name if dom and dom.name else seg)
+        return " / ".join(labels)
+
     # 构建每个文档的详细结果（前端可直接展示）
-    # M22 #12: 加 category_path + reasoning, 让用户看到 LLM 判定的"入库到哪个分支"+"为什么"
+    # M22 #12+#14: 加 category_path + reasoning + keywords + domain_path,
+    # 让用户看到 LLM 判定的"入库分支" + "为什么" + "关键词标签" + "体系归属链"
     doc_results = []
     for r in batch.results:
         doc = doc_map.get(r.doc_id)
@@ -1108,16 +1124,20 @@ async def ingest_files(
             # 额外补 decision_reason (规则命中)
             if not reasoning_text and getattr(r.judge_result, "decision_reason", ""):
                 reasoning_text = r.judge_result.decision_reason[:400]
+        d_id = r.refined_result.domain_id if r.refined_result else ""
         doc_results.append({
             "doc_id": r.doc_id,
             "title": doc.title if doc else r.doc_id,
             "decision": r.decision.value if r.decision else "UNKNOWN",
-            "domain_id": r.refined_result.domain_id if r.refined_result else "",
+            "domain_id": d_id,
+            "domain_path": _build_domain_label_path(d_id),  # M22 #14: 中文体系链
             "category_path": cat_path,
             "summary": (r.refined_result.summary if r.refined_result else "")[:200],
             "doc_type": r.librarian_result.doc_type.value if r.librarian_result else "未知",
             "entity_count": len(r.refined_result.entities) if r.refined_result else 0,
             "keyword_count": len(r.refined_result.keywords) if r.refined_result else 0,
+            # M22 #14: 关键词列表 (top 10), 用户期望"提炼内容关键词"
+            "keywords": (r.refined_result.keywords[:10] if r.refined_result and r.refined_result.keywords else []),
             "confidence": r.judge_result.confidence if r.judge_result else 0,
             "needs_review": r.needs_review,
             "reasoning": reasoning_text,

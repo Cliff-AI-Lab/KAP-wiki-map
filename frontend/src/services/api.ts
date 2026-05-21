@@ -230,11 +230,13 @@ export interface IngestDocResult {
   title: string;
   decision: 'KEEP' | 'ARCHIVE' | 'DISCARD' | 'UNKNOWN';
   domain_id: string;
+  domain_path: string;         // M22 #14: 体系归属链中文 label (e.g. "制造业 / 质量管理 / 检验")
   category_path: string;       // M22 #12: LLM 推荐入库分支 (e.g. 制造/工艺/质量管理)
   summary: string;
   doc_type: string;
   entity_count: number;
   keyword_count: number;
+  keywords: string[];          // M22 #14: 关键词标签 (LLM 提炼, top 10)
   confidence: number;          // 0-1
   needs_review: boolean;
   reasoning: string;           // M22 #12: 6 维 Critic 反馈拼接的判定理由

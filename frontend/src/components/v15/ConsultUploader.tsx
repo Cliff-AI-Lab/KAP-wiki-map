@@ -290,10 +290,29 @@ export default function ConsultUploader({ projectId, onUploaded }: Props) {
                       </span>
                     )}
                   </div>
-                  {d.category_path && (
+                  {/* M22 #14: 归属知识体系链 (e.g. "制造业 / 质量管理 / 检验") */}
+                  {d.domain_path && (
+                    <div className="kap-mono-tag mt-0.5"
+                         style={{ color: 'hsl(var(--primary))', fontSize: 10 }}>
+                      ◆ 体系归属: {d.domain_path}
+                    </div>
+                  )}
+                  {/* M22 #12: 中文推荐入库分类 (cataloger 算的, 与 domain 互补) */}
+                  {d.category_path && d.category_path !== d.domain_path && (
                     <div className="kap-mono-tag"
                          style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10 }}>
-                      → {d.category_path}
+                      → 推荐分类: {d.category_path}
+                    </div>
+                  )}
+                  {/* M22 #14: 关键词标签 (LLM 提炼) */}
+                  {d.keywords && d.keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {d.keywords.map(kw => (
+                        <span key={kw} className="kap-badge"
+                              style={{ fontSize: 9.5, padding: '1px 5px' }}>
+                          #{kw}
+                        </span>
+                      ))}
                     </div>
                   )}
                   {d.reasoning && (

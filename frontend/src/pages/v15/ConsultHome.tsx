@@ -364,10 +364,28 @@ export default function ConsultHome() {
                                   style={{ fontSize: 10 }}>待审</span>
                           )}
                         </div>
-                        {d.category_path && (
+                        {/* M22 #14: 体系归属链 (从 domain_id 转中文 label) */}
+                        {d.domain_path && (
+                          <div className="kap-mono-tag mt-0.5"
+                               style={{ color: 'hsl(var(--primary))', fontSize: 10 }}>
+                            ◆ 体系归属: {d.domain_path}
+                          </div>
+                        )}
+                        {d.category_path && d.category_path !== d.domain_path && (
                           <div className="kap-mono-tag"
                                style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10 }}>
                             → 推荐入: {d.category_path}
+                          </div>
+                        )}
+                        {/* M22 #14: 关键词标签 (LLM 提炼) */}
+                        {d.keywords && d.keywords.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {d.keywords.map(kw => (
+                              <span key={kw} className="kap-badge"
+                                    style={{ fontSize: 9.5, padding: '1px 5px' }}>
+                                #{kw}
+                              </span>
+                            ))}
                           </div>
                         )}
                         {d.reasoning && (
