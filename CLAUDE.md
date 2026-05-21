@@ -78,7 +78,7 @@
 进程链（按时间正序，每份是独立快照）：
 [M0-KAP-Lite](docs/progress/M0-KAP-Lite.md) → [M1-企业级v1](docs/progress/M1-企业级v1.md) → [M2-AI-native](docs/progress/M2-AI-native.md) → [M3-高级治理](docs/progress/M3-高级治理.md) → [M4-重抽影子库](docs/progress/M4-重抽影子库.md) → [M5-演化机制完整版](docs/progress/M5-演化机制完整版.md) → [M6-演化收尾](docs/progress/M6-演化收尾.md) → [M7-运营观察持久化](docs/progress/M7-运营观察持久化.md) → [M8-反馈与召回评估](docs/progress/M8-反馈与召回评估.md) → [M9-评估持久化与趋势告警](docs/progress/M9-评估持久化与趋势告警.md) → [M10-评估深化与前端仪表盘](docs/progress/M10-评估深化与前端仪表盘.md) → [M11-自学习闭环与GT工作流](docs/progress/M11-自学习闭环与GT工作流.md) → [M12-自学习闭环到端+前端深耕](docs/progress/M12-自学习闭环到端%20%2B%20前端深耕.md) → [M13-真LLM测试与端到端深耕](docs/progress/M13-真LLM测试与端到端深耕.md) → [M14-大规模优化与端到端补强](docs/progress/M14-大规模优化与端到端补强.md) → [M15-真LLM扩展+反馈告警+多语言](docs/progress/M15-真LLM扩展%2B反馈告警%2B多语言.md) → [M16-i18n+自学习闭环+反馈细分+Wiki可视化](docs/progress/M16-i18n%2B自学习闭环%2B反馈细分%2BWiki可视化.md) → [M17-i18n铺开+自动tune+Wiki质量](docs/progress/M17-i18n铺开%2B自动tune%2BWiki质量.md) → [M18-Wiki质量闭环+前端管理面板](docs/progress/M18-Wiki质量闭环%2B前端管理面板.md) → [M19-Wiki质量PG+W4诊断+部署收口](docs/progress/M19-Wiki质量PG%2BW4诊断%2B部署收口.md) → [M20-W4诊断PG+L2迁移工具](docs/progress/M20-W4诊断PG%2BL2迁移工具.md) → [M21-三中心拆分+UI重做](docs/progress/M21-三中心拆分%2BUI重做.md) → [M22-多模态解析+知识中心补强](docs/progress/M22-多模态解析%2B知识中心补强.md) → **M23 / 部署期⬜**
 
-**KAP 累计**：~167 commits / 测试 1110/1115 ✓ + 58 前端 tests ✓ + 12 live_llm（默认 deselect）/ 实际 ~132h vs Opus 估 ~820h，节省 ~84%。
+**KAP 累计**：~170 commits / 测试 1127/1129 ✓ + 58 前端 tests ✓ + 12 live_llm（默认 deselect）/ 实际 ~134h vs Opus 估 ~830h，节省 ~84%。M22 v2 codex review 后硬化：5 HIGH 全修 + 关键 MED/LOW 加固。
 
 ### 整体进度看板（M0-M22 ✓ / M23 + 部署期 ⬜）
 
