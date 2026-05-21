@@ -133,7 +133,15 @@ class TestFindMergeCandidates:
 
 @pytest.fixture
 def governance_app(monkeypatch):
+    """M22 #9: D12 闭环硬校验 — fixture 提供 store + 已认领的 SME 工单。"""
+    import asyncio
+    from datetime import datetime, timezone
+
     from packages.observability import decision_log as dl
+    from packages.common.types import GovernanceQueueItem
+    from packages.storage.governance_queue_store import GovernanceQueueStore
+    from api.deps import get_governance_queue_store
+    from api.routers.governance import router
 
     recorded: list[dict] = []
 
@@ -149,57 +157,139 @@ def governance_app(monkeypatch):
     dl.reset_decisions_for_test()
     dl.set_pg_sink(_capture)
 
-    from api.routers.governance import router
+    store = GovernanceQueueStore()
+    asyncio.get_event_loop().run_until_complete(store.initialize())
+
+    # 预置一个已认领的 SME 工单
+    sme_item = GovernanceQueueItem(
+        id="gq_sme_001", project_id="proj_a", agent="auditor",
+        kind="unverified", title="合并候选: A vs B",
+        priority=50, status="reviewing",
+        created_at=datetime.now(timezone.utc),
+        workstation="W6", assigned_role="SME",
+        claimed_by="sme_001",
+    )
+    asyncio.get_event_loop().run_until_complete(store.upsert(sme_item))
+
+    # 另一个未认领的工单 (测 L4)
+    dg_item = GovernanceQueueItem(
+        id="gq_dg_002", project_id="proj_a", agent="auditor",
+        kind="unverified", title="合并候选: C vs D",
+        priority=50, status="pending",
+        created_at=datetime.now(timezone.utc),
+        workstation="W4", assigned_role="DG",  # 错的角色, 测 L3
+    )
+    asyncio.get_event_loop().run_until_complete(store.upsert(dg_item))
+
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")
+    app.dependency_overrides[get_governance_queue_store] = lambda: store
 
-    yield app, recorded
+    yield app, recorded, store
 
     dl.reset_decisions_for_test()
 
 
 class TestEntityMergeDecisionAPI:
-    def test_approve_decision_writes_log(self, governance_app):
-        app, recorded = governance_app
-        client = TestClient(app)
-        r = client.post("/api/v1/governance/entity-merge-decision", json={
+    """M22 #9: D12 闭环硬校验 5 层 (L1-L5)。"""
+
+    def _valid_body(self, **overrides) -> dict:
+        body = {
             "project_id": "proj_a",
+            "queue_item_id": "gq_sme_001",
             "entity_a_id": "ent_aaa",
             "entity_b_id": "ent_bbb",
+            "entity_a_type_id": "E_DEVICE",
+            "entity_b_type_id": "E_DEVICE",
             "decision": "approve",
             "actor": "sme_001",
             "note": "字符串高度相似 + 历史 doc 重叠",
-        })
-        assert r.status_code == 200
+        }
+        body.update(overrides)
+        return body
+
+    def test_happy_path_approve(self, governance_app):
+        app, recorded, store = governance_app
+        client = TestClient(app)
+        r = client.post("/api/v1/governance/entity-merge-decision",
+                        json=self._valid_body())
+        assert r.status_code == 200, r.text
         body = r.json()
         assert body["decision_type"] == "entity_merge_approved"
         assert body["target_id"] == "ent_aaa::ent_bbb"
         assert body["actor"] == "sme_001"
-        # 决策日志已写
+        assert body["queue_item_id"] == "gq_sme_001"
+        assert body["queue_resolved"] is True
+        # 决策日志已写, 包含 queue/type 元信息
         assert len(recorded) == 1
-        assert recorded[0]["decision_type"] == "entity_merge_approved"
-        assert "ent_aaa" in recorded[0]["note"]
-        assert recorded[0]["actor"] == "sme_001"
+        note = recorded[0]["note"]
+        assert "queue=gq_sme_001" in note
+        assert "type=E_DEVICE" in note
 
-    def test_reject_decision_writes_log(self, governance_app):
-        app, recorded = governance_app
+    def test_reject_decision(self, governance_app):
+        app, recorded, _ = governance_app
         client = TestClient(app)
-        r = client.post("/api/v1/governance/entity-merge-decision", json={
-            "project_id": "proj_a",
-            "entity_a_id": "ent_c",
-            "entity_b_id": "ent_d",
-            "decision": "reject",
-            "actor": "sme_002",
-        })
+        r = client.post("/api/v1/governance/entity-merge-decision",
+                        json=self._valid_body(decision="reject"))
         assert r.status_code == 200
         assert r.json()["decision_type"] == "entity_merge_rejected"
         assert recorded[0]["decision_type"] == "entity_merge_rejected"
 
-    def test_invalid_decision_returns_400(self, governance_app):
-        app, _ = governance_app
+    def test_L1_invalid_decision_returns_400(self, governance_app):
+        app, *_ = governance_app
         client = TestClient(app)
-        r = client.post("/api/v1/governance/entity-merge-decision", json={
-            "project_id": "p", "entity_a_id": "a", "entity_b_id": "b",
-            "decision": "maybe",
-        })
+        r = client.post("/api/v1/governance/entity-merge-decision",
+                        json=self._valid_body(decision="maybe"))
         assert r.status_code == 400
+        assert "decision" in r.text
+
+    def test_L5_type_id_mismatch_returns_400(self, governance_app):
+        app, *_ = governance_app
+        client = TestClient(app)
+        r = client.post("/api/v1/governance/entity-merge-decision",
+                        json=self._valid_body(entity_b_type_id="E_DOCUMENT"))
+        assert r.status_code == 400
+        assert "type_id" in r.text
+
+    def test_L2_unknown_queue_item_returns_404(self, governance_app):
+        app, *_ = governance_app
+        client = TestClient(app)
+        r = client.post("/api/v1/governance/entity-merge-decision",
+                        json=self._valid_body(queue_item_id="gq_does_not_exist"))
+        assert r.status_code == 404
+
+    def test_L2_project_mismatch_returns_400(self, governance_app):
+        app, *_ = governance_app
+        client = TestClient(app)
+        r = client.post("/api/v1/governance/entity-merge-decision",
+                        json=self._valid_body(project_id="proj_OTHER"))
+        assert r.status_code == 400
+        assert "project_id" in r.text
+
+    def test_L3_non_SME_role_returns_403(self, governance_app):
+        app, *_ = governance_app
+        client = TestClient(app)
+        # 用 DG 角色的工单
+        r = client.post("/api/v1/governance/entity-merge-decision",
+                        json=self._valid_body(queue_item_id="gq_dg_002"))
+        assert r.status_code == 403
+        assert "SME" in r.text
+
+    def test_L4_actor_mismatch_returns_403(self, governance_app):
+        app, *_ = governance_app
+        client = TestClient(app)
+        # actor 不等于 claimed_by=sme_001
+        r = client.post("/api/v1/governance/entity-merge-decision",
+                        json=self._valid_body(actor="sme_002"))
+        assert r.status_code == 403
+        assert "认领人" in r.text or "claimed" in r.text.lower()
+
+    def test_decision_logged_with_queue_metadata(self, governance_app):
+        app, recorded, store = governance_app
+        client = TestClient(app)
+        r = client.post("/api/v1/governance/entity-merge-decision",
+                        json=self._valid_body())
+        assert r.status_code == 200
+        # 决策日志含 queue_item_id + type_id 元信息（防绕过合并约束）
+        assert "queue=gq_sme_001" in recorded[0]["note"]
+        assert "type=E_DEVICE" in recorded[0]["note"]

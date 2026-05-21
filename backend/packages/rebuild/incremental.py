@@ -75,6 +75,7 @@ def analyze_impact(
     doc_to_types: dict[str, set[str]],
     project_id: str = "",
     l1_changed: bool = False,
+    doc_to_relations: dict[str, set[str]] | None = None,
 ) -> RebuildPlan:
     """基于本体 diff + 文档→类型索引 算出增量重抽计划。
 
@@ -84,6 +85,8 @@ def analyze_impact(
             graph_store / entity_index 查; 空 dict 视为该项目无入库文档
         project_id: 项目 id（仅用于回填 RebuildPlan）
         l1_changed: True 时强制全量重抽（L1 行业本体变更影响所有文档）
+        doc_to_relations: M22 #9 codex HIGH #4: {doc_id → set[已抽关系的 relation_type_id]};
+            如提供, 关系 diff 也参与影响面分析。不传时仅按实体 type 推导。
 
     Returns:
         RebuildPlan, 含 full/partial/skipped 三组 + 成本估算
@@ -111,17 +114,23 @@ def analyze_impact(
                  project=project_id, full=total_docs)
         return plan
 
-    # L2 变更走增量：被影响 type 出现在哪些文档里
-    # 删除/修改 类型 → partial（重新抽该类型实体, 旧实体覆盖）
-    # 新增类型 → full（旧文档可能漏抽了, 需要全文重扫）
+    # L2 变更走增量：被影响 type/relation 出现在哪些文档里
+    # 删除/修改 类型/关系 → partial（重新抽该类型实体或关系, 旧覆盖）
+    # 新增类型/关系 → full（旧文档可能漏抽, 需要全文重扫）
     has_new_type = bool(diff.added_entity_types or diff.added_relation_types)
+    doc_to_relations = doc_to_relations or {}
 
     for doc_id, type_ids in doc_to_types.items():
         if has_new_type:
             plan.full_docs.append(doc_id)
             continue
-        # 仅有删除/修改：用到被改类型的文档 → partial, 其他 skip
-        if type_ids & affected_e:
+        # M22 #9 codex HIGH #4: 关系 diff 也参与影响面
+        # 文档命中: 用到被改实体类型 OR 用到被改关系类型 → partial
+        hit_entity = bool(type_ids & affected_e)
+        hit_relation = bool(
+            doc_to_relations.get(doc_id, set()) & affected_r
+        )
+        if hit_entity or hit_relation:
             plan.partial_docs.append(doc_id)
         else:
             plan.skipped_docs.append(doc_id)
@@ -130,9 +139,12 @@ def analyze_impact(
     plan.partial_docs.sort()
     plan.skipped_docs.sort()
 
-    # 成本估算：full = 1 unit, partial = 0.3 unit（仅重抽变化部分）
-    plan.est_cost_units = int(
-        len(plan.full_docs) * 1.0 + len(plan.partial_docs) * 0.3
+    # M22 #9 codex MED: 成本估算用 float, 防 1-3 个 partial docs 被 int() 砍到 0
+    full_cost = float(len(plan.full_docs))
+    partial_cost = len(plan.partial_docs) * 0.3
+    plan.est_cost_units = max(
+        len(plan.partial_docs) // 4,  # 至少 partial/4 个 unit, 防 round 到 0
+        round(full_cost + partial_cost),
     )
     full_baseline = total_docs * 1.0
     if full_baseline > 0:

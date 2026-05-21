@@ -12,6 +12,7 @@ M22 #1 起 PDFParser 不再是单一 pdfplumber 实现，而是按 `settings.pdf
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import io
 from typing import Callable
@@ -26,6 +27,11 @@ from packages.storage.parsers.base import (
 )
 
 log = get_logger("parser.pdf")
+
+# M22 #9 修 codex HIGH #1: PDF 解析是 CPU/IO 混合的同步操作,
+# uvicorn 事件循环里直接调用会阻塞 worker, 用 to_thread 把它放进
+# 线程池, MinerU 还会再加超时。生产可调大。
+_PDF_PARSE_TIMEOUT_SEC = 60.0
 
 
 # ── 各后端实现 ─────────────────────────────────────────────────
@@ -163,10 +169,25 @@ class PDFParser(BaseParser):
     async def parse(self, raw_bytes: bytes, mime_type: str) -> ParsedContent:
         primary = getattr(settings, "pdf_parser_backend", "pdfplumber")
         chain = _FALLBACK_CHAIN.get(primary, _FALLBACK_CHAIN["pdfplumber"])
+        # M22 #9 codex HIGH #2: 生产 (sandbox/prod) 禁止静默降级到 mock,
+        # 防占位文本进知识库污染召回。dev 保留全链兜底。
+        env = getattr(settings, "kap_env", "dev")
+        if env in ("sandbox", "prod") and chain[-1] == "mock":
+            chain = [b for b in chain if b != "mock"]
+
         last_err: Exception | None = None
         for backend_name in chain:
             try:
-                result = _BACKENDS[backend_name](raw_bytes)
+                # M22 #9 codex HIGH #1: 同步 PDF 解析放进线程池, 避免阻塞 uvicorn worker
+                # mineru 加超时（默认 60s, 可调）, 其他后端速度快不强制
+                if backend_name == "mineru":
+                    result = await asyncio.wait_for(
+                        asyncio.to_thread(_BACKENDS[backend_name], raw_bytes),
+                        timeout=_PDF_PARSE_TIMEOUT_SEC,
+                    )
+                else:
+                    result = await asyncio.to_thread(_BACKENDS[backend_name], raw_bytes)
+
                 if backend_name != primary:
                     log.debug(
                         "pdf_parse_degraded",
@@ -175,12 +196,20 @@ class PDFParser(BaseParser):
                         error=str(last_err) if last_err else "",
                     )
                 return result
+            except asyncio.TimeoutError as e:
+                last_err = e
+                log.warning("pdf_parse_timeout",
+                            backend=backend_name, timeout=_PDF_PARSE_TIMEOUT_SEC)
+                continue
             except Exception as e:
                 last_err = e
-                log.debug("pdf_parse_backend_failed", backend=backend_name, error=str(e))
+                log.debug("pdf_parse_backend_failed",
+                          backend=backend_name, error=str(e))
                 continue
-        # 所有后端都挂了（_parse_with_mock 不应失败）
-        raise RuntimeError(f"all pdf backends failed: {last_err}")
+        # 所有后端都挂了（dev 模式 _parse_with_mock 不应失败; prod 模式可能全失败）
+        raise RuntimeError(
+            f"all pdf backends failed (env={env}, chain={chain}): {last_err}"
+        )
 
     def supported_mime_types(self) -> list[str]:
         return ["application/pdf"]

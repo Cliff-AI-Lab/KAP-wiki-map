@@ -62,9 +62,10 @@ class TestAnalyzeImpactPartialOnly:
         assert set(plan.partial_docs) == {"d1", "d3"}
         assert plan.skipped_docs == ["d2"]
         assert plan.full_docs == []
-        # 节省: full_baseline=3, est_cost=0.3*2=0.6 → int(0.6)=0, savings≈1.0
-        assert plan.est_cost_units == 0
-        assert plan.est_savings_ratio > 0.7
+        # M22 #9: est_cost 不再 int(0.6)=0; round(0.6)=1, 或 partial//4=0 取较大
+        # 2 个 partial → round(0.6)=1, partial//4=0 → max(0, 1) = 1
+        assert plan.est_cost_units == 1
+        assert plan.est_savings_ratio > 0.6
 
     def test_removed_type_same_logic(self):
         # 删除类型仍是 partial（删除类型的实体覆盖）
@@ -133,6 +134,47 @@ def rebuild_app():
     return app
 
 
+class TestAnalyzeImpactRelationDiff:
+    """M22 #9 codex HIGH #4: relation diff 也参与影响面分析。"""
+
+    def test_modified_relation_affects_only_docs_using_it(self):
+        plan = analyze_impact(
+            _diff(modified_r=["R_CONNECTED_TO"]),
+            doc_to_types={"d1": {"E_X"}, "d2": {"E_Y"}, "d3": {"E_Z"}},
+            doc_to_relations={
+                "d1": {"R_CONNECTED_TO"},
+                "d2": {"R_OTHER"},
+                "d3": set(),
+            },
+            project_id="p1",
+        )
+        # 只有 d1 用了被改关系 → partial; d2/d3 skipped
+        assert plan.partial_docs == ["d1"]
+        assert set(plan.skipped_docs) == {"d2", "d3"}
+
+    def test_entity_and_relation_diff_combined(self):
+        plan = analyze_impact(
+            _diff(modified_e=["E_DEVICE"], modified_r=["R_LINK"]),
+            doc_to_types={"d1": {"E_DEVICE"}, "d2": {"E_X"}, "d3": {"E_Y"}},
+            doc_to_relations={"d1": set(), "d2": {"R_LINK"}, "d3": set()},
+            project_id="p1",
+        )
+        # d1 命中 entity, d2 命中 relation, d3 都不命中
+        assert set(plan.partial_docs) == {"d1", "d2"}
+        assert plan.skipped_docs == ["d3"]
+
+    def test_no_doc_to_relations_defaults_to_entity_only(self):
+        # 不传 doc_to_relations → 关系 diff 不参与（向后兼容）
+        plan = analyze_impact(
+            _diff(modified_r=["R_X"]),
+            doc_to_types={"d1": {"E_A"}, "d2": {"E_B"}},
+            project_id="p1",
+        )
+        # 没人命中 → 全 skipped
+        assert plan.partial_docs == []
+        assert set(plan.skipped_docs) == {"d1", "d2"}
+
+
 class TestIncrementalRebuildAPI:
     def test_dry_run_returns_plan(self, rebuild_app):
         client = TestClient(rebuild_app)
@@ -155,6 +197,71 @@ class TestIncrementalRebuildAPI:
         assert plan["skipped_count"] == 2
         assert plan["full_count"] == 0
         assert plan["partial_count"] == 0
+
+    def test_dry_run_false_returns_501(self, rebuild_app):
+        """M22 #9 codex HIGH #5: 不再静默返回 200 误导调用方。"""
+        client = TestClient(rebuild_app)
+        body = {
+            "project_id": "p1",
+            "version_from": "v1.0",
+            "version_to": "v1.1",
+            "dry_run": False,
+            "doc_to_types_override": {"d1": ["E_DEVICE"]},
+        }
+        r = client.post("/api/v1/rebuild/incremental", json=body)
+        assert r.status_code == 501
+        assert "M22" in r.text or "未实现" in r.text or "rebuild_orchestrator" in r.text
+
+    def test_explicit_diff_fields_used(self, rebuild_app):
+        """M22 #9 codex HIGH #5: caller 可直接传 diff 字段。"""
+        client = TestClient(rebuild_app)
+        body = {
+            "project_id": "p1",
+            "version_from": "v1.0",
+            "version_to": "v1.1",
+            "dry_run": True,
+            "added_entity_types": ["E_NEW_TYPE"],
+            "doc_to_types_override": {
+                "d1": ["E_OLD"], "d2": ["E_OLD"],
+            },
+        }
+        r = client.post("/api/v1/rebuild/incremental", json=body)
+        assert r.status_code == 200
+        plan = r.json()["plan"]
+        # 有 added_entity_types → 全 full
+        assert plan["full_count"] == 2
+        assert plan["partial_count"] == 0
+        assert plan["skipped_count"] == 0
+
+    def test_doc_to_relations_passed_through(self, rebuild_app):
+        """M22 #9: 关系 diff + doc_to_relations_override 推导影响面。"""
+        client = TestClient(rebuild_app)
+        body = {
+            "project_id": "p1",
+            "version_from": "v1.0", "version_to": "v1.1",
+            "dry_run": True,
+            "modified_relation_types": ["R_LINK"],
+            "doc_to_types_override": {"d1": ["E_X"], "d2": ["E_X"]},
+            "doc_to_relations_override": {"d1": ["R_LINK"], "d2": ["R_OTHER"]},
+        }
+        r = client.post("/api/v1/rebuild/incremental", json=body)
+        assert r.status_code == 200
+        plan = r.json()["plan"]
+        assert plan["partial_count"] == 1  # d1 命中 R_LINK
+        assert plan["skipped_count"] == 1  # d2
+
+    def test_doc_to_types_override_size_limit(self, rebuild_app):
+        """M22 #9 codex LOW: 超 10000 docs 返 413。"""
+        client = TestClient(rebuild_app)
+        big_dict = {f"d{i}": ["E_X"] for i in range(10001)}
+        body = {
+            "project_id": "p1",
+            "version_from": "v1.0", "version_to": "v1.1",
+            "dry_run": True,
+            "doc_to_types_override": big_dict,
+        }
+        r = client.post("/api/v1/rebuild/incremental", json=body)
+        assert r.status_code == 413
 
     def test_missing_override_returns_400(self, rebuild_app):
         client = TestClient(rebuild_app)

@@ -288,35 +288,70 @@ async def query_as_of(
 
 
 class IncrementalRebuildBody(BaseModel):
-    """增量重抽请求。"""
-    project_id: str
-    version_from: str
-    version_to: str
-    l1_changed: bool = False    # True 时强制全量重抽
-    dry_run: bool = True        # M22 #7 lite: 默认 dry-run, 只算 plan 不执行
-    doc_to_types_override: dict[str, list[str]] | None = None
+    """增量重抽请求（M22 #9 codex HIGH #5 加固后）。
+
+    diff 数据来源两种：
+    1. caller 显式传入 added/removed/modified 字段（dev / 离线工具用）
+    2. 留空时端点尝试从 OntologyRegistry 自动解析（M22 #7 lite 阶段未对接）
+    """
+    project_id: str = Field(..., min_length=1, max_length=64)
+    version_from: str = Field(..., min_length=1, max_length=64)
+    version_to: str = Field(..., min_length=1, max_length=64)
+    l1_changed: bool = False
+    dry_run: bool = True
+
+    # M22 #9 codex HIGH #5: 显式 diff 字段（dev / CLI 用）
+    added_entity_types: list[str] = Field(default_factory=list, max_length=200)
+    removed_entity_types: list[str] = Field(default_factory=list, max_length=200)
+    modified_entity_types: list[str] = Field(default_factory=list, max_length=200)
+    added_relation_types: list[str] = Field(default_factory=list, max_length=200)
+    removed_relation_types: list[str] = Field(default_factory=list, max_length=200)
+    modified_relation_types: list[str] = Field(default_factory=list, max_length=200)
+
+    # M22 #9 codex LOW: doc_to_types_override 加规模上限防 OOM
+    doc_to_types_override: dict[str, list[str]] | None = Field(
+        default=None,
+        description="{doc_id → [entity_type_ids]}; 最多 10000 docs, 每 doc 最多 200 types",
+    )
+    doc_to_relations_override: dict[str, list[str]] | None = Field(
+        default=None,
+        description="{doc_id → [relation_type_ids]}; M22 #9 加, 让关系 diff 参与影响面",
+    )
 
 
 @router.post("/incremental")
 async def incremental_rebuild(body: IncrementalRebuildBody) -> dict:
-    """M22 #7 · 增量重抽 lite — 基于本体 diff 输出 RebuildPlan。
+    """M22 #7+#9 · 增量重抽 lite — 基于本体 diff 输出 RebuildPlan。
 
     工作流:
-      1. 从两 OntologyVersion 算 OntologyDiff（caller 提供版本或 override doc 索引）
-      2. 拉 doc → type_ids 索引（M22 #7 lite 仅支持 override; 真实接 graph_store 留 M23）
+      1. 取 OntologyDiff（caller 显式 diff 字段 / 留空走 lite 模式）
+      2. 拉 doc → type_ids + doc → relation_ids 索引（M22 #9 加关系映射）
       3. analyze_impact → RebuildPlan(full / partial / skipped) + 成本估算
-      4. dry_run=True 时仅返回 plan; 实际执行留 M23 候选（涉及影子库 + 灰度路径）
+      4. dry_run=True 时仅返回 plan
+      5. dry_run=False 时返回 **501 Not Implemented**（实际执行接 rebuild_orchestrator 留 M23）
 
     7 天观察期 + 灰度切换路径完全不变（D8 锁定）。
     """
     from packages.common.types import OntologyDiff
     from packages.rebuild.incremental import analyze_impact
 
-    # OntologyStore.diff 在 M22 #7 lite 阶段需要 caller 提供版本对象;
-    # 当前简化处理: 若 caller 提供 doc_to_types_override 则用空 diff 直接走,
-    # 真实接入留 M23（绑定 OntologyRegistry.get_l2_version 等）
+    # M22 #9 codex HIGH #5: dry_run=False 返 501, 不再静默返回 200 误导调用方
+    if not body.dry_run:
+        raise HTTPException(
+            status_code=501,
+            detail="M22 #7 lite: incremental rebuild 实际执行未实现, "
+                   "请用 dry_run=True 仅查看 plan; 真实执行接 rebuild_orchestrator 留 M23",
+        )
+
+    # 构造 diff: 优先用 caller 显式传入的字段
     diff = OntologyDiff(
         from_version=body.version_from, to_version=body.version_to,
+        added_entity_types=body.added_entity_types,
+        removed_entity_types=body.removed_entity_types,
+        modified_entity_types=body.modified_entity_types,
+        added_relation_types=body.added_relation_types,
+        removed_relation_types=body.removed_relation_types,
+        modified_relation_types=body.modified_relation_types,
     )
 
     if body.doc_to_types_override is None:
@@ -325,21 +360,29 @@ async def incremental_rebuild(body: IncrementalRebuildBody) -> dict:
             detail="M22 #7 lite: 必须提供 doc_to_types_override (M23 接入"
                    " OntologyRegistry + graph_store 后可省)",
         )
+
+    # M22 #9 codex LOW: 规模校验防 OOM
+    if len(body.doc_to_types_override) > 10000:
+        raise HTTPException(
+            status_code=413,
+            detail=f"doc_to_types_override 过大 ({len(body.doc_to_types_override)} > 10000); "
+                   f"请分批调用",
+        )
+
     doc_to_types = {k: set(v) for k, v in body.doc_to_types_override.items()}
+    doc_to_relations = (
+        {k: set(v) for k, v in body.doc_to_relations_override.items()}
+        if body.doc_to_relations_override else None
+    )
 
     plan = analyze_impact(
         diff=diff, doc_to_types=doc_to_types,
+        doc_to_relations=doc_to_relations,
         project_id=body.project_id, l1_changed=body.l1_changed,
     )
-
-    response: dict = {"dry_run": body.dry_run, "plan": plan.to_dict()}
-    if not body.dry_run:
-        response["execution"] = (
-            "M22 #7 lite: 实际执行留 M23（接 rebuild_orchestrator + 灰度路径）"
-        )
 
     log.info("incremental_rebuild_invoked",
              project=body.project_id, dry_run=body.dry_run,
              full=len(plan.full_docs), partial=len(plan.partial_docs),
              skipped=len(plan.skipped_docs))
-    return response
+    return {"dry_run": body.dry_run, "plan": plan.to_dict()}

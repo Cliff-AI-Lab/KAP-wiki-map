@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from packages.common import get_logger
 from packages.common.types import (
@@ -247,13 +247,23 @@ async def run_agent(
 
 
 class EntityMergeDecisionBody(BaseModel):
-    """SME 对实体合并候选对的决策。"""
+    """SME 对实体合并候选对的决策。
+
+    M22 #9 修 codex HIGH #3: D12 闭环硬化, 必须绑定 governance queue item +
+    SME 认领校验 + type_id 服务端复核, 不允许裸写决策日志。
+    """
     project_id: str
-    candidate_id: str = ""  # entity_a_id::entity_b_id 形式; 也可为 governance queue item_id
-    entity_a_id: str
-    entity_b_id: str
-    decision: str  # approve / reject
-    actor: str = "admin"
+    queue_item_id: str = Field(
+        ..., min_length=1,
+        description="必填: 4×6 矩阵 governance queue item id, 候选对必须先入队让 SME 认领",
+    )
+    entity_a_id: str = Field(..., min_length=1)
+    entity_b_id: str = Field(..., min_length=1)
+    # M22 #9: 服务端复核两侧 type_id 必须一致（防绕过 entity_resolver 的"不同 type 不合并"约束）
+    entity_a_type_id: str = Field(..., min_length=1)
+    entity_b_type_id: str = Field(..., min_length=1)
+    decision: str = Field(..., description="approve / reject")
+    actor: str = Field(..., min_length=1, description="SME user_id, 必须与 queue item.claimed_by 一致")
     note: str = ""
 
 
@@ -263,21 +273,35 @@ class EntityMergeDecisionResponse(BaseModel):
     target_id: str
     project_id: str
     actor: str
+    queue_item_id: str
+    queue_resolved: bool = False  # 决策同时把工单 resolve
 
 
 @router.post("/entity-merge-decision", response_model=EntityMergeDecisionResponse)
-async def entity_merge_decision(body: EntityMergeDecisionBody) -> EntityMergeDecisionResponse:
-    """M22 #5 · SME 对实体合并候选对的最终仲裁。
+async def entity_merge_decision(
+    body: EntityMergeDecisionBody,
+    store: GovernanceQueueStore = Depends(get_governance_queue_store),
+) -> EntityMergeDecisionResponse:
+    """M22 #5+#9 · SME 对实体合并候选对的最终仲裁（D12 闭环硬校验版）。
 
-    工作流:
-      1. extraction.entity_resolver.find_merge_candidates 产出 MergeCandidate 列表
-      2. caller 把候选对入 4×6 矩阵审核台（W6 / SME 队列）
-      3. SME 经 UI 审核, 点 "同意合并" 或 "拒绝合并", 前端调本端点
-      4. 本端点写决策日志（entity_merge_approved / entity_merge_rejected）
-      5. 实际图谱合并由后置任务读决策日志执行（M22 #5 lite 不动图）
+    工作流（决策书 D12 人工兜底）:
+      1. entity_resolver.find_merge_candidates 产出 MergeCandidate 列表
+      2. caller 把候选对入 4×6 矩阵审核台（W6 / SME 队列）→ 产生 queue_item_id
+      3. SME 经 /governance/queue/{id}/claim 认领工单
+      4. SME 经 UI 审核, 点 "同意合并" / "拒绝合并", 前端调本端点
+      5. 本端点 5 层强校验后才写决策日志（entity_merge_approved/rejected）
+      6. 实际图谱合并由后置任务消费**已校验过**的决策日志执行
+
+    5 层强校验（M22 #9 加固, 绕过任一层都会 4xx）:
+      L1 decision ∈ {approve, reject}
+      L2 queue item 存在 + project_id 匹配
+      L3 工单 assigned_role == SME（不允许其他角色仲裁）
+      L4 工单 claimed_by == actor（认领人才能 decide, 防越权）
+      L5 entity_a_type_id == entity_b_type_id（防绕过 resolver "不同 type 不合并"）
     """
     from packages.observability.decision_log import arecord_decision
 
+    # L1: decision 取值
     decision = (body.decision or "").lower()
     if decision not in ("approve", "reject"):
         raise HTTPException(
@@ -285,13 +309,69 @@ async def entity_merge_decision(body: EntityMergeDecisionBody) -> EntityMergeDec
             detail="decision 必须为 approve 或 reject",
         )
 
+    # L5 先做（不依赖外部存储, 失败立刻拒）: type_id 一致
+    if body.entity_a_type_id != body.entity_b_type_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"entity_a/b type_id 不一致 ({body.entity_a_type_id} vs "
+                   f"{body.entity_b_type_id}), 违反 resolver '不同 type 不合并' 约束",
+        )
+
+    # L2: queue item 存在
+    item = await store.get(body.queue_item_id)
+    if item is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"queue item {body.queue_item_id} 不存在; "
+                   f"实体合并候选对必须先入 4×6 矩阵审核台",
+        )
+    if item.project_id != body.project_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"queue item.project_id={item.project_id} 与 body.project_id="
+                   f"{body.project_id} 不匹配",
+        )
+
+    # L3: assigned_role == SME
+    if item.assigned_role != "SME":
+        raise HTTPException(
+            status_code=403,
+            detail=f"工单 assigned_role={item.assigned_role}, 实体合并仲裁仅限 SME 角色",
+        )
+
+    # L4: claimer 一致
+    if not item.claimed_by:
+        raise HTTPException(
+            status_code=409,
+            detail="工单未被认领, 请先 /governance/queue/{id}/claim 认领后再仲裁",
+        )
+    if item.claimed_by != body.actor:
+        raise HTTPException(
+            status_code=403,
+            detail=f"工单认领人={item.claimed_by} 与 actor={body.actor} 不一致, "
+                   f"仅认领人可仲裁",
+        )
+
+    # 工单已 resolved 则拒绝（防重放）
+    if item.status not in ("pending", "reviewing", "claimed"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"工单 status={item.status} 已终态, 不允许重复仲裁",
+        )
+
+    # 全部校验过 → 写决策日志
     decision_type = (
         "entity_merge_approved" if decision == "approve"
         else "entity_merge_rejected"
     )
-    target_id = body.candidate_id or f"{body.entity_a_id}::{body.entity_b_id}"
+    target_id = f"{body.entity_a_id}::{body.entity_b_id}"
 
-    note_parts = [f"a={body.entity_a_id}", f"b={body.entity_b_id}"]
+    note_parts = [
+        f"queue={body.queue_item_id}",
+        f"a={body.entity_a_id}",
+        f"b={body.entity_b_id}",
+        f"type={body.entity_a_type_id}",
+    ]
     if body.note:
         note_parts.append(body.note[:200])
     note = " | ".join(note_parts)
@@ -304,12 +384,27 @@ async def entity_merge_decision(body: EntityMergeDecisionBody) -> EntityMergeDec
         note=note,
     )
 
+    # 同步把工单标 resolve
+    queue_resolved = False
+    try:
+        await store.decide(
+            body.queue_item_id,
+            "approve" if decision == "approve" else "reject",
+            body.actor,
+        )
+        queue_resolved = True
+    except Exception as e:
+        log.warning("entity_merge_queue_resolve_failed",
+                    item_id=body.queue_item_id, error=str(e))
+
     log.info(
         "entity_merge_decision_recorded",
         project=body.project_id,
         decision=decision_type,
         target=target_id,
         actor=body.actor,
+        queue_item=body.queue_item_id,
+        queue_resolved=queue_resolved,
     )
 
     return EntityMergeDecisionResponse(
@@ -318,4 +413,6 @@ async def entity_merge_decision(body: EntityMergeDecisionBody) -> EntityMergeDec
         target_id=target_id,
         project_id=body.project_id,
         actor=event.actor,
+        queue_item_id=body.queue_item_id,
+        queue_resolved=queue_resolved,
     )
