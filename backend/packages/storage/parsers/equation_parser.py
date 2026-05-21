@@ -16,6 +16,11 @@ def _make_chunk_id(doc_id: str, idx: int) -> str:
     return f"{doc_id}_eq{idx:04d}"
 
 
+# M22 #9 codex LOW: 长度上限防 prompt injection / 异常公式撑爆 chunk
+MAX_LATEX_CHARS = 2000
+MAX_SURROUNDING_CHARS = 1000
+
+
 def chunk_equation(
     eq: EquationBlock,
     doc_id: str,
@@ -27,17 +32,28 @@ def chunk_equation(
     org_id: str = "default",
     domain_id: str = "",
 ) -> list[KnowledgeChunk]:
-    """把 EquationBlock 切成单个 KnowledgeChunk（无公式则返回空）。"""
+    """把 EquationBlock 切成单个 KnowledgeChunk（无公式则返回空）。
+
+    M22 #9 codex LOW: latex / surrounding_text 加长度上限, 防异常公式撑爆。
+    """
     if not eq.latex or not eq.latex.strip():
         return []
 
+    # 截断防爆
+    latex = eq.latex[:MAX_LATEX_CHARS]
+    if len(eq.latex) > MAX_LATEX_CHARS:
+        latex += " …(截断)"
+    surrounding = (eq.surrounding_text or "")[:MAX_SURROUNDING_CHARS]
+    if len(eq.surrounding_text or "") > MAX_SURROUNDING_CHARS:
+        surrounding += " …(截断)"
+
     lines = []
-    if eq.surrounding_text:
-        lines.append(eq.surrounding_text.strip())
+    if surrounding:
+        lines.append(surrounding.strip())
 
     fence = "$" if eq.inline else "$$"
     lines.append(f"[公式{'·内联' if eq.inline else ''}]")
-    lines.append(f"{fence}{eq.latex}{fence}")
+    lines.append(f"{fence}{latex}{fence}")
     if eq.page:
         lines.append(f"页 {eq.page}")
 

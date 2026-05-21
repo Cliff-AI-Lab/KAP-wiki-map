@@ -38,10 +38,18 @@ class TestTableParser:
         assert "风电场设备清单" in c0.content
         assert "页 3" in c0.content
 
-    def test_skip_empty_rows_handled(self):
+    def test_skip_empty_rows_default_skips_them(self):
+        """M22 #10 codex LOW: 默认跳过全空数据行, 避免污染向量索引。"""
         table = TableBlock(rows=[["A", "B"], ["", ""], ["1", "2"]], caption="t")
         chunks = chunk_table(table, doc_id="d1")
-        # 全空数据行不会被过滤（保留空 chunk 是 caller 决策），但应至少有 2 个
+        # 全空行被默认跳过 → 只剩 1 个数据行 chunk
+        assert len(chunks) == 1
+        assert "A=1" in chunks[0].content
+
+    def test_skip_empty_rows_can_be_disabled(self):
+        """M22 #10: skip_empty_rows=False 保留全空行 (M22 #9 之前的行为)。"""
+        table = TableBlock(rows=[["A", "B"], ["", ""], ["1", "2"]], caption="t")
+        chunks = chunk_table(table, doc_id="d1", skip_empty_rows=False)
         assert len(chunks) == 2
 
     def test_large_table_rolling_window(self):

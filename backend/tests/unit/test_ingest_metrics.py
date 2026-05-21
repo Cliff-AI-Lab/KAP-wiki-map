@@ -59,13 +59,14 @@ class TestStageTimer:
     async def test_records_each_stage(self):
         timer = StageTimer()
         async with timer("parse"):
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.02)
         async with timer("embed"):
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.02)
 
         d = timer.as_dict()
-        assert d["parse_ms"] >= 9  # 允许 1ms 抖动
-        assert d["embed_ms"] >= 9
+        # Windows time.perf_counter 精度抖动较大, 留 5ms 余量
+        assert d["parse_ms"] >= 15
+        assert d["embed_ms"] >= 15
         assert d["chunk_ms"] == 0  # 没计的阶段保持 0
 
     async def test_as_dict_field_names_match_metric(self):

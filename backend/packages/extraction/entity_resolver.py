@@ -65,6 +65,7 @@ def _normalized_edit_distance(s1: str, s2: str) -> float:
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
+    """余弦相似度 clamp 到 [0, 1]（M22 #9 codex LOW: 数学上可 -1~1, 但语义对齐场景按非负处理）。"""
     if not a or not b or len(a) != len(b):
         return 0.0
     dot = sum(x * y for x, y in zip(a, b))
@@ -72,7 +73,8 @@ def _cosine(a: list[float], b: list[float]) -> float:
     nb = math.sqrt(sum(x * x for x in b))
     if na == 0 or nb == 0:
         return 0.0
-    return dot / (na * nb)
+    raw = dot / (na * nb)
+    return max(0.0, min(1.0, raw))
 
 
 def find_merge_candidates(
@@ -81,6 +83,7 @@ def find_merge_candidates(
     string_threshold: float = 0.85,
     vector_threshold: float = 0.92,
     l1_type_ids: set[str] | None = None,
+    max_candidates: int = 1000,
 ) -> list[MergeCandidate]:
     """扫描实体列表找合并候选对。
 
@@ -91,58 +94,69 @@ def find_merge_candidates(
         vector_threshold: 向量相似度阈值, 与字符串"或"关系（任一满足即候选）
         l1_type_ids: L1 行业本体实体类型集合; L1 类型的实体不参与合并候选
             （行业本体不可漂移）
+        max_candidates: M22 #9 codex MED: 输出候选上限, 防大集合 O(n²) 失控
 
     Returns:
         MergeCandidate 列表, 按 score 降序
     """
+    # M22 #9 codex MED: 阈值 clamp 到 [0, 1], 防 caller 传负数得到全候选
+    string_threshold = max(0.0, min(1.0, string_threshold))
+    vector_threshold = max(0.0, min(1.0, vector_threshold))
+
     l1_set = l1_type_ids or set()
     candidates: list[MergeCandidate] = []
 
-    n = len(entities)
-    for i in range(n):
-        a = entities[i]
-        if a.type_id in l1_set:
+    # M22 #9 codex MED: 按 type_id 分桶, 同 type 内才两两比较 (blocking 优化)
+    buckets: dict[str, list[ExtractedEntity]] = {}
+    for e in entities:
+        if e.type_id in l1_set:
             continue
-        for j in range(i + 1, n):
-            b = entities[j]
-            # 类型必须一致, 且非 L1
-            if a.type_id != b.type_id or b.type_id in l1_set:
-                continue
-            if a.entity_id == b.entity_id:
-                continue
+        buckets.setdefault(e.type_id, []).append(e)
 
-            str_sim = _normalized_edit_distance(a.name, b.name)
-            vec_sim: float | None = None
-            if embeddings:
-                ea = embeddings.get(a.entity_id)
-                eb = embeddings.get(b.entity_id)
-                if ea and eb:
-                    vec_sim = _cosine(ea, eb)
+    for type_id, bucket in buckets.items():
+        n = len(bucket)
+        for i in range(n):
+            a = bucket[i]
+            for j in range(i + 1, n):
+                b = bucket[j]
+                if a.entity_id == b.entity_id:
+                    continue
 
-            # 候选条件: 字符串或向量任一过阈
-            hit_str = str_sim >= string_threshold
-            hit_vec = vec_sim is not None and vec_sim >= vector_threshold
-            if not (hit_str or hit_vec):
-                continue
+                str_sim = _normalized_edit_distance(a.name, b.name)
+                vec_sim: float | None = None
+                if embeddings:
+                    ea = embeddings.get(a.entity_id)
+                    eb = embeddings.get(b.entity_id)
+                    if ea and eb:
+                        vec_sim = _cosine(ea, eb)
 
-            # score = 字符串和向量加权（向量优先, 字符串 fallback）
-            if vec_sim is not None:
-                score = 0.6 * vec_sim + 0.4 * str_sim
-            else:
-                score = str_sim
+                hit_str = str_sim >= string_threshold
+                hit_vec = vec_sim is not None and vec_sim >= vector_threshold
+                if not (hit_str or hit_vec):
+                    continue
 
-            candidates.append(MergeCandidate(
-                entity_a_id=a.entity_id, entity_b_id=b.entity_id,
-                entity_a_name=a.name, entity_b_name=b.name,
-                type_id=a.type_id,
-                string_similarity=str_sim,
-                vector_similarity=vec_sim,
-                score=score,
-            ))
+                if vec_sim is not None:
+                    score = 0.6 * vec_sim + 0.4 * str_sim
+                else:
+                    score = str_sim
+
+                candidates.append(MergeCandidate(
+                    entity_a_id=a.entity_id, entity_b_id=b.entity_id,
+                    entity_a_name=a.name, entity_b_name=b.name,
+                    type_id=type_id,
+                    string_similarity=str_sim,
+                    vector_similarity=vec_sim,
+                    score=score,
+                ))
 
     candidates.sort(key=lambda c: c.score, reverse=True)
+    # 限制输出规模
+    if len(candidates) > max_candidates:
+        candidates = candidates[:max_candidates]
+
     log.info("entity_resolver_done",
-             total_entities=len(entities), candidates=len(candidates))
+             total_entities=len(entities), candidates=len(candidates),
+             buckets=len(buckets))
     return candidates
 
 

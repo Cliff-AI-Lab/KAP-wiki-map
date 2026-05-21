@@ -346,6 +346,7 @@ def build_context_window(
     target_chunk_id: str,
     window_size: int | None = None,
     max_chars: int = 1500,
+    presorted: bool = False,
 ) -> str:
     """构造目标 chunk 的"上下文窗口" — 前后各 N 个 chunk 的内容拼接。
 
@@ -356,18 +357,20 @@ def build_context_window(
         chunks: 同文档所有 chunks（已按 chunk_index 排序）
         target_chunk_id: 目标 chunk 的 chunk_id
         window_size: 前后各取 N 个 chunk; None 时读 settings.context_window_size
-        max_chars: 上下文总字符上限, 超长截断（防 prompt 爆掉）
+        max_chars: 上下文总字符上限, 超长截断（防 prompt 爆掉）。
+            M22 #9 codex LOW: <=0 时返回空串, 不做奇怪截断
+        presorted: M22 #9 codex MED: True 时 caller 保证 chunks 已按 chunk_index 排序,
+            跳过 sort, 适合 W4 批量调用同文档 N 次时复用排序结果
 
     Returns:
         拼好的上下文文本; 找不到目标 chunk 或 window_size=0 时返回空串
     """
     if window_size is None:
         window_size = settings.context_window_size
-    if window_size <= 0:
+    if window_size <= 0 or max_chars <= 0:
         return ""
 
-    # 找目标 chunk 在列表中的位置（按 chunk_index 而非 chunk_id 排序后查 id）
-    sorted_chunks = sorted(chunks, key=lambda c: c.chunk_index)
+    sorted_chunks = chunks if presorted else sorted(chunks, key=lambda c: c.chunk_index)
     target_idx = next(
         (i for i, c in enumerate(sorted_chunks) if c.chunk_id == target_chunk_id),
         -1,

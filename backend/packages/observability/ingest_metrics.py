@@ -15,7 +15,10 @@ import asyncio
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Awaitable, Callable, Literal
+from typing import TYPE_CHECKING, Awaitable, Callable, Literal
+
+if TYPE_CHECKING:
+    import asyncio as _asyncio  # noqa: F401
 
 from pydantic import BaseModel, Field
 
@@ -78,11 +81,24 @@ def set_ingest_metrics_pg_sink(
 
 
 def _fire_and_forget(coro_factory) -> None:
+    """M22 #9 codex MED: 给 task 加 done callback 记录异常, 不静默吞观测数据丢失。"""
     try:
         loop = asyncio.get_running_loop()
-        loop.create_task(coro_factory())
+        task = loop.create_task(coro_factory())
+        task.add_done_callback(_log_task_error)
     except RuntimeError:
         pass
+
+
+def _log_task_error(task: "asyncio.Task") -> None:
+    try:
+        exc = task.exception()
+    except asyncio.CancelledError:
+        return
+    except Exception:
+        return
+    if exc is not None:
+        log.warning("ingest_metric_pg_sink_failed", error=str(exc))
 
 
 def record_ingest_metric(metric: IngestMetric) -> IngestMetric:
@@ -166,6 +182,12 @@ def compute_ingest_trend(
         [{bucket_start, total, success, failed, avg_total_ms,
           p95_total_ms, error_kinds: {kind: count}}, ...]
     """
+    # M22 #9 codex LOW: 函数层防 bucket_hours <= 0 (即使路由 Query 限制了, 内部直调也安全)
+    if bucket_hours <= 0:
+        bucket_hours = 1
+    if limit <= 0:
+        return []
+
     pool = [m for m in _metrics
             if not project_id or m.project_id == project_id]
     if not pool:

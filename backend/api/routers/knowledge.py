@@ -1636,9 +1636,13 @@ async def ingest_structured_chunks(
             chunk.embedding = emb
         await vec.insert_chunks(chunks)
     except Exception as e:
+        # M22 #9 codex MED: 不把底层异常细节进响应 detail, 防泄露向量库/LLM 网关错误
         log.warning("structured_chunks_vector_failed",
                     doc_id=payload.doc_id, error=str(e))
-        raise HTTPException(status_code=502, detail=f"向量化或入库失败: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="向量化或入库失败, 详见服务端日志 (doc_id, structured_chunks_vector_failed)",
+        )
 
     # 4. 拼合 chunks → RawDocument 存 raw_store
     raw_store = get_raw_store()
