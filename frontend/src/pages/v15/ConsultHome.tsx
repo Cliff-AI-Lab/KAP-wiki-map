@@ -56,6 +56,9 @@ export default function ConsultHome() {
 
   const [stage, setStage] = useState<StageId>('W1');
   const [sessionId, setSessionId] = useState<string | null>(null);
+  // M22 #13: actualProjectId 是后端 ensure-by-industry 返回的真实 proj_xxx,
+  // 而非 industry code 直接作 project_id (旧 M22 #11 导致 DomainStore 空树问题)
+  const [actualProjectId, setActualProjectId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([
     { id: shortId(), role: 'system', content: t('consult.greeting'), ts: new Date() },
   ]);
@@ -74,6 +77,30 @@ export default function ConsultHome() {
     }
   }, [messages, sending]);
 
+  // M22 #13: industry 切换 → ensure 真实项目 + 自动 seed L1 domains
+  useEffect(() => {
+    if (!industry) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(
+          `${API_BASE}/api/v1/projects/ensure-by-industry?industry_code=${encodeURIComponent(industry)}`,
+          { method: 'POST' },
+        );
+        if (!r.ok) throw new Error(`ensure project failed: ${r.status}`);
+        const d = await r.json();
+        if (!cancelled && d.id) {
+          setActualProjectId(d.id);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(`项目初始化失败: ${(e as Error).message}`);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [industry]);
+
   // 未选行业 → 显示行业选择（hooks 全部 declared 后再 return）
   if (!industry) {
     return (
@@ -91,7 +118,7 @@ export default function ConsultHome() {
   const ensureSession = async () => {
     if (sessionId) return sessionId;
     // 行业 code 用作 project_id（后端会按 industry 加载 L1 模板）
-    const projectId = industry || 'default';
+    const projectId = actualProjectId || industry || 'default';
     const r = await fetch(`${API_BASE}/api/v1/architect/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -359,7 +386,7 @@ export default function ConsultHome() {
               </div>
             )}
             <ReviewStep
-              projectId={industry || 'default'}
+              projectId={actualProjectId || industry || 'default'}
               embedded
               onComplete={() => setStage('W4')}
             />
@@ -368,7 +395,7 @@ export default function ConsultHome() {
         {stage === 'W4' && (
           <KapCard eyebrow={`▶ ${t('consult.w4.label')}`} frost>
             <TaxonomyStep
-              projectId={industry || 'default'}
+              projectId={actualProjectId || industry || 'default'}
               embedded
               onComplete={() => setStage('W5')}
             />
@@ -377,7 +404,7 @@ export default function ConsultHome() {
         {stage === 'W5' && (
           <KapCard eyebrow={`▶ ${t('consult.w5.label')}`} frost>
             <CompiledStep
-              projectId={industry || 'default'}
+              projectId={actualProjectId || industry || 'default'}
               embedded
               onComplete={() => {
                 // 流程完成 → 推送到知识中心 (路由)
@@ -493,7 +520,7 @@ export default function ConsultHome() {
           {/* 上传卡 — W1/W2 阶段才显示 (W3 起中央区是真功能页, 不再需上传入口) */}
           {(stage === 'W1' || stage === 'W2') && (
             <ConsultUploader
-              projectId={industry || 'default'}
+              projectId={actualProjectId || industry || 'default'}
               onUploaded={async (r, files) => {
                 // M22 #11+#12: 上传完通知 LLM (含 per-doc 识别结果) 然后推 W3
                 if (r.documents) setRecentDocs(r.documents);

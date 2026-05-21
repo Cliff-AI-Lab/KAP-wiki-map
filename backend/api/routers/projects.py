@@ -39,6 +39,77 @@ async def get_industry_template(code: str):
 # ── 项目 CRUD ───────────────────────────────────────────
 
 
+# ── M22 #13 · 咨询中心专用：按行业幂等创建/复用项目 ──
+
+
+@router.post("/ensure-by-industry", response_model=ProjectSummary)
+async def ensure_project_by_industry(
+    industry_code: str,
+    name: str = "",
+):
+    """M22 #13 · 咨询中心用: 以行业 code 幂等 ensure 一个项目。
+
+    工作流:
+    1. list_projects 找 industry_code 匹配且 name 匹配的项目
+    2. 找到 → 直接返回 (复用)
+    3. 没找到 → 调 create_project 自动: 快照模板 + 写入 KnowledgeDomain
+    4. 返回 ProjectSummary, project_id 是真实 proj_xxx 格式
+
+    这是 ConsultHome industry 切换时 ensureSession 之前的前置调用,
+    解决之前用 industry='manufacturing' 直接作 project_id 导致 DomainStore
+    没数据的问题。
+    """
+    template = get_template(industry_code)
+    if not template:
+        raise HTTPException(
+            status_code=400,
+            detail=f"行业 '{industry_code}' 不存在 (可选: manufacturing / energy / it 等)",
+        )
+
+    default_name = name or f"{template.name}知识库"
+
+    project_store = get_project_store()
+    domain_store = get_domain_store()
+    metadata_store = get_metadata_store()
+
+    # 1. 找已有项目（industry_code + name 都匹配视为同一逻辑项目）
+    existing = project_store.list_projects()
+    for p in existing:
+        if (p.get("industry_code") == industry_code
+                and p.get("name") == default_name):
+            pid = p["id"]
+            domains = domain_store.list_domains(project_id=pid)
+            docs = await metadata_store.list_documents(org_id=pid)
+            doc_count = len(docs) if isinstance(docs, list) else docs.get("total", 0)
+            return ProjectSummary(
+                id=pid, name=p["name"], industry_code=industry_code,
+                industry_name=template.name,
+                description=p.get("description", ""),
+                status=p.get("status", "ACTIVE"),
+                doc_count=doc_count, domain_count=len(domains),
+                created_at=p.get("created_at"),
+            )
+
+    # 2. 没找到 → 创建
+    snapshot = template.model_dump()["taxonomy"]
+    proj = await project_store.create_project(
+        name=default_name, industry_code=industry_code,
+        description=f"{template.name}行业知识体系 (自动 ensure)",
+        taxonomy_snapshot=snapshot,
+    )
+    domains = template_to_domains(template, proj["id"])
+    for d in domains:
+        await domain_store.upsert_domain(d, project_id=proj["id"])
+
+    return ProjectSummary(
+        id=proj["id"], name=proj["name"],
+        industry_code=proj["industry_code"], industry_name=template.name,
+        description=proj["description"], status=proj["status"],
+        doc_count=0, domain_count=len(domains),
+        created_at=proj["created_at"],
+    )
+
+
 @router.post("", response_model=ProjectSummary, status_code=201)
 async def create_project(body: ProjectCreate):
     """创建项目：选择行业 → 快照模板 → 自动填充知识域。"""
