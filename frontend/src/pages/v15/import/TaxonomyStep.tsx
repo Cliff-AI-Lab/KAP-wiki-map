@@ -4,6 +4,8 @@
  * 展示项目的四级知识体系树:
  *   根 → 一级域 → 二级域 → 叶子域
  * 每个域显示 doc_count, 点击高亮.
+ *
+ * M22 #11: 加 embedded 模式 — 在 ConsultHome 中央区可嵌入.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +14,12 @@ import {
 } from 'lucide-react';
 import { useActiveProject } from '@/hooks/useActiveProject';
 import { fetchDomains, type DomainInfo } from '@/services/api';
+
+export interface TaxonomyStepProps {
+  projectId?: string;
+  embedded?: boolean;
+  onComplete?: () => void;
+}
 
 interface TreeNode extends DomainInfo {
   children: TreeNode[];
@@ -43,8 +51,10 @@ function buildTree(domains: DomainInfo[]): TreeNode[] {
   return roots;
 }
 
-export default function TaxonomyStep() {
-  const { projectId } = useActiveProject();
+export default function TaxonomyStep(props: TaxonomyStepProps = {}) {
+  const { projectId: overrideProjectId, embedded = false, onComplete } = props;
+  const { projectId: ctxProjectId } = useActiveProject();
+  const projectId = overrideProjectId ?? ctxProjectId;
   const navigate = useNavigate();
   const [domains, setDomains] = useState<DomainInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -97,14 +107,16 @@ export default function TaxonomyStep() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className={embedded ? 'space-y-4' : 'space-y-6'}>
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="v15-display text-xl text-th-text-primary">第 3 步 · 知识体系</h2>
-          <p className="text-xs text-th-text-muted mt-1">
-            Schema 四级分类 · LLM 自动归类 + 可人工编辑 · 这里是项目模板的实例
-          </p>
-        </div>
+        {!embedded && (
+          <div>
+            <h2 className="v15-display text-xl text-th-text-primary">第 3 步 · 知识体系</h2>
+            <p className="text-xs text-th-text-muted mt-1">
+              Schema 四级分类 · LLM 自动归类 + 可人工编辑 · 这里是项目模板的实例
+            </p>
+          </div>
+        )}
         <button
           onClick={reload}
           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-btn border border-th-border text-[11px] v15-mono text-th-text-muted hover:text-th-text-primary"
@@ -150,10 +162,16 @@ export default function TaxonomyStep() {
 
       <div className="text-right">
         <button
-          onClick={() => navigate('/v15/manage/import/compiled')}
+          onClick={() => {
+            if (embedded) onComplete?.();
+            else navigate('/v15/manage/import/compiled');
+          }}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn bg-accent text-[color:var(--color-bg-base)] text-xs font-medium hover:brightness-95"
         >
-          进入第 4 步 · 编译完成 <ArrowRight size={12} />
+          {embedded
+            ? '确认体系 · 推进 W5 Wiki 编织'
+            : '进入第 4 步 · 编译完成'}
+          <ArrowRight size={12} />
         </button>
       </div>
     </div>

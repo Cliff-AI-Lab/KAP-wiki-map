@@ -18,6 +18,10 @@ import ConsultUploader from '@/components/v15/ConsultUploader';
 import IndustryPicker, {
   loadSavedIndustry, clearSavedIndustry,
 } from '@/components/v15/IndustryPicker';
+// M22 #11 · 中央区 W3/W4/W5 嵌入既有 step 组件（顶层路由 /import/* 保留兼容）
+import ReviewStep from '@/pages/v15/import/ReviewStep';
+import TaxonomyStep from '@/pages/v15/import/TaxonomyStep';
+import CompiledStep from '@/pages/v15/import/CompiledStep';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
@@ -130,6 +134,47 @@ export default function ConsultHome() {
     }
   };
 
+  /**
+   * M22 #11 · 上传完后给 architect session 注入"已上传 X 个文件: ..."的 user message,
+   * 让 LLM 接住产 W3 提议。如 session 还没创建则先 ensureSession。
+   * 失败不阻塞 UI 流程（只 console + setError），W3 仍会切到。
+   */
+  const sendUploadNotification = async (fileNames: string[], totalFiles: number) => {
+    try {
+      const preview = fileNames.slice(0, 5).join(', ');
+      const suffix = totalFiles > 5 ? `, ...等 ${totalFiles} 个` : '';
+      const content = `我已上传 ${totalFiles} 个文件: ${preview}${suffix}`;
+
+      // 1. 本地显示这条 user message
+      setMessages(m => [...m, {
+        id: shortId(), role: 'user', content, ts: new Date(),
+      }]);
+
+      // 2. 发给 architect LLM
+      const sid = await ensureSession();
+      const r = await fetch(
+        `${API_BASE}/api/v1/architect/sessions/${encodeURIComponent(sid)}/message`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content }),
+        },
+      );
+      if (!r.ok) throw new Error(`upload notification failed: ${r.status}`);
+      const d = await r.json();
+      const reply = d.assistant || d.assistant_message || d.content || '';
+      if (reply) {
+        setMessages(m => [...m, {
+          id: shortId(), role: 'assistant', content: reply, ts: new Date(),
+        }]);
+      }
+      if (typeof d.stage === 'string') setStage(mapArchitectStage(d.stage));
+    } catch (e) {
+      // 不阻塞 UI 流程: 仅显示错误, W3 切换仍执行
+      setError(`上传通知 LLM 失败: ${(e as Error).message}`);
+    }
+  };
+
   const downloadDraft = async () => {
     if (!sessionId) return;
     try {
@@ -222,9 +267,40 @@ export default function ConsultHome() {
         </div>
       )}
 
-      {/* 主区：左对话 (8) / 右进度 (4) */}
+      {/* 主区：左中央 (2fr) / 右侧栏 (1fr); M22 #11 中央区按 stage 切换 */}
       <div className="kap-grid-2" style={{ gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)' }}>
-        {/* 左：对话 */}
+        {/* 左中央：W1/W2 对话 | W3 去噪 | W4 体系 | W5 编织 */}
+        {stage === 'W3' && (
+          <KapCard eyebrow={`▶ ${t('consult.w3.label')}`} frost>
+            <ReviewStep
+              projectId={industry || 'default'}
+              embedded
+              onComplete={() => setStage('W4')}
+            />
+          </KapCard>
+        )}
+        {stage === 'W4' && (
+          <KapCard eyebrow={`▶ ${t('consult.w4.label')}`} frost>
+            <TaxonomyStep
+              projectId={industry || 'default'}
+              embedded
+              onComplete={() => setStage('W5')}
+            />
+          </KapCard>
+        )}
+        {stage === 'W5' && (
+          <KapCard eyebrow={`▶ ${t('consult.w5.label')}`} frost>
+            <CompiledStep
+              projectId={industry || 'default'}
+              embedded
+              onComplete={() => {
+                // 流程完成 → 推送到知识中心 (路由)
+                window.location.href = '/v15/manage';
+              }}
+            />
+          </KapCard>
+        )}
+        {(stage === 'W1' || stage === 'W2') && (
         <KapCard
           eyebrow={`▶ ${t('consult.terminal.label')}`}
           frost
@@ -296,8 +372,9 @@ export default function ConsultHome() {
             </div>
           </div>
         </KapCard>
+        )}
 
-        {/* 右：进度 + 蓝图 */}
+        {/* 右：进度 + 上传 (W1/W2) — Blueprint 旧卡 M22 #11 移除 (替换为中央真功能页) */}
         <div className="space-y-4">
           <KapCard eyebrow={`▶ ${t('kap.cardConsultProgress')}`}>
             <div className="space-y-2.5">
@@ -327,75 +404,37 @@ export default function ConsultHome() {
             </div>
           </KapCard>
 
-          <ConsultUploader
-            projectId="default"
-            onUploaded={(_r) => {
-              // 上传后推进 stage 到 W3 (去噪审核)
-              setStage('W3');
-            }}
-          />
+          {/* 上传卡 — W1/W2 阶段才显示 (W3 起中央区是真功能页, 不再需上传入口) */}
+          {(stage === 'W1' || stage === 'W2') && (
+            <ConsultUploader
+              projectId={industry || 'default'}
+              onUploaded={async (_r, files) => {
+                // M22 #11: 上传完后通知 LLM (本地显示 user message + 调 send) 然后推 W3
+                const names = files.map(f => f.name);
+                await sendUploadNotification(names, files.length);
+                setStage('W3');
+              }}
+            />
+          )}
 
+          {/* 当前 stage badge + 提示 — 替代旧 Blueprint 占位卡 */}
           <KapCard
             eyebrow={`▶ ${t('consult.blueprint.label')}`}
             rightSlot={
               <span className="kap-badge kap-badge-warning">{stage}</span>
             }
           >
-            <div
-              style={{
-                background: 'hsl(var(--muted) / 0.4)',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: 'calc(var(--radius) - 4px)',
-                padding: '1rem',
-                minHeight: 160,
-              }}
-            >
-              <div
-                className="kap-mono-tag mb-3"
-                style={{ color: 'hsl(var(--primary))' }}
-              >
-                ◇ {t(`consult.${stage.toLowerCase()}.bp.title` as 'consult.w1.bp.title')}
-              </div>
-              <BlueprintRows stage={stage} t={t} />
+            <div className="text-xs" style={{ color: 'var(--kap-snow-4)', lineHeight: 1.6 }}>
+              {stage === 'W1' && '选择行业 + AI 对话识别企业知识体系入口'}
+              {stage === 'W2' && '上传企业资料 (PDF/Word/Excel/Markdown), 触发 W3 去噪审核'}
+              {stage === 'W3' && '中央区显示文档去噪审核队列, LLM 已打分待人工复核异议项'}
+              {stage === 'W4' && '中央区显示四级知识体系树 (L1 行业 + L2 企业), 可调整后确认推进'}
+              {stage === 'W5' && 'Wiki 三层 (index/domain/source) 编织 + 图谱/向量库完成度报告'}
             </div>
           </KapCard>
         </div>
       </div>
     </CenterShell>
-  );
-}
-
-
-function BlueprintRows({ stage, t }: { stage: StageId; t: (k: string) => string }) {
-  const rows: [string, string][] = stage === 'W1' ? [
-    [t('consult.w1.bp.r1'), '—'], [t('consult.w1.bp.r2'), '—'], [t('consult.w1.bp.r3'), '—'],
-  ] : stage === 'W2' ? [
-    [t('consult.w2.bp.r1'), '0'], [t('consult.w2.bp.r2'), '0'], [t('consult.w2.bp.r3'), '0%'],
-  ] : stage === 'W3' ? [
-    [t('consult.w3.bp.r1'), '0'], [t('consult.w3.bp.r2'), '0'], [t('consult.w3.bp.r3'), '0'], [t('consult.w3.bp.r4'), '0'],
-  ] : stage === 'W4' ? [
-    [t('consult.w4.bp.r1'), '0'], [t('consult.w4.bp.r2'), '0'], [t('consult.w4.bp.r3'), 'L1+L2'],
-  ] : [
-    [t('consult.w5.bp.r1'), '0'], [t('consult.w5.bp.r2'), '0'], [t('consult.w5.bp.r3'), 'index/domain/source'],
-  ];
-
-  return (
-    <div className="space-y-2">
-      {rows.map(([k, v]) => (
-        <div
-          key={k}
-          className="flex items-baseline justify-between gap-3 pb-1.5"
-          style={{
-            borderBottom: '1px dashed hsl(var(--border))',
-            fontFamily: 'var(--font-sans)',
-            fontSize: 12.5,
-          }}
-        >
-          <span style={{ color: 'hsl(var(--muted-foreground))' }}>{k}</span>
-          <span style={{ color: 'hsl(var(--foreground))', fontWeight: 500 }}>{v}</span>
-        </div>
-      ))}
-    </div>
   );
 }
 

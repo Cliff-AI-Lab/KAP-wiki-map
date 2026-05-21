@@ -8,6 +8,9 @@
  *   4. Wiki 编译 (三层)
  *   5. 知识图谱 (实体/关系/社区)
  *   6. 欠缺/告警
+ *
+ * M22 #11: 加 embedded 模式 — 嵌入 ConsultHome 时隐藏底部 Link/QuickLink 卡片,
+ * 提供 onComplete 回调让流程关闭.
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -23,8 +26,16 @@ import {
 
 interface GraphViewStats { node_count: number; edge_count: number; community_count: number; max_centrality: number }
 
-export default function CompiledStep() {
-  const { projectId } = useActiveProject();
+export interface CompiledStepProps {
+  projectId?: string;
+  embedded?: boolean;
+  onComplete?: () => void;
+}
+
+export default function CompiledStep(props: CompiledStepProps = {}) {
+  const { projectId: overrideProjectId, embedded = false, onComplete } = props;
+  const { projectId: ctxProjectId } = useActiveProject();
+  const projectId = overrideProjectId ?? ctxProjectId;
   const [stats, setStats] = useState<KnowledgeStats | null>(null);
   const [wiki, setWiki] = useState<WikiStats | null>(null);
   const [domains, setDomains] = useState<DomainsResponse | null>(null);
@@ -80,13 +91,15 @@ export default function CompiledStep() {
   const ready = totalDocs > 0 && wikiPublished > 0 && graphNodes > 0;
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="v15-display text-xl text-th-text-primary">第 4 步 · 端到端跑通报告</h2>
-        <p className="text-xs text-th-text-muted mt-1">
-          从导入 → 去噪 → 体系 → Wiki → 图谱 各阶段真实指标 · 欠缺项一目了然
-        </p>
-      </div>
+    <div className={embedded ? 'space-y-4' : 'space-y-5'}>
+      {!embedded && (
+        <div>
+          <h2 className="v15-display text-xl text-th-text-primary">第 4 步 · 端到端跑通报告</h2>
+          <p className="text-xs text-th-text-muted mt-1">
+            从导入 → 去噪 → 体系 → Wiki → 图谱 各阶段真实指标 · 欠缺项一目了然
+          </p>
+        </div>
+      )}
 
       {/* 总状态 */}
       <div className={`rounded-card p-3 flex items-center gap-3 ${
@@ -222,34 +235,50 @@ export default function CompiledStep() {
         </div>
       </div>
 
-      {/* 入口卡 */}
-      <div className="grid grid-cols-2 gap-4 pt-2">
-        <Link to="/v15/read" className="group rounded-card border border-accent/40 bg-accent/5 p-5 hover:bg-accent/10 transition">
-          <div className="text-[11px] v15-mono uppercase tracking-wider text-accent mb-1">消费模式 (业务员)</div>
-          <div className="flex items-center gap-2"><FolderOpen size={16} className="text-accent" />
-            <span className="text-base font-semibold text-th-text-primary">打开 Reader</span></div>
-          <p className="text-xs text-th-text-muted mt-2">搜索 · 热门 Wiki · 知识地图 · 跨页穿透</p>
-          <div className="mt-3 text-[11px] v15-mono text-accent flex items-center gap-1">
-            /v15/read <ArrowRight size={11} className="group-hover:translate-x-0.5 transition" />
-          </div>
-        </Link>
-        <Link to="/v15/manage" className="rounded-card border border-th-border bg-elevated p-5 hover:border-th-border-hover transition">
-          <div className="text-[11px] v15-mono uppercase tracking-wider text-th-text-muted mb-1">治理模式 (管理员)</div>
-          <div className="flex items-center gap-2"><Wrench size={16} className="text-th-text-secondary" />
-            <span className="text-base font-semibold text-th-text-primary">打开治理收件箱</span></div>
-          <p className="text-xs text-th-text-muted mt-2">5 Agent 工单 · Wiki 编辑 · 健康面板</p>
-          <div className="mt-3 text-[11px] v15-mono text-th-text-secondary flex items-center gap-1">
-            /v15/manage <ArrowRight size={11} />
-          </div>
-        </Link>
-      </div>
+      {/* 入口卡 — 顶层路由模式展示, 嵌入模式隐藏 (避免跳出 ConsultHome 流程) */}
+      {!embedded && (
+        <div className="grid grid-cols-2 gap-4 pt-2">
+          <Link to="/v15/read" className="group rounded-card border border-accent/40 bg-accent/5 p-5 hover:bg-accent/10 transition">
+            <div className="text-[11px] v15-mono uppercase tracking-wider text-accent mb-1">消费模式 (业务员)</div>
+            <div className="flex items-center gap-2"><FolderOpen size={16} className="text-accent" />
+              <span className="text-base font-semibold text-th-text-primary">打开 Reader</span></div>
+            <p className="text-xs text-th-text-muted mt-2">搜索 · 热门 Wiki · 知识地图 · 跨页穿透</p>
+            <div className="mt-3 text-[11px] v15-mono text-accent flex items-center gap-1">
+              /v15/read <ArrowRight size={11} className="group-hover:translate-x-0.5 transition" />
+            </div>
+          </Link>
+          <Link to="/v15/manage" className="rounded-card border border-th-border bg-elevated p-5 hover:border-th-border-hover transition">
+            <div className="text-[11px] v15-mono uppercase tracking-wider text-th-text-muted mb-1">治理模式 (管理员)</div>
+            <div className="flex items-center gap-2"><Wrench size={16} className="text-th-text-secondary" />
+              <span className="text-base font-semibold text-th-text-primary">打开治理收件箱</span></div>
+            <p className="text-xs text-th-text-muted mt-2">5 Agent 工单 · Wiki 编辑 · 健康面板</p>
+            <div className="mt-3 text-[11px] v15-mono text-th-text-secondary flex items-center gap-1">
+              /v15/manage <ArrowRight size={11} />
+            </div>
+          </Link>
+        </div>
+      )}
 
-      {/* 快捷链接 */}
-      <div className="grid grid-cols-3 gap-3">
-        <QuickLink to={`/v15/manage/graph`} icon={<Sparkles size={12} />} label="知识图谱" hint="9 个 community · 拖拽 / 全部 / 分块" />
-        <QuickLink to={`/v15/manage/import/taxonomy`} icon={<Network size={12} />} label="知识体系" hint={`${domainsWithDocs}/${domainsTotal} 域识别`} />
-        <QuickLink to={`/v15/manage/import/review`} icon={<Filter size={12} />} label="去噪审核" hint={`${pendingReview} 待审 · ${kept} 已留`} />
-      </div>
+      {/* 快捷链接 — 同上 */}
+      {!embedded && (
+        <div className="grid grid-cols-3 gap-3">
+          <QuickLink to={`/v15/manage/graph`} icon={<Sparkles size={12} />} label="知识图谱" hint="9 个 community · 拖拽 / 全部 / 分块" />
+          <QuickLink to={`/v15/manage/import/taxonomy`} icon={<Network size={12} />} label="知识体系" hint={`${domainsWithDocs}/${domainsTotal} 域识别`} />
+          <QuickLink to={`/v15/manage/import/review`} icon={<Filter size={12} />} label="去噪审核" hint={`${pendingReview} 待审 · ${kept} 已留`} />
+        </div>
+      )}
+
+      {/* M22 #11 嵌入模式: 完成按钮触发 onComplete (流程关闭) */}
+      {embedded && ready && (
+        <div className="text-right pt-2">
+          <button
+            onClick={() => onComplete?.()}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-btn bg-th-success text-[color:var(--color-bg-base)] text-xs font-medium hover:brightness-95"
+          >
+            <CheckCircle2 size={14} /> 完成 · 进入知识中心
+          </button>
+        </div>
+      )}
     </div>
   );
 }

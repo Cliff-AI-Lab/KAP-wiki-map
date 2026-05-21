@@ -3,6 +3,9 @@
  *
  * 显示 LLM 已打分的文档队列, 默认是 PENDING 中的人工复核项.
  * 三栏统计 (KEEP/ARCHIVE/DISCARD) + 列表 + 决策按钮.
+ *
+ * M22 #11: 加 embedded 模式 — 在 ConsultHome 中央区可嵌入. 顶层路由 /import/review
+ * 仍可访问 (embedded=false 默认).
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -17,8 +20,16 @@ import {
 
 type StatusFilter = 'PENDING' | 'RESOLVED' | 'ALL';
 
-export default function ReviewStep() {
-  const { projectId } = useActiveProject();
+export interface ReviewStepProps {
+  projectId?: string;       // 覆盖 useActiveProject() 默认值（嵌入时 ConsultHome 传 industry）
+  embedded?: boolean;       // 默认 false（顶层路由）; true 时隐藏顶部标题 + onComplete 替代 navigate
+  onComplete?: () => void;  // 完成回调（embedded 模式下点 CTA 触发, 顶层模式仍用 navigate）
+}
+
+export default function ReviewStep(props: ReviewStepProps = {}) {
+  const { projectId: overrideProjectId, embedded = false, onComplete } = props;
+  const { projectId: ctxProjectId } = useActiveProject();
+  const projectId = overrideProjectId ?? ctxProjectId;
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('PENDING');
   const [queue, setQueue] = useState<ReviewQueueItem[]>([]);
@@ -68,15 +79,17 @@ export default function ReviewStep() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className={embedded ? 'space-y-4' : 'space-y-6'}>
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="v15-display text-xl text-th-text-primary">第 2 步 · 去噪审核</h2>
-          <p className="text-xs text-th-text-muted mt-1">
-            LLM 已为每篇文档打 KEEP/ARCHIVE/DISCARD · 这里复核置信度低的或异议项
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+        {!embedded && (
+          <div>
+            <h2 className="v15-display text-xl text-th-text-primary">第 2 步 · 去噪审核</h2>
+            <p className="text-xs text-th-text-muted mt-1">
+              LLM 已为每篇文档打 KEEP/ARCHIVE/DISCARD · 这里复核置信度低的或异议项
+            </p>
+          </div>
+        )}
+        <div className={`flex items-center gap-2 ${embedded ? 'ml-auto' : ''}`}>
           <div className="inline-flex rounded-btn border border-th-border bg-elevated text-[11px] v15-mono">
             {(['PENDING','RESOLVED','ALL'] as StatusFilter[]).map((s) => (
               <button
@@ -177,13 +190,23 @@ export default function ReviewStep() {
         </div>
       </div>
 
-      {/* Next */}
+      {/* Next: embedded 时点 → onComplete; 顶层时 → navigate */}
       <div className="text-right">
         <button
-          onClick={() => navigate('/v15/manage/import/taxonomy')}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn bg-accent text-[color:var(--color-bg-base)] text-xs font-medium hover:brightness-95"
+          onClick={() => {
+            if (embedded) onComplete?.();
+            else navigate('/v15/manage/import/taxonomy');
+          }}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn text-xs font-medium hover:brightness-95 ${
+            queue.length === 0
+              ? 'bg-th-success text-[color:var(--color-bg-base)]'
+              : 'bg-accent text-[color:var(--color-bg-base)]'
+          }`}
         >
-          进入第 3 步 · 知识体系 <ArrowRight size={12} />
+          {queue.length === 0 && statusFilter === 'PENDING'
+            ? '全部已审 · 推进 W4 知识体系'
+            : '进入第 3 步 · 知识体系'}
+          <ArrowRight size={12} />
         </button>
       </div>
     </div>
