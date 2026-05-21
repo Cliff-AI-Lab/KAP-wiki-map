@@ -1076,20 +1076,51 @@ async def ingest_files(
         log.warning("ingest_wiki_compilation_failed", error=str(e), exc_info=True)
 
     # 构建每个文档的详细结果（前端可直接展示）
+    # M22 #12: 加 category_path + reasoning, 让用户看到 LLM 判定的"入库到哪个分支"+"为什么"
     doc_results = []
     for r in batch.results:
         doc = doc_map.get(r.doc_id)
+        # 复算 category_path（与上面 cataloger 用的同入参）
+        cat_path = ""
+        try:
+            cat_path = cataloger.generate_category_path(
+                key_topics=r.librarian_result.key_topics if r.librarian_result else [],
+                domain_id=r.refined_result.domain_id if r.refined_result else "",
+                doc_type=r.librarian_result.doc_type.value if r.librarian_result else "",
+            )
+        except Exception:
+            pass
+        # judge.reasoning 是 Judge 4 维评估 (时效/密度/完整性/冗余), 拼成可读 summary
+        reasoning_text = ""
+        if r.judge_result and r.judge_result.reasoning:
+            reas = r.judge_result.reasoning
+            parts = []
+            for label, attr in [
+                ("时效", "recency_analysis"),
+                ("密度", "density_analysis"),
+                ("完整性", "completeness_analysis"),
+                ("冗余", "redundancy_analysis"),
+            ]:
+                v = getattr(reas, attr, "") or ""
+                if v.strip():
+                    parts.append(f"{label}: {v[:80]}")
+            reasoning_text = " · ".join(parts)[:400]
+            # 额外补 decision_reason (规则命中)
+            if not reasoning_text and getattr(r.judge_result, "decision_reason", ""):
+                reasoning_text = r.judge_result.decision_reason[:400]
         doc_results.append({
             "doc_id": r.doc_id,
             "title": doc.title if doc else r.doc_id,
             "decision": r.decision.value if r.decision else "UNKNOWN",
             "domain_id": r.refined_result.domain_id if r.refined_result else "",
+            "category_path": cat_path,
             "summary": (r.refined_result.summary if r.refined_result else "")[:200],
             "doc_type": r.librarian_result.doc_type.value if r.librarian_result else "未知",
             "entity_count": len(r.refined_result.entities) if r.refined_result else 0,
             "keyword_count": len(r.refined_result.keywords) if r.refined_result else 0,
             "confidence": r.judge_result.confidence if r.judge_result else 0,
             "needs_review": r.needs_review,
+            "reasoning": reasoning_text,
         })
 
     return {

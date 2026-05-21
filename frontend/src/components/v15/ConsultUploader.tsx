@@ -250,6 +250,66 @@ export default function ConsultUploader({ projectId, onUploaded }: Props) {
           <ResultTile labelKey="consult.upload.discarded" value={result.distillation.discarded} tone="muted" />
         </div>
       )}
+
+      {/* M22 #12: per-doc LLM 识别 + 分类推荐详情 */}
+      {result?.documents && result.documents.length > 0 && (
+        <div className="mt-4 pt-3"
+             style={{ borderTop: '1px solid hsl(var(--border))' }}>
+          <div className="kap-mono-tag mb-2" style={{ color: 'hsl(var(--primary))' }}>
+            ◇ LLM 识别 + 入库分类推荐
+          </div>
+          <ul className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            {result.documents.map(d => {
+              const tone = d.decision === 'KEEP'    ? 'hsl(var(--success))'
+                         : d.decision === 'ARCHIVE' ? 'hsl(var(--warning))'
+                         : d.decision === 'DISCARD' ? 'hsl(var(--destructive))'
+                         : 'hsl(var(--muted-foreground))';
+              return (
+                <li key={d.doc_id} className="text-xs"
+                    style={{
+                      padding: '0.5rem 0.6rem',
+                      background: 'hsl(var(--muted) / 0.4)',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: 'calc(var(--radius) - 4px)',
+                    }}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="kap-badge"
+                          style={{ color: tone, borderColor: tone, fontSize: 10 }}>
+                      {d.decision}
+                    </span>
+                    <span className="truncate flex-1" style={{ fontWeight: 500 }}>
+                      {d.title}
+                    </span>
+                    <span className="kap-mono-tag"
+                          style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10 }}>
+                      {(d.confidence * 100).toFixed(0)}%
+                    </span>
+                    {d.needs_review && (
+                      <span className="kap-badge kap-badge-warning" style={{ fontSize: 10 }}>
+                        待审
+                      </span>
+                    )}
+                  </div>
+                  {d.category_path && (
+                    <div className="kap-mono-tag"
+                         style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10 }}>
+                      → {d.category_path}
+                    </div>
+                  )}
+                  {d.reasoning && (
+                    <div className="mt-1" style={{
+                      color: 'hsl(var(--muted-foreground))',
+                      fontSize: 10.5, lineHeight: 1.5,
+                    }}>
+                      {d.reasoning}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </KapCard>
   );
 }

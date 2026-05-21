@@ -225,10 +225,28 @@ export interface QAResponse {
 }
 
 /** 数据导入结果（含采集、蒸馏、存储统计） */
+export interface IngestDocResult {
+  doc_id: string;
+  title: string;
+  decision: 'KEEP' | 'ARCHIVE' | 'DISCARD' | 'UNKNOWN';
+  domain_id: string;
+  category_path: string;       // M22 #12: LLM 推荐入库分支 (e.g. 制造/工艺/质量管理)
+  summary: string;
+  doc_type: string;
+  entity_count: number;
+  keyword_count: number;
+  confidence: number;          // 0-1
+  needs_review: boolean;
+  reasoning: string;           // M22 #12: 6 维 Critic 反馈拼接的判定理由
+}
+
 export interface IngestResult {
   status: string;
   message?: string;
   total_collected?: number;
+  total_uploaded?: number;
+  parsed?: number;
+  parse_errors?: string[];
   source_counts?: Record<string, number>;
   distillation?: {
     kept: number;
@@ -237,13 +255,16 @@ export interface IngestResult {
     noise_filtered: number;
   };
   storage?: {
-    documents: number;
+    documents?: number;
+    documents_kept?: number;
     vector_chunks: number;
-    knowledge_domains: number;
-    doc_cards: number;
-    graph_nodes: number;
-    graph_edges: number;
+    wiki_pages?: number;
+    knowledge_domains?: number;
+    doc_cards?: number;
+    graph_nodes?: number;
+    graph_edges?: number;
   };
+  documents?: IngestDocResult[];   // M22 #12: per-doc 详细结果 (LLM 决策 / 分类推荐 / 理由)
 }
 
 // ========== 知识库 API ==========

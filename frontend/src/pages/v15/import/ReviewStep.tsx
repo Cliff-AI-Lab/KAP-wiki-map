@@ -31,7 +31,11 @@ export default function ReviewStep(props: ReviewStepProps = {}) {
   const { projectId: ctxProjectId } = useActiveProject();
   const projectId = overrideProjectId ?? ctxProjectId;
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('PENDING');
+  // M22 #12: 嵌入版默认 ALL (PENDING 经常为 0, 用户看不到自动 KEEP 的文档),
+  //         顶层路由保持 PENDING 默认 (老行为不变)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    embedded ? 'ALL' : 'PENDING',
+  );
   const [queue, setQueue] = useState<ReviewQueueItem[]>([]);
   const [stats, setStats] = useState<KnowledgeStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -135,7 +139,13 @@ export default function ReviewStep(props: ReviewStepProps = {}) {
         <div className="max-h-[440px] overflow-y-auto">
           {queue.length === 0 ? (
             <div className="text-xs text-th-text-muted text-center py-12">
-              {loading ? '加载中...' : statusFilter === 'PENDING' ? '没有待审项 · LLM 自动决策完成' : '空'}
+              {loading
+                ? '加载中...'
+                : embedded && (stats?.kept ?? 0) > 0
+                  ? `没有待审项 · ${stats?.kept ?? 0} 个文档 LLM 自动 KEEP 已入库, 进入 W4 知识体系查看入库分支`
+                  : statusFilter === 'PENDING'
+                    ? '没有待审项 · LLM 自动决策完成'
+                    : '空'}
             </div>
           ) : (
             queue.map((item) => (

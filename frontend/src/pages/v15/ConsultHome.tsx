@@ -138,12 +138,38 @@ export default function ConsultHome() {
    * M22 #11 · 上传完后给 architect session 注入"已上传 X 个文件: ..."的 user message,
    * 让 LLM 接住产 W3 提议。如 session 还没创建则先 ensureSession。
    * 失败不阻塞 UI 流程（只 console + setError），W3 仍会切到。
+   *
+   * M22 #12: 加 docResults 参数, 把每个文档的 LLM 判定 + 分类推荐 + 待审标记
+   * 拼成结构化 message, 让 architect LLM 看到完整识别结果再给后续建议。
    */
-  const sendUploadNotification = async (fileNames: string[], totalFiles: number) => {
+  const sendUploadNotification = async (
+    fileNames: string[],
+    totalFiles: number,
+    docResults?: Array<{
+      title: string; decision: string; category_path: string;
+      confidence: number; needs_review: boolean;
+    }>,
+  ) => {
     try {
       const preview = fileNames.slice(0, 5).join(', ');
       const suffix = totalFiles > 5 ? `, ...等 ${totalFiles} 个` : '';
-      const content = `我已上传 ${totalFiles} 个文件: ${preview}${suffix}`;
+      let content = `我已上传 ${totalFiles} 个文件: ${preview}${suffix}`;
+
+      // M22 #12: 把 LLM 已识别的 per-doc 结果一并喂给 architect, 让它给"入库建议 / 分类规划"反馈
+      if (docResults && docResults.length > 0) {
+        const lines = docResults.slice(0, 20).map(d => {
+          const cat = d.category_path || '未分类';
+          const reviewTag = d.needs_review ? ' [待 SME 审核]' : '';
+          return `  - ${d.title} → ${d.decision} (置信 ${(d.confidence * 100).toFixed(0)}%, 推荐入 "${cat}")${reviewTag}`;
+        });
+        content += '\n\nLLM 自动识别 + 入库分类:\n' + lines.join('\n');
+        const pending = docResults.filter(d => d.needs_review).length;
+        if (pending > 0) {
+          content += `\n\n请基于这些识别结果, 告诉我: (1) 这批材料是否属于我的行业 (2) ${pending} 个待审建议怎么处理 (3) 是否需要调整知识体系 / 新增分支`;
+        } else {
+          content += `\n\n所有材料 LLM 已自动入库到推荐分支, 请告诉我: (1) 是否需要调整任何文档的分类 (2) 知识体系是否需要新分支`;
+        }
+      }
 
       // 1. 本地显示这条 user message
       setMessages(m => [...m, {
@@ -408,10 +434,10 @@ export default function ConsultHome() {
           {(stage === 'W1' || stage === 'W2') && (
             <ConsultUploader
               projectId={industry || 'default'}
-              onUploaded={async (_r, files) => {
-                // M22 #11: 上传完后通知 LLM (本地显示 user message + 调 send) 然后推 W3
+              onUploaded={async (r, files) => {
+                // M22 #11+#12: 上传完通知 LLM (含 per-doc 识别结果) 然后推 W3
                 const names = files.map(f => f.name);
-                await sendUploadNotification(names, files.length);
+                await sendUploadNotification(names, files.length, r.documents);
                 setStage('W3');
               }}
             />
