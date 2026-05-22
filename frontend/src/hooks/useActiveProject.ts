@@ -51,9 +51,27 @@ export function useActiveProject(): UseActiveProjectResult {
     load();
   }, [load]);
 
+  // M22 #18: 监听跨中心 active project 切换 (ConsultHome ensure-by-industry
+  // 写 localStorage 后, 顶栏/知识中心/消费中心 立即拿新 project)
+  // 修复用户痛点"金融项目到知识中心变能源" + "消费中心前面知识没保存"
+  useEffect(() => {
+    const onCustom = () => load();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) load();
+    };
+    window.addEventListener('kap:active-project-changed', onCustom);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('kap:active-project-changed', onCustom);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [load]);
+
   const setActive = useCallback((id: string) => {
     setProjectId(id);
     window.localStorage.setItem(STORAGE_KEY, id);
+    // 通知同 tab 内其他 useActiveProject 实例 (storage event 跨 tab, 同 tab 用自定义)
+    window.dispatchEvent(new Event('kap:active-project-changed'));
   }, []);
 
   return { projectId, projects, loading, error, setActive, refresh: load };

@@ -103,7 +103,11 @@ export default function ConsultHome() {
         if (!cancelled && d.id) {
           setActualProjectId(d.id);
           // 同步顶栏 active project (跨中心共享上下文, 消费中心立即能拿对项目)
-          try { localStorage.setItem('wikimap-active-project', d.id); } catch {}
+          try {
+            localStorage.setItem('wikimap-active-project', d.id);
+            // M22 #18: 通知所有 useActiveProject 实例 (顶栏 / 知识中心 / 消费中心) 立即切换
+            window.dispatchEvent(new Event('kap:active-project-changed'));
+          } catch {}
         }
       } catch (e) {
         if (!cancelled) {
@@ -619,10 +623,11 @@ export default function ConsultHome() {
                   projectId={actualProjectId}
                   embedded
                   onComplete={() => {
-                    // M22 #15.1: 跳转前把顶栏 active project 切到 actualProjectId
+                    // M22 #15.1+#18: 跳转前把顶栏 active project 切到 actualProjectId
                     // 让消费中心 / 知识中心都默认看这个项目的数据 (能召回)
                     try {
                       localStorage.setItem('wikimap-active-project', actualProjectId);
+                      window.dispatchEvent(new Event('kap:active-project-changed'));
                     } catch {}
                     window.location.href = '/v15/manage';
                   }}
