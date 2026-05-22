@@ -7,7 +7,7 @@
  * 业务定位：渐进式三路召回（Wiki 快路径 → RAG 深检索 → 图谱跨域）
  */
 import { useEffect, useState, type FormEvent } from 'react';
-import { Search, Clock, BookOpen, Layers, Network } from 'lucide-react';
+import { Search, Clock, BookOpen, Layers, Network, AlertTriangle, ArrowRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -17,9 +17,11 @@ import {
   askQuestion,
   fetchWikiPages,
   fetchDomains,
+  fetchStats,
   type QAResponse,
   type WikiPageSummary,
   type DomainInfo,
+  type KnowledgeStats,
 } from '@/services/api';
 import {
   CenterShell, CenterHero, Pipeline, KapCard, StatTile, type Station,
@@ -46,7 +48,7 @@ function saveRecent(q: string): string[] {
 
 export default function ReaderHome() {
   const { t } = useLocale();
-  const { projectId } = useActiveProject();
+  const { projectId, projects, setActive } = useActiveProject();
 
   const [query, setQuery] = useState('');
   const [resp, setResp] = useState<QAResponse | null>(null);
@@ -57,13 +59,27 @@ export default function ReaderHome() {
   const [wikiPages, setWikiPages] = useState<WikiPageSummary[]>([]);
   const [domains, setDomains] = useState<DomainInfo[]>([]);
   const [recent, setRecent] = useState<string[]>(loadRecent());
+  // M22 #20: 项目数据空盘检测 - 用户找不到答案最常见根因
+  const [kStats, setKStats] = useState<KnowledgeStats | null>(null);
 
   useEffect(() => {
     fetchWikiPages(projectId || undefined).then(setWikiPages).catch(() => {});
     fetchDomains(projectId || undefined)
       .then(r => setDomains(r?.domains || []))
       .catch(() => {});
+    fetchStats(projectId || undefined).then(setKStats).catch(() => setKStats(null));
   }, [projectId]);
+
+  // M22 #20: 当前项目 + 数据空盘判定
+  const currentProject = projects.find(p => p.id === projectId);
+  const docCount = kStats?.kept ?? 0;
+  const wikiCount = wikiPages.length;
+  const isEmpty = docCount === 0 && wikiCount === 0;
+  // 推荐"有内容的项目" - 按 doc_count 倒序
+  const projectsWithContent = projects
+    .filter(p => (p.doc_count ?? 0) > 0 && p.id !== projectId)
+    .sort((a, b) => (b.doc_count ?? 0) - (a.doc_count ?? 0))
+    .slice(0, 4);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -101,6 +117,85 @@ export default function ReaderHome() {
 
       <Pipeline labelKey="kap.tagFlow" stations={stations} />
 
+      {/* M22 #20: 项目上下文条 - 用户痛点"问不到答案" 最常见根因是查错了 project */}
+      <div className="kap-card mb-4" style={{
+        padding: '0.7rem 1rem',
+        borderColor: isEmpty ? 'var(--kap-aurora-orange)' : 'hsl(var(--border))',
+        background: isEmpty
+          ? 'rgba(208,135,112,0.06)'
+          : 'hsl(var(--muted) / 0.3)',
+      }}>
+        <div className="flex items-center gap-3 flex-wrap">
+          {isEmpty ? (
+            <AlertTriangle size={14} style={{ color: 'var(--kap-aurora-orange)' }} />
+          ) : (
+            <BookOpen size={14} style={{ color: 'hsl(var(--primary))' }} />
+          )}
+          <span className="kap-mono-tag" style={{ color: 'var(--kap-snow-4)', fontSize: 11 }}>
+            正在查询
+          </span>
+          <span style={{
+            fontFamily: 'var(--kap-font-display)', fontWeight: 600, fontSize: 13,
+            color: 'hsl(var(--foreground))',
+          }}>
+            {currentProject?.name || projectId || '—'}
+          </span>
+          {currentProject?.industry_name && (
+            <span className="kap-badge" style={{ fontSize: 10 }}>
+              {currentProject.industry_name}
+            </span>
+          )}
+          <span style={{ flex: 1 }} />
+          <span className="kap-mono-tag" style={{
+            color: docCount > 0 ? 'hsl(var(--success))' : 'var(--kap-snow-4)',
+            fontSize: 10.5,
+          }}>
+            {docCount} 文档
+          </span>
+          <span className="kap-mono-tag" style={{
+            color: wikiCount > 0 ? 'hsl(var(--success))' : 'var(--kap-snow-4)',
+            fontSize: 10.5,
+          }}>
+            {wikiCount} Wiki
+          </span>
+          {kStats?.vector_chunks !== undefined && (
+            <span className="kap-mono-tag" style={{
+              color: (kStats.vector_chunks ?? 0) > 0 ? 'hsl(var(--success))' : 'var(--kap-snow-4)',
+              fontSize: 10.5,
+            }}>
+              {kStats.vector_chunks} chunks
+            </span>
+          )}
+          {(kStats?.graph_nodes ?? 0) > 0 && (
+            <span className="kap-mono-tag" style={{ color: 'hsl(var(--success))', fontSize: 10.5 }}>
+              {kStats?.graph_nodes}/{kStats?.graph_edges} 图谱
+            </span>
+          )}
+        </div>
+        {isEmpty && projectsWithContent.length > 0 && (
+          <div className="mt-2 pt-2 flex items-center gap-2 flex-wrap"
+               style={{ borderTop: '1px dashed rgba(216,222,233,0.1)' }}>
+            <span className="kap-mono-tag" style={{
+              color: 'var(--kap-aurora-orange)', fontSize: 10,
+            }}>
+              ⚠ 此项目暂无文档/Wiki, 切换至:
+            </span>
+            {projectsWithContent.map(p => (
+              <button
+                key={p.id}
+                onClick={() => setActive(p.id)}
+                className="kap-btn kap-btn-ghost"
+                style={{ fontSize: 10.5, padding: '2px 8px' }}
+                title={p.industry_name}
+              >
+                {p.name} <span style={{ color: 'var(--kap-snow-4)' }}>· {p.doc_count}</span>
+                <ArrowRight size={9} className="inline ml-1" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* 搜索框 */}
       <KapCard frost className="mb-8">
         <form onSubmit={onSubmit} className="flex items-center gap-3">
@@ -136,6 +231,34 @@ export default function ReaderHome() {
       )}
 
       {resp && <AnswerCard resp={resp} q={lastQ} t={t} />}
+
+      {/* M22 #20: 0 sources 时给用户跨项目检索建议 */}
+      {resp && (resp.sources?.length ?? 0) === 0 && projectsWithContent.length > 0 && (
+        <div className="kap-card mb-6" style={{
+          padding: '0.7rem 1rem',
+          borderColor: 'var(--kap-aurora-orange)',
+          background: 'rgba(208,135,112,0.05)',
+        }}>
+          <div className="kap-mono-tag mb-2" style={{
+            color: 'var(--kap-aurora-orange)', fontSize: 11,
+          }}>
+            ⚠ 当前项目未召回到相关内容. 想试试这些项目?
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {projectsWithContent.map(p => (
+              <button
+                key={p.id}
+                onClick={() => setActive(p.id)}
+                className="kap-btn"
+                style={{ fontSize: 11, padding: '4px 10px' }}
+              >
+                <ArrowRight size={10} className="inline mr-1" />
+                {p.name} <span style={{ color: 'var(--kap-snow-4)' }}>· {p.doc_count} doc</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 4 张统计 */}
       <section className="kap-stagger kap-grid-3 my-8" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
