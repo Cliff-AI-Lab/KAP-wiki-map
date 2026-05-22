@@ -10,6 +10,8 @@ log = structlog.get_logger("api.knowledge")
 from pathlib import Path
 from typing import Optional
 
+from pydantic import BaseModel
+
 from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File, Form
 
 from api.deps import (
@@ -1614,6 +1616,88 @@ def _content_type_to_chunk_strategy(content_type: str) -> str:
         "image_caption": ChunkStrategy.IMAGE_CAPTION.value,
     }
     return mapping.get(content_type, ChunkStrategy.FIXED.value)
+
+
+# ── M22 #15 · 咨询中心人工调整文档 ────────────────
+
+
+class DocumentPatchBody(BaseModel):
+    """咨询中心人工调整: 改 decision / domain_id / category_path / keywords。"""
+    decision: Optional[str] = None       # KEEP / ARCHIVE / DISCARD
+    domain_id: Optional[str] = None      # e.g. manufacturing/quality/inspection
+    category_path: Optional[str] = None  # 中文分类 path
+    keywords: Optional[list[str]] = None # 关键词列表
+
+
+@router.patch("/documents/{doc_id}")
+async def patch_document(doc_id: str, body: DocumentPatchBody, project_id: str = "default"):
+    """M22 #15 · 咨询中心人工调整文档元数据.
+
+    工作流: 咨询中心 W3 用户对 LLM 自动判定不满意时, 改 decision/domain/keywords.
+    更新 metadata_store (PG documents 表) + doc_card (DomainStore).
+    不动 vector_store/graph_store — 那些由 W5"确认导入知识中心"统一重做.
+    """
+    meta = get_metadata_store()
+    existing = await meta.get_document(doc_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"文档 {doc_id} 不存在")
+
+    updated_fields: list[str] = []
+
+    if body.decision is not None:
+        d = body.decision.upper()
+        if d not in ("KEEP", "ARCHIVE", "DISCARD"):
+            raise HTTPException(status_code=400, detail="decision 必须 KEEP/ARCHIVE/DISCARD")
+        existing["decision"] = d
+        existing["status"] = (
+            "ACTIVE" if d == "KEEP"
+            else "ARCHIVED" if d == "ARCHIVE"
+            else "DISCARDED"
+        )
+        updated_fields.append("decision")
+
+    if body.category_path is not None:
+        existing["category_path"] = body.category_path
+        updated_fields.append("category_path")
+
+    if body.keywords is not None:
+        existing["keywords"] = ",".join(body.keywords)
+        updated_fields.append("keywords")
+
+    # 持久化 documents 表
+    existing["id"] = doc_id
+    await meta.upsert_document(existing)
+
+    # 如改了 domain_id, 同步 DomainStore 的 doc_card
+    if body.domain_id is not None:
+        try:
+            from packages.common.types import DocumentCard
+            dom_store = get_domain_store()
+            # 取原 doc_card (如有)
+            old_card = dom_store._doc_cards.get(doc_id)  # type: ignore[reportPrivateUsage]
+            new_card = DocumentCard(
+                doc_id=doc_id,
+                title=existing.get("title", "") or doc_id,
+                domain_id=body.domain_id,
+                description=(old_card.description if old_card else existing.get("summary", ""))[:300],
+                key_elements=(old_card.key_elements if old_card else []),
+                keywords=body.keywords if body.keywords is not None
+                        else (old_card.keywords if old_card else []),
+            )
+            await dom_store.upsert_doc_card(new_card, project_id=project_id)
+            updated_fields.append("domain_id")
+        except Exception as e:
+            log.warning("patch_document_card_failed", doc_id=doc_id, error=str(e))
+
+    log.info("document_patched", doc_id=doc_id, fields=updated_fields, project=project_id)
+    return {
+        "status": "ok",
+        "doc_id": doc_id,
+        "updated_fields": updated_fields,
+        "decision": existing.get("decision"),
+        "category_path": existing.get("category_path"),
+        "keywords": existing.get("keywords", "").split(",") if existing.get("keywords") else [],
+    }
 
 
 @router.post("/structured-chunks", response_model=StructuredChunksResponse)

@@ -67,6 +67,9 @@ export default function ConsultHome() {
   const [error, setError] = useState<string | null>(null);
   // M22 #12: 最近一次上传的 per-doc 详情, 跨 stage 共享给 W3 ReviewStep 上方展示
   const [recentDocs, setRecentDocs] = useState<IngestDocResult[]>([]);
+  // M22 #15: 当前展开编辑的 doc_id (null = 没有展开)
+  const [editingDocId, setEditingDocId] = useState<string | null>(null);
+  const [savingDocId, setSavingDocId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -228,6 +231,42 @@ export default function ConsultHome() {
     } catch (e) {
       // 不阻塞 UI 流程: 仅显示错误, W3 切换仍执行
       setError(`上传通知 LLM 失败: ${(e as Error).message}`);
+    }
+  };
+
+  // M22 #15 · 人工调整文档元数据 (decision / keywords / category_path / domain_id)
+  const patchDoc = async (
+    docId: string,
+    patch: Partial<{ decision: string; keywords: string[]; category_path: string; domain_id: string }>,
+  ) => {
+    setSavingDocId(docId);
+    try {
+      const projId = actualProjectId || industry || 'default';
+      const r = await fetch(
+        `${API_BASE}/api/v1/knowledge/documents/${encodeURIComponent(docId)}?project_id=${encodeURIComponent(projId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        },
+      );
+      if (!r.ok) throw new Error(`patch failed: ${r.status}`);
+      // 乐观更新本地 recentDocs
+      setRecentDocs(prev => prev.map(d => {
+        if (d.doc_id !== docId) return d;
+        return {
+          ...d,
+          decision: (patch.decision ?? d.decision) as IngestDocResult['decision'],
+          keywords: patch.keywords ?? d.keywords,
+          category_path: patch.category_path ?? d.category_path,
+          domain_id: patch.domain_id ?? d.domain_id,
+        };
+      }));
+      setEditingDocId(null);
+    } catch (e) {
+      setError(`保存失败: ${(e as Error).message}`);
+    } finally {
+      setSavingDocId(null);
     }
   };
 
@@ -396,6 +435,23 @@ export default function ConsultHome() {
                                }}>
                             {d.reasoning.length > 200 ? d.reasoning.slice(0, 200) + '...' : d.reasoning}
                           </div>
+                        )}
+                        {/* M22 #15: 人工调整入口 */}
+                        <div className="mt-1 flex justify-end">
+                          <button
+                            onClick={() => setEditingDocId(editingDocId === d.doc_id ? null : d.doc_id)}
+                            className="kap-btn kap-btn-ghost"
+                            style={{ fontSize: 10, padding: '2px 8px' }}
+                          >
+                            {editingDocId === d.doc_id ? '✕ 取消' : '✎ 调整'}
+                          </button>
+                        </div>
+                        {editingDocId === d.doc_id && (
+                          <DocEditor
+                            doc={d}
+                            saving={savingDocId === d.doc_id}
+                            onSave={(patch) => patchDoc(d.doc_id, patch)}
+                          />
                         )}
                       </li>
                     );
@@ -567,6 +623,95 @@ export default function ConsultHome() {
         </div>
       </div>
     </CenterShell>
+  );
+}
+
+
+// M22 #15 · 文档人工调整 inline 编辑器
+function DocEditor({
+  doc, saving, onSave,
+}: {
+  doc: IngestDocResult;
+  saving: boolean;
+  onSave: (patch: { decision?: string; keywords?: string[]; category_path?: string; domain_id?: string }) => void;
+}) {
+  const [decision, setDecision] = useState(doc.decision);
+  const [keywordsText, setKeywordsText] = useState((doc.keywords || []).join(', '));
+  const [categoryPath, setCategoryPath] = useState(doc.category_path || '');
+  const [domainId, setDomainId] = useState(doc.domain_id || '');
+
+  return (
+    <div className="mt-2 p-2 rounded-btn" style={{
+      background: 'hsl(var(--muted) / 0.6)',
+      border: '1px dashed hsl(var(--primary) / 0.4)',
+      fontSize: 11,
+    }}>
+      {/* decision */}
+      <div className="mb-2">
+        <div className="kap-mono-tag mb-1" style={{ fontSize: 9.5 }}>decision</div>
+        <div className="flex gap-1">
+          {(['KEEP', 'ARCHIVE', 'DISCARD'] as const).map(opt => (
+            <button
+              key={opt}
+              onClick={() => setDecision(opt)}
+              className={`kap-btn ${decision === opt ? 'kap-btn-primary' : ''}`}
+              style={{ fontSize: 10, padding: '2px 8px' }}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* domain_id */}
+      <div className="mb-2">
+        <div className="kap-mono-tag mb-1" style={{ fontSize: 9.5 }}>体系 domain_id (e.g. manufacturing/quality/inspection)</div>
+        <input
+          value={domainId}
+          onChange={e => setDomainId(e.target.value)}
+          className="kap-input"
+          style={{ fontSize: 11, padding: '3px 6px', width: '100%' }}
+        />
+      </div>
+      {/* category_path */}
+      <div className="mb-2">
+        <div className="kap-mono-tag mb-1" style={{ fontSize: 9.5 }}>category_path 中文分类</div>
+        <input
+          value={categoryPath}
+          onChange={e => setCategoryPath(e.target.value)}
+          className="kap-input"
+          style={{ fontSize: 11, padding: '3px 6px', width: '100%' }}
+        />
+      </div>
+      {/* keywords */}
+      <div className="mb-2">
+        <div className="kap-mono-tag mb-1" style={{ fontSize: 9.5 }}>keywords (英文逗号分隔)</div>
+        <textarea
+          value={keywordsText}
+          onChange={e => setKeywordsText(e.target.value)}
+          rows={2}
+          className="kap-input"
+          style={{ fontSize: 11, padding: '3px 6px', width: '100%', resize: 'none' }}
+        />
+      </div>
+      <div className="flex justify-end">
+        <button
+          disabled={saving}
+          onClick={() => {
+            const kws = keywordsText.split(',').map(s => s.trim()).filter(Boolean);
+            onSave({
+              decision: decision !== doc.decision ? decision : undefined,
+              keywords: kws.join(',') !== (doc.keywords || []).join(',') ? kws : undefined,
+              category_path: categoryPath !== doc.category_path ? categoryPath : undefined,
+              domain_id: domainId !== doc.domain_id ? domainId : undefined,
+            });
+          }}
+          className="kap-btn kap-btn-primary"
+          style={{ fontSize: 10, padding: '3px 10px' }}
+        >
+          {saving ? '保存中...' : '保存调整'}
+        </button>
+      </div>
+    </div>
   );
 }
 
