@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Send, Loader2, FileDown, FolderPlus, Upload, Filter, Network, BookOpen,
-  Bot, User, CornerDownLeft, Sparkles,
+  Bot, User, CornerDownLeft, Sparkles, Paperclip, FileText,
 } from 'lucide-react';
 
 import { useLocale } from '@/contexts/LocaleContext';
@@ -22,7 +22,7 @@ import IndustryPicker, {
 import ReviewStep from '@/pages/v15/import/ReviewStep';
 import TaxonomyStep from '@/pages/v15/import/TaxonomyStep';
 import CompiledStep from '@/pages/v15/import/CompiledStep';
-import type { IngestDocResult } from '@/services/api';
+import { ingestFiles, type IngestDocResult } from '@/services/api';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
@@ -33,6 +33,10 @@ interface Msg {
   role: 'user' | 'assistant' | 'system';
   content: string;
   ts: Date;
+  // M22 #16: 对话流上传 — 用 attachments 表示上传的文件元数据 (user 角色 file_upload)
+  attachments?: Array<{ name: string; size: number }>;
+  // M22 #16: assistant 给的"识别 + 入库分类"结果, 渲染为 per-doc chip + inline 调整入口
+  analysis?: IngestDocResult[];
 }
 
 function shortId() { return Math.random().toString(36).slice(2, 8).toUpperCase(); }
@@ -72,6 +76,9 @@ export default function ConsultHome() {
   const [savingDocId, setSavingDocId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // M22 #16: 对话流上传 — fileInput 引用 + 上传中标记
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingInChat, setUploadingInChat] = useState(false);
 
   // 所有 hook 必须在条件 return 前调用（React Hooks 规则）
   useEffect(() => {
@@ -234,6 +241,60 @@ export default function ConsultHome() {
     } catch (e) {
       // 不阻塞 UI 流程: 仅显示错误, W3 切换仍执行
       setError(`上传通知 LLM 失败: ${(e as Error).message}`);
+    }
+  };
+
+  /**
+   * M22 #16 · 对话流内上传 — 用户从聊天框 paperclip 触发, 文件作为 user message
+   * 显示在对话流中, ingest 完成后追加 assistant 识别结果 message (含 per-doc chip),
+   * 同步切到 W3 + recentDocs 给 W3 中央卡片用。
+   */
+  const uploadInChat = async (files: File[]) => {
+    if (!files.length || uploadingInChat) return;
+    setUploadingInChat(true);
+    // 1. user file_upload message
+    const attachments = files.map(f => ({ name: f.name, size: f.size }));
+    const userMsgContent = `📎 上传 ${files.length} 个材料:\n` +
+      files.map(f => `  · ${f.name} (${(f.size / 1024).toFixed(1)} KB)`).join('\n');
+    setMessages(m => [...m, {
+      id: shortId(), role: 'user', content: userMsgContent,
+      attachments, ts: new Date(),
+    }]);
+
+    try {
+      const projId = actualProjectId || industry || 'default';
+      const r = await ingestFiles(files, projId);
+      const docs = r.documents || [];
+      // 2. recentDocs 同步 (W3 中央卡片用)
+      setRecentDocs(docs);
+      // 3. assistant analysis message
+      let summary = `◆ LLM 已识别 ${docs.length} 个文档:\n`;
+      docs.forEach(d => {
+        const cat = d.domain_path || d.category_path || '未分类';
+        const reviewTag = d.needs_review ? ' [待 SME 审核]' : '';
+        summary += `  · ${d.title} → ${d.decision} (${(d.confidence * 100).toFixed(0)}%, 归入 "${cat}")${reviewTag}\n`;
+      });
+      const pending = docs.filter(d => d.needs_review).length;
+      if (pending > 0) {
+        summary += `\n${pending} 个文档待审。点对话框内文档卡片可调整分类 / 决策, 或切到 W3 去噪审核台批量处理。`;
+      } else {
+        summary += '\n所有文档已自动归入推荐分支, 可切到 W4 查看知识体系树。';
+      }
+      setMessages(m => [...m, {
+        id: shortId(), role: 'assistant', content: summary,
+        analysis: docs, ts: new Date(),
+      }]);
+      // 4. 自动切 W3 (但用户可选择留在对话中审核)
+      setStage('W3');
+    } catch (e) {
+      setError(`上传失败: ${(e as Error).message}`);
+      setMessages(m => [...m, {
+        id: shortId(), role: 'system',
+        content: `⚠ 上传或识别失败: ${(e as Error).message}`,
+        ts: new Date(),
+      }]);
+    } finally {
+      setUploadingInChat(false);
     }
   };
 
@@ -606,7 +667,7 @@ export default function ConsultHome() {
             </div>
           </div>
 
-          {/* 输入区 */}
+          {/* 输入区 (M22 #16: 加附件上传按钮, 与 send 并列) */}
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(216,222,233,0.08)' }}>
             <div className="flex items-start gap-2">
               <span style={{
@@ -626,6 +687,31 @@ export default function ConsultHome() {
                 className="kap-input"
                 style={{ resize: 'none', fontFamily: 'var(--kap-font-mono)', fontSize: 13 }}
               />
+              {/* M22 #16: 附件上传按钮 (paperclip) */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingInChat}
+                className="kap-btn"
+                title="上传材料 (PDF/Word/Excel/Markdown/TXT)"
+              >
+                {uploadingInChat
+                  ? <Loader2 size={12} className="animate-spin" />
+                  : <Paperclip size={12} />}
+                附件
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.md,.markdown,.txt,.rtf"
+                multiple
+                onChange={e => {
+                  const fs = Array.from(e.target.files || []);
+                  if (fs.length) uploadInChat(fs);
+                  e.target.value = '';  // reset 让同名文件可重复传
+                }}
+                className="hidden"
+              />
               <button
                 type="button"
                 onClick={send}
@@ -638,7 +724,7 @@ export default function ConsultHome() {
               </button>
             </div>
             <div className="mt-1 kap-mono-tag" style={{ color: 'var(--kap-snow-4)', letterSpacing: '0.10em' }}>
-              [ENTER] {t('consult.sendHint')} · [SHIFT+ENTER] {t('consult.newlineHint')}
+              [ENTER] {t('consult.sendHint')} · [SHIFT+ENTER] {t('consult.newlineHint')} · [📎附件] 直接在对话上传材料
             </div>
           </div>
         </KapCard>
@@ -833,6 +919,77 @@ function MsgRow({ m, t }: { m: Msg; t: (k: string) => string }) {
         }}
       >
         {m.content}
+        {/* M22 #16: attachments chip (user 角色 file_upload) */}
+        {m.attachments && m.attachments.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {m.attachments.map((f, i) => (
+              <span key={`${f.name}-${i}`} className="kap-badge"
+                    style={{ fontSize: 10, padding: '2px 7px',
+                             background: 'hsl(var(--muted) / 0.6)' }}>
+                <FileText size={10} style={{ display: 'inline', marginRight: 3 }} />
+                {f.name}
+              </span>
+            ))}
+          </div>
+        )}
+        {/* M22 #16: analysis 卡片 (assistant 角色 doc 分析结果) */}
+        {m.analysis && m.analysis.length > 0 && (
+          <ul className="mt-2 space-y-1.5">
+            {m.analysis.map(d => {
+              const tone = d.decision === 'KEEP'    ? 'hsl(var(--success))'
+                         : d.decision === 'ARCHIVE' ? 'hsl(var(--warning))'
+                         : d.decision === 'DISCARD' ? 'hsl(var(--destructive))'
+                         : 'hsl(var(--muted-foreground))';
+              return (
+                <li key={d.doc_id} style={{
+                  padding: '0.4rem 0.6rem',
+                  background: 'hsl(var(--muted) / 0.4)',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: 'calc(var(--radius) - 4px)',
+                  fontSize: 11.5, lineHeight: 1.5,
+                }}>
+                  <div className="flex items-center gap-2">
+                    <span className="kap-badge"
+                          style={{ color: tone, borderColor: tone, fontSize: 10 }}>
+                      {d.decision}
+                    </span>
+                    <span className="flex-1 truncate" style={{ fontWeight: 500 }}>
+                      {d.title}
+                    </span>
+                    <span style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>
+                      {(d.confidence * 100).toFixed(0)}%
+                    </span>
+                    {d.needs_review && (
+                      <span className="kap-badge kap-badge-warning" style={{ fontSize: 10 }}>
+                        待审
+                      </span>
+                    )}
+                  </div>
+                  {d.domain_path && (
+                    <div style={{ color: 'hsl(var(--primary))', fontSize: 10, marginTop: 2 }}>
+                      ◆ 体系: {d.domain_path}
+                    </div>
+                  )}
+                  {d.keywords && d.keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {d.keywords.slice(0, 6).map(kw => (
+                        <span key={kw} className="kap-badge"
+                              style={{ fontSize: 9.5, padding: '1px 5px' }}>
+                          #{kw}
+                        </span>
+                      ))}
+                      {d.keywords.length > 6 && (
+                        <span style={{ fontSize: 9.5, color: 'hsl(var(--muted-foreground))' }}>
+                          +{d.keywords.length - 6}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </div>
   );
