@@ -81,6 +81,7 @@ export default function ConsultHome() {
   }, [messages, sending]);
 
   // M22 #13: industry 切换 → ensure 真实项目 + 自动 seed L1 domains
+  // M22 #15.1: 同步把顶栏 active project 切到该项目, 让消费/知识中心默认看相同数据
   useEffect(() => {
     if (!industry) return;
     let cancelled = false;
@@ -94,6 +95,8 @@ export default function ConsultHome() {
         const d = await r.json();
         if (!cancelled && d.id) {
           setActualProjectId(d.id);
+          // 同步顶栏 active project (跨中心共享上下文, 消费中心立即能拿对项目)
+          try { localStorage.setItem('wikimap-active-project', d.id); } catch {}
         }
       } catch (e) {
         if (!cancelled) {
@@ -468,23 +471,103 @@ export default function ConsultHome() {
         )}
         {stage === 'W4' && (
           <KapCard eyebrow={`▶ ${t('consult.w4.label')}`} frost>
-            <TaxonomyStep
-              projectId={actualProjectId || industry || 'default'}
-              embedded
-              onComplete={() => setStage('W5')}
-            />
+            {/* M22 #15.1: actualProjectId 还在 ensure 时显示 loading, 避免渲染空树 */}
+            {!actualProjectId ? (
+              <div className="text-xs text-center py-12"
+                   style={{ color: 'hsl(var(--muted-foreground))' }}>
+                <Loader2 size={20} className="animate-spin mx-auto mb-2"
+                         style={{ color: 'hsl(var(--primary))' }} />
+                正在为 {industryLabel || industry} 加载行业知识体系（48 个域）...
+              </div>
+            ) : (
+              <>
+                {/* M22 #15.1: 体系生成摘要卡片 - 让用户看到"体系已形成" */}
+                <div className="mb-4 p-3 rounded-btn"
+                     style={{
+                       background: 'hsl(var(--muted) / 0.4)',
+                       border: '1px solid hsl(var(--border))',
+                     }}>
+                  <div className="kap-mono-tag mb-2"
+                       style={{ color: 'hsl(var(--primary))' }}>
+                    ◆ 知识体系已形成
+                  </div>
+                  <div className="text-xs" style={{ lineHeight: 1.6 }}>
+                    <div>
+                      行业: <span style={{ fontWeight: 600 }}>{industryLabel || industry}</span>
+                      {' · '}
+                      项目 ID: <span className="kap-mono-tag" style={{ fontSize: 10 }}>{actualProjectId}</span>
+                    </div>
+                    <div style={{ color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+                      L1 行业预置 4 级模板 + L2 企业自有体系 (LLM 自动生成 / 人工调整)。
+                      下方树展开看完整体系, 点节点查文档归属。
+                    </div>
+                    {recentDocs.length > 0 && (
+                      <div style={{ marginTop: 6, color: 'hsl(var(--primary))' }}>
+                        ◇ 本次上传 {recentDocs.length} 个文档已归入体系:
+                        {' '}
+                        {Array.from(new Set(recentDocs.map(d => d.domain_path).filter(Boolean))).join(' · ')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <TaxonomyStep
+                  projectId={actualProjectId}
+                  embedded
+                  onComplete={() => setStage('W5')}
+                />
+              </>
+            )}
           </KapCard>
         )}
         {stage === 'W5' && (
           <KapCard eyebrow={`▶ ${t('consult.w5.label')}`} frost>
-            <CompiledStep
-              projectId={actualProjectId || industry || 'default'}
-              embedded
-              onComplete={() => {
-                // 流程完成 → 推送到知识中心 (路由)
-                window.location.href = '/v15/manage';
-              }}
-            />
+            {!actualProjectId ? (
+              <div className="text-xs text-center py-12"
+                   style={{ color: 'hsl(var(--muted-foreground))' }}>
+                <Loader2 size={20} className="animate-spin mx-auto mb-2"
+                         style={{ color: 'hsl(var(--primary))' }} />
+                正在为 {industryLabel || industry} 准备 Wiki 编织...
+              </div>
+            ) : (
+              <>
+                {/* M22 #15.1: Wiki 编织摘要 */}
+                <div className="mb-4 p-3 rounded-btn"
+                     style={{
+                       background: 'hsl(var(--muted) / 0.4)',
+                       border: '1px solid hsl(var(--border))',
+                     }}>
+                  <div className="kap-mono-tag mb-2"
+                       style={{ color: 'hsl(var(--primary))' }}>
+                    ◆ Wiki 三层编织 + 端到端跑通
+                  </div>
+                  <div className="text-xs" style={{ lineHeight: 1.6 }}>
+                    KAP 将上传材料按知识体系编织成 3 层 Wiki:
+                    <span className="kap-mono-tag mx-1" style={{ fontSize: 10 }}>source</span>(每文档一页)
+                    {' · '}
+                    <span className="kap-mono-tag mx-1" style={{ fontSize: 10 }}>domain</span>(域级聚合)
+                    {' · '}
+                    <span className="kap-mono-tag mx-1" style={{ fontSize: 10 }}>index</span>(顶级索引)
+                    {' · '}
+                    同步入库 (向量化 + 图谱化) → 下方报告查看进度。
+                  </div>
+                  <div style={{ marginTop: 8, color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
+                    点 "完成 · 进入知识中心" 切换到知识中心查看完整入库结果 (消费中心可调用 Wiki / RAG / 图谱 三路召回)
+                  </div>
+                </div>
+                <CompiledStep
+                  projectId={actualProjectId}
+                  embedded
+                  onComplete={() => {
+                    // M22 #15.1: 跳转前把顶栏 active project 切到 actualProjectId
+                    // 让消费中心 / 知识中心都默认看这个项目的数据 (能召回)
+                    try {
+                      localStorage.setItem('wikimap-active-project', actualProjectId);
+                    } catch {}
+                    window.location.href = '/v15/manage';
+                  }}
+                />
+              </>
+            )}
           </KapCard>
         )}
         {(stage === 'W1' || stage === 'W2') && (
