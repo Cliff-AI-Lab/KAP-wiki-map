@@ -21,6 +21,10 @@ import {
   fetchGovernanceHealth, fetchGovernanceQueue,
   type GovernanceHealth, type GovernanceQueueItem,
 } from '@/services/governanceApi';
+import {
+  fetchStats, fetchWikiStats, fetchDocuments,
+  type KnowledgeStats, type WikiStats, type DocumentSummary,
+} from '@/services/api';
 import { useActiveProject } from '@/hooks/useActiveProject';
 
 
@@ -30,6 +34,10 @@ export default function GovernanceHome() {
 
   const [health, setHealth] = useState<GovernanceHealth | null>(null);
   const [queue, setQueue] = useState<GovernanceQueueItem[]>([]);
+  // M22 #17: 入库进度可视化 + 文档清单
+  const [kStats, setKStats] = useState<KnowledgeStats | null>(null);
+  const [wStats, setWStats] = useState<WikiStats | null>(null);
+  const [docs, setDocs] = useState<DocumentSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,12 +46,18 @@ export default function GovernanceHome() {
     setLoading(true); setError(null);
     try {
       const pid = projectId || 'default';
-      const [h, q] = await Promise.all([
+      const [h, q, ks, ws, ds] = await Promise.all([
         fetchGovernanceHealth(pid).catch(() => null),
         fetchGovernanceQueue(pid, undefined, 'curator').catch(() => []),
+        fetchStats(pid).catch(() => null),
+        fetchWikiStats(pid).catch(() => null),
+        fetchDocuments({ projectId: pid, page: 1, page_size: 20 }).catch(() => null),
       ]);
       setHealth(h);
       setQueue(q || []);
+      setKStats(ks);
+      setWStats(ws);
+      setDocs(ds?.documents || []);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -99,6 +113,152 @@ export default function GovernanceHome() {
       />
 
       <Pipeline labelKey="kap.tagPipeline" stations={stations} />
+
+      {/* M22 #17: 入库进度面板 - 解决用户痛点"看不到归档/向量化/图谱化进度" */}
+      <KapCard
+        eyebrow="▶ 入库进度（归档 / 向量化 / 图谱化 / Wiki 编织）"
+        rightSlot={
+          <span className="kap-mono-tag" style={{ color: 'var(--kap-snow-4)' }}>
+            project: {projectId || 'default'}
+          </span>
+        }
+      >
+        <div className="kap-grid-3" style={{ gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
+          <ProgressTile
+            label="① 归档落库"
+            value={kStats?.kept ?? 0}
+            total={kStats?.total_documents ?? 0}
+            subtext={`${kStats?.archived ?? 0} 归档 · ${kStats?.discarded ?? 0} 丢弃 · ${kStats?.pending_review ?? 0} 待审`}
+            done={(kStats?.total_documents ?? 0) > 0}
+          />
+          <ProgressTile
+            label="② 向量化"
+            value={kStats?.vector_chunks ?? 0}
+            unit=" chunks"
+            subtext={(kStats?.vector_chunks ?? 0) > 0 ? '已向量化, RAG 可召回' : '尚未向量化'}
+            done={(kStats?.vector_chunks ?? 0) > 0}
+          />
+          <ProgressTile
+            label="③ 图谱化"
+            value={kStats?.graph_nodes ?? 0}
+            unit=" 节点"
+            subtext={`${kStats?.graph_edges ?? 0} 条关系边`}
+            done={(kStats?.graph_nodes ?? 0) > 0}
+          />
+          <ProgressTile
+            label="④ Wiki 编织"
+            value={wStats?.published_pages ?? 0}
+            unit=" 页"
+            subtext={`source ${wStats?.source_pages ?? 0} · domain ${wStats?.domain_pages ?? 0} · index ${wStats?.index_pages ?? 0}`}
+            done={(wStats?.published_pages ?? 0) > 0}
+          />
+          <ProgressTile
+            label="⑤ 知识域识别"
+            value={kStats?.knowledge_domains ?? 0}
+            unit=" 域"
+            subtext={`${kStats?.doc_cards ?? 0} 个 doc 卡片已建`}
+            done={(kStats?.knowledge_domains ?? 0) > 0}
+          />
+        </div>
+        {/* 重建入口 - 人工调整进程 */}
+        <div className="mt-4 pt-3 flex flex-wrap gap-2"
+             style={{ borderTop: '1px solid rgba(216,222,233,0.08)' }}>
+          <Link to="/v15/manage/import/review" className="kap-btn">
+            <ShieldCheck size={12} />
+            去噪审核 ({kStats?.pending_review ?? 0} 待审)
+          </Link>
+          <Link to="/v15/manage/import/taxonomy" className="kap-btn">
+            <GitBranch size={12} />
+            知识体系 ({kStats?.knowledge_domains ?? 0} 域)
+          </Link>
+          <Link to="/v15/manage/graph" className="kap-btn">
+            <GitBranch size={12} />
+            查看图谱 ({kStats?.graph_nodes ?? 0}/{kStats?.graph_edges ?? 0})
+          </Link>
+          <Link to="/v15/read/wiki-tree" className="kap-btn">
+            <Database size={12} />
+            Wiki 三层 ({wStats?.published_pages ?? 0})
+          </Link>
+          <Link to="/v15/manage/import/compiled" className="kap-btn kap-btn-primary">
+            <RefreshCw size={12} />
+            端到端报告 + 重建入口
+          </Link>
+        </div>
+      </KapCard>
+
+      <div style={{ height: 16 }} />
+
+      {/* M22 #17: 已上传文档清单 - 用户痛点"上传了哪些文档要能看到" */}
+      <KapCard
+        eyebrow="▶ 已上传文档"
+        rightSlot={
+          <span className="kap-mono-tag" style={{ color: 'var(--kap-snow-4)' }}>
+            共 {docs.length} 篇 (最近 20)
+          </span>
+        }
+      >
+        {docs.length === 0 ? (
+          <div className="py-8 text-center" style={{
+            fontFamily: 'var(--kap-font-mono)', fontSize: 12,
+            color: 'var(--kap-snow-4)',
+          }}>
+            <Inbox size={24} className="inline-block mb-2" style={{ opacity: 0.5 }} />
+            <div>暂无文档 (从咨询中心上传或调用 /knowledge/ingest)</div>
+          </div>
+        ) : (
+          <ul className="space-y-1.5">
+            {docs.slice(0, 12).map(d => {
+              const tone = d.decision === 'KEEP'    ? 'hsl(var(--success))'
+                         : d.decision === 'ARCHIVE' ? 'hsl(var(--warning))'
+                         : d.decision === 'DISCARD' ? 'hsl(var(--destructive))'
+                         : 'hsl(var(--muted-foreground))';
+              return (
+                <li key={d.id} className="flex items-center gap-2"
+                    style={{
+                      padding: '0.45rem 0.6rem',
+                      background: 'hsl(var(--muted) / 0.3)',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: 'calc(var(--radius) - 4px)',
+                      fontSize: 11.5, lineHeight: 1.5,
+                    }}>
+                  <span className="kap-badge"
+                        style={{ color: tone, borderColor: tone, fontSize: 10 }}>
+                    {d.decision || '?'}
+                  </span>
+                  <span className="flex-1 truncate" style={{ fontWeight: 500 }}>
+                    {d.title || d.id}
+                  </span>
+                  {d.doc_type && (
+                    <span className="kap-mono-tag" style={{ fontSize: 9.5, color: 'hsl(var(--muted-foreground))' }}>
+                      {d.doc_type}
+                    </span>
+                  )}
+                  {d.category_path && (
+                    <span className="kap-mono-tag truncate"
+                          style={{ fontSize: 9.5, color: 'hsl(var(--primary))', maxWidth: 220 }}>
+                      ◆ {d.category_path}
+                    </span>
+                  )}
+                  <Link to={`/v15/manage/import/review`} className="kap-btn"
+                        style={{ fontSize: 10, padding: '2px 8px' }}>
+                    ✎ 调整
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {docs.length > 12 && (
+          <div className="mt-2 text-right">
+            <Link to="/v15/manage/import/review" className="kap-mono-tag"
+                  style={{ fontSize: 11, color: 'hsl(var(--primary))' }}>
+              查看全部 {docs.length} 篇 →
+            </Link>
+          </div>
+        )}
+      </KapCard>
+
+      <div style={{ height: 20 }} />
 
       {error && (
         <div className="kap-card mb-6" style={{
@@ -163,6 +323,53 @@ export default function GovernanceHome() {
         </KapCard>
       </div>
     </CenterShell>
+  );
+}
+
+
+// M22 #17 · 入库进度单格 (5 阶段)
+function ProgressTile({
+  label, value, total, unit = '', subtext, done,
+}: {
+  label: string;
+  value: number;
+  total?: number;
+  unit?: string;
+  subtext?: string;
+  done?: boolean;
+}) {
+  const display = total !== undefined && total > 0
+    ? `${value} / ${total}`
+    : `${value}${unit}`;
+  return (
+    <div className="kap-card" style={{
+      padding: '0.7rem 0.85rem',
+      background: done ? 'hsl(var(--success) / 0.08)' : 'hsl(var(--muted) / 0.4)',
+      border: `1px solid ${done ? 'hsl(var(--success) / 0.4)' : 'hsl(var(--border))'}`,
+    }}>
+      <div className="kap-mono-tag mb-1"
+           style={{
+             color: done ? 'hsl(var(--success))' : 'hsl(var(--muted-foreground))',
+             fontSize: 10, letterSpacing: '0.04em',
+           }}>
+        {label} {done ? '✓' : '○'}
+      </div>
+      <div style={{
+        fontFamily: 'var(--kap-font-display)',
+        fontWeight: 700, fontSize: 22,
+        color: 'hsl(var(--foreground))',
+        letterSpacing: '-0.02em',
+      }}>
+        {display}
+      </div>
+      {subtext && (
+        <div className="kap-mono-tag" style={{
+          fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 4,
+        }}>
+          {subtext}
+        </div>
+      )}
+    </div>
   );
 }
 
