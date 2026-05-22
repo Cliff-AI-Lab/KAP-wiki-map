@@ -658,7 +658,21 @@ export default function ConsultHome() {
             style={{ height: '460px' }}
           >
             <div className="kap-stagger space-y-4">
-              {messages.map(m => <MsgRow key={m.id} m={m} t={t} />)}
+              {messages.map(m => (
+                <MsgRow
+                  key={m.id}
+                  m={m}
+                  t={t}
+                  onAdjustDoc={(docId) => {
+                    setStage('W3');
+                    setEditingDocId(docId);
+                    requestAnimationFrame(() => {
+                      // 等 W3 渲染好再滚到顶部 (recentDocs 卡片在 W3 中央顶部)
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    });
+                  }}
+                />
+              ))}
               {sending && (
                 <div className="flex items-center gap-2" style={{
                   fontFamily: 'var(--kap-font-mono)',
@@ -890,7 +904,11 @@ function DocEditor({
 }
 
 
-function MsgRow({ m, t }: { m: Msg; t: (k: string) => string }) {
+function MsgRow({ m, t, onAdjustDoc }: {
+  m: Msg;
+  t: (k: string) => string;
+  onAdjustDoc?: (docId: string) => void;
+}) {
   const isUser = m.role === 'user';
   const isSys = m.role === 'system';
   let tag: string, color: string, Icon: typeof Bot;
@@ -988,6 +1006,18 @@ function MsgRow({ m, t }: { m: Msg; t: (k: string) => string }) {
                           +{d.keywords.length - 6}
                         </span>
                       )}
+                    </div>
+                  )}
+                  {/* M22 #19: 对话流内 ✎ 调整入口 (跳 W3 + 打开 DocEditor) */}
+                  {onAdjustDoc && (
+                    <div className="mt-1 flex justify-end">
+                      <button
+                        onClick={() => onAdjustDoc(d.doc_id)}
+                        className="kap-btn kap-btn-ghost"
+                        style={{ fontSize: 9.5, padding: '2px 7px' }}
+                      >
+                        ✎ 调整 decision / domain / 关键词
+                      </button>
                     </div>
                   )}
                 </li>
